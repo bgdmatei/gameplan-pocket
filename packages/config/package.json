@@ -1,0 +1,25 @@
+{
+  "name": "@gameplan/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./tsconfig.node.json": "./tsconfig.node.json",
+    "./tsconfig.react-native.json": "./tsconfig.react-native.json",
+    "./eslint": "./eslint.config.js",
+    "./prettier": "./prettier.config.js"
+  },
+  "scripts": {
+    "typecheck": "echo 'no source' && exit 0",
+    "lint": "echo 'no source' && exit 0"
+  },
+  "dependencies": {
+    "@eslint/js": "^9.15.0",
+    "typescript-eslint": "^8.15.0"
+  },
+  "peerDependencies": {
+    "eslint": "^9.15.0",
+    "typescript": "^5.7.0"
+  }
+}
