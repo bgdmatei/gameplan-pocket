@@ -8,15 +8,19 @@
   "scripts": {
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
+    "test": "turbo run test",
     "lint:boundaries": "node scripts/check-boundaries.mjs",
     "build": "turbo run build",
     "format": "turbo run format"
   },
   "devDependencies": {
     "@gameplan/config": "workspace:*",
+    "@vitest/coverage-v8": "^5.0.1",
     "eslint": "^9.39.5",
+    "fast-check": "^4.10.1",
     "prettier": "^3.4.2",
     "turbo": "^2.5.5",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^5.0.1"
   }
 }
