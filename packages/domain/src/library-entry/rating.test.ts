@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DomainValidationError } from '../shared/errors';
 import { ratingSchema, ratingToStars, starsToRating } from './rating';
 
 describe('ratingSchema', () => {
@@ -25,20 +26,24 @@ describe('ratingToStars', () => {
 
 describe('starsToRating', () => {
   it('converts valid half-steps', () => {
-    const result = starsToRating(3.5);
-    expect(result).toEqual({ ok: true, value: 7 });
+    expect(starsToRating(3.5)).toBe(7);
   });
 
-  it.each([-0.5, 5.5, 2.25])('rejects %f', (stars) => {
-    const result = starsToRating(stars);
-    expect(result.ok).toBe(false);
-    if (!result.ok)
-      expect(result.errors[0]).toMatchObject({ code: 'invalid_field', field: 'stars' });
+  it.each([-0.5, 5.5, 2.25])('throws for %f', (stars) => {
+    expect(() => starsToRating(stars)).toThrow(DomainValidationError);
+    try {
+      starsToRating(stars);
+    } catch (error) {
+      expect((error as DomainValidationError).errors[0]).toMatchObject({
+        code: 'invalid_field',
+        field: 'stars',
+      });
+    }
   });
 
   it('round-trips every rating', () => {
     for (let rating = 0; rating <= 10; rating += 1) {
-      expect(starsToRating(ratingToStars(rating))).toEqual({ ok: true, value: rating });
+      expect(starsToRating(ratingToStars(rating))).toBe(rating);
     }
   });
 });

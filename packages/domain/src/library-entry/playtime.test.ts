@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DomainValidationError } from '../shared/errors';
 import { hoursMinutesToMinutes, minutesToHoursMinutes, playtimeMinutesSchema } from './playtime';
 
 describe('playtimeMinutesSchema', () => {
@@ -24,7 +25,7 @@ describe('minutesToHoursMinutes', () => {
 
 describe('hoursMinutesToMinutes', () => {
   it('combines hours and minutes', () => {
-    expect(hoursMinutesToMinutes({ hours: 2, minutes: 15 })).toEqual({ ok: true, value: 135 });
+    expect(hoursMinutesToMinutes({ hours: 2, minutes: 15 })).toBe(135);
   });
 
   it.each([
@@ -32,18 +33,21 @@ describe('hoursMinutesToMinutes', () => {
     [{ hours: -1, minutes: 0 }, 'hours'],
     [{ hours: 0, minutes: -5 }, 'minutes'],
     [{ hours: 1.5, minutes: 0 }, 'hours'],
-  ])('rejects %o', (input, field) => {
-    const result = hoursMinutesToMinutes(input);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.errors[0]).toMatchObject({ code: 'invalid_field', field });
+  ])('throws for %o', (input, field) => {
+    expect(() => hoursMinutesToMinutes(input)).toThrow(DomainValidationError);
+    try {
+      hoursMinutesToMinutes(input);
+    } catch (error) {
+      expect((error as DomainValidationError).errors[0]).toMatchObject({
+        code: 'invalid_field',
+        field,
+      });
+    }
   });
 
   it('round-trips', () => {
     for (const total of [0, 7, 60, 599, 1_000]) {
-      expect(hoursMinutesToMinutes(minutesToHoursMinutes(total))).toEqual({
-        ok: true,
-        value: total,
-      });
+      expect(hoursMinutesToMinutes(minutesToHoursMinutes(total))).toBe(total);
     }
   });
 });

@@ -56,6 +56,7 @@ A task is done when `pnpm typecheck && pnpm lint && pnpm lint:boundaries && pnpm
 - Filenames kebab-case; types PascalCase; functions and variables camelCase.
 - Prettier: single quotes, width 100.
 - Types are inferred from zod schemas (`z.infer`), never hand-written twice.
+- Domain write rules throw `DomainValidationError` (it carries every reason) rather than returning a result object — screens catch it and show a toast.
 - Tests are colocated as `*.test.ts` / `*.property.test.ts`.
 - Always use `const` arrow functions — every function and every component. No `function` declarations.
 - Never use `any` type — always define proper types

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { $ZodIssue } from 'zod/v4/core';
-import type { DomainError } from './result';
+import type { DomainError } from './errors';
 
 /**
  * Free text that is trimmed before it is measured, so `'  '` fails a

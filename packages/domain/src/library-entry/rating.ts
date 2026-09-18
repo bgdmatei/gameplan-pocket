@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { fail, ok } from '../shared/result';
-import type { Result } from '../shared/result';
+import { DomainValidationError } from '../shared/errors';
 
 /**
  * Stored as an integer 0-10; `null` means unrated. The UI shows 5 stars in
@@ -13,14 +12,17 @@ export type Rating = z.infer<typeof ratingSchema>;
 
 export const ratingToStars = (rating: number): number => rating / 2;
 
-export const starsToRating = (stars: number): Result<number> => {
+/** @throws {DomainValidationError} when `stars` isn't 0-5 in half steps. */
+export const starsToRating = (stars: number): number => {
   const rating = stars * 2;
   if (!Number.isInteger(rating) || rating < 0 || rating > 10) {
-    return fail({
-      code: 'invalid_field',
-      field: 'stars',
-      message: 'Stars must be between 0 and 5 in half steps.',
-    });
+    throw new DomainValidationError([
+      {
+        code: 'invalid_field',
+        field: 'stars',
+        message: 'Stars must be between 0 and 5 in half steps.',
+      },
+    ]);
   }
-  return ok(rating);
+  return rating;
 };

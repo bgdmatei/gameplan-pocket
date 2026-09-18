@@ -1,9 +1,16 @@
 export { compareIsoDate, isoDateSchema, isoDateTimeSchema } from './shared/date';
 export type { IsoDate, IsoDateTime } from './shared/date';
-export { fail, isOk, ok } from './shared/result';
-export type { DomainError, Result } from './shared/result';
+export { DomainValidationError, throwIfErrors } from './shared/errors';
+export type { DomainError } from './shared/errors';
 export { trimmedText, zodIssuesToErrors } from './shared/text';
 
+export { applyEntryChange, createEntry, entryPatchSchema } from './library-entry/changes';
+export type {
+  CreateEntryInput,
+  EntryChange,
+  EntryContext,
+  EntryPatch,
+} from './library-entry/changes';
 export {
   hoursMinutesToMinutes,
   minutesToHoursMinutes,
