@@ -1,3 +1,1 @@
-export function placeholder(): string {
-  return 'workspace resolution works';
-}
+export const placeholder = (): string => 'workspace resolution works';
