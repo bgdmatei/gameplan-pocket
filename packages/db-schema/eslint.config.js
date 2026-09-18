@@ -33,4 +33,9 @@ export default [
       ],
     },
   },
+  {
+    // Tests never ship to the phone, so they may open a real database.
+    files: ['**/*.test.ts'],
+    rules: { 'no-restricted-imports': 'off' },
+  },
 ];
