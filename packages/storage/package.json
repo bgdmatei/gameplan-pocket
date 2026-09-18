@@ -1,0 +1,27 @@
+{
+  "name": "@gameplan/storage",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@gameplan/db-schema": "workspace:*",
+    "@gameplan/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@gameplan/config": "workspace:*",
+    "eslint": "^9.39.5",
+    "typescript": "^5.7.3"
+  }
+}

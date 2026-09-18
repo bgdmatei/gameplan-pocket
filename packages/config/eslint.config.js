@@ -28,6 +28,8 @@ export default tseslint.config(
       'boundaries/elements': [
         { type: 'app', pattern: 'apps/*' },
         { type: 'domain', pattern: 'packages/domain' },
+        { type: 'db-schema', pattern: 'packages/db-schema' },
+        { type: 'storage', pattern: 'packages/storage' },
         { type: 'pkg', pattern: 'packages/*' },
       ],
       'boundaries/include': ['apps/**/*.{js,jsx,ts,tsx}', 'packages/**/*.{js,jsx,ts,tsx}'],
@@ -47,6 +49,8 @@ export default tseslint.config(
                 { to: { element: { type: 'app' } } },
                 { to: { element: { type: 'pkg' } } },
                 { to: { element: { type: 'domain' } } },
+                { to: { element: { type: 'db-schema' } } },
+                { to: { element: { type: 'storage' } } },
               ],
             },
             {
@@ -60,6 +64,21 @@ export default tseslint.config(
             {
               from: [{ element: { type: 'domain' } }],
               allow: [{ to: { element: { type: 'domain' } } }],
+            },
+            // db-schema is standalone: tables and migrations, nothing else.
+            {
+              from: [{ element: { type: 'db-schema' } }],
+              allow: [{ to: { element: { type: 'db-schema' } } }],
+            },
+            // storage reads domain types and the schema, and nothing else
+            // (SPEC-storage-adapter.md §Boundaries).
+            {
+              from: [{ element: { type: 'storage' } }],
+              allow: [
+                { to: { element: { type: 'storage' } } },
+                { to: { element: { type: 'domain' } } },
+                { to: { element: { type: 'db-schema' } } },
+              ],
             },
           ],
         },
