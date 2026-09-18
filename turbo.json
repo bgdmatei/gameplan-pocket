@@ -7,6 +7,9 @@
     "lint": {
       "outputs": []
     },
+    "test": {
+      "outputs": ["coverage/**"]
+    },
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]

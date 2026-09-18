@@ -42,4 +42,6 @@ coverage/
 
 # Docs / planning (kept local, not versioned)
 *.md
+# ...except the agent instructions, which are shared
+!CLAUDE.md
 

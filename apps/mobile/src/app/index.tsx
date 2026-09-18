@@ -1,14 +1,12 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { placeholder } from '@gameplan/test-utils';
 
-export default function HomeScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>gameplan-pocket</Text>
-      <Text style={styles.subtitle}>{placeholder()}</Text>
-    </View>
-  );
-}
+const HomeScreen = () => (
+  <View style={styles.container}>
+    <Text style={styles.title}>gameplan-pocket</Text>
+    <Text style={styles.subtitle}>{placeholder()}</Text>
+  </View>
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -27,3 +25,5 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
 });
+
+export default HomeScreen;
