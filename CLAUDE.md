@@ -58,6 +58,13 @@ A task is done when `pnpm typecheck && pnpm lint && pnpm lint:boundaries && pnpm
 - Types are inferred from zod schemas (`z.infer`), never hand-written twice.
 - Domain write rules throw `DomainValidationError` (it carries every reason) rather than returning a result object — screens catch it and show a toast.
 - Tests are colocated as `*.test.ts` / `*.property.test.ts`.
+- **No literal control or invisible characters in source.** Write them as escape sequences
+  (a NUL separator is `backslash-u-0000` inside the string, never the character itself).
+  A raw one made git classify a .ts file as binary, so it had no diff in the PR and grep
+  skipped it. Shell heredocs are the usual culprit: they turn the escape text into the real
+  character. Prefer the Write tool for files containing escapes, and check with
+  `python3 -c "print(open('<file>','rb').read().count(b'\\x00'))"` (expect 0) or
+  `git diff --stat` (a text file must never report `Bin`).
 - Always use `const` arrow functions — every function and every component. No `function` declarations.
 - Never use `any` type — always define proper types
 
