@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import type { IsoDate, IsoDateTime } from '../shared/date';
-import { throwIfErrors } from '../shared/errors';
+import { definedEntries, diffFields } from '../shared/diff';
+import { DomainValidationError, throwIfErrors } from '../shared/errors';
 import type { DomainError } from '../shared/errors';
 import { zodIssuesToErrors } from '../shared/text';
 import { libraryEntrySchema } from './schema';
@@ -54,22 +55,6 @@ const DEFAULTS = {
   favourite: false,
 } as const;
 
-/** Drops keys explicitly set to `undefined` so they read as "not supplied". */
-const definedEntries = <T extends object>(value: T): [string, unknown][] =>
-  Object.entries(value).filter(([, fieldValue]) => fieldValue !== undefined);
-
-const isSameValue = (a: unknown, b: unknown): boolean => {
-  if (a === b) return true;
-  if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return false;
-  // Only `progress` is an object field; compare by contents, not reference.
-  const keysA = Object.keys(a);
-  const keysB = Object.keys(b);
-  return (
-    keysA.length === keysB.length &&
-    keysA.every((key) => isSameValue((a as never)[key], (b as never)[key]))
-  );
-};
-
 type DerivedDates = { startedOn?: IsoDate; finishedOn?: IsoDate };
 
 /**
@@ -120,8 +105,8 @@ export const applyEntryChange = (
   ctx: EntryContext,
 ): EntryChange => {
   const parsed = entryPatchSchema.safeParse(patch);
-  throwIfErrors(parsed.success ? [] : zodIssuesToErrors(parsed.error.issues));
-  const validPatch = entryPatchSchema.parse(patch);
+  if (!parsed.success) throw new DomainValidationError(zodIssuesToErrors(parsed.error.issues));
+  const validPatch = parsed.data;
 
   const supplied = Object.fromEntries(definedEntries(validPatch)) as EntryPatch;
   const errors: DomainError[] = [];
@@ -142,12 +127,7 @@ export const applyEntryChange = (
   const next = libraryEntrySchema.parse(withDerived);
   // Derived dates are part of the change set even though they aren't patchable:
   // `sync-core` has to send them like any other field.
-  const changed = Object.fromEntries(
-    definedEntries(next).filter(
-      ([field, value]) =>
-        !(field in IDENTITY_FIELDS) && !isSameValue(value, (current as never)[field]),
-    ),
-  ) as EntryChangedFields;
+  const changed = diffFields<LibraryEntry, EntryChangedFields>(current, next, IDENTITY_FIELDS);
 
   return { next, changed };
 };

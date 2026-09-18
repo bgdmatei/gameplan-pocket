@@ -73,7 +73,7 @@ A task is done when `pnpm typecheck && pnpm lint && pnpm lint:boundaries && pnpm
 - Work on `dev`. `main` only via pull request, after a module's success criteria are met.
 - Commit only when asked.
 - Conventional subject (`feat(domain): …`, `ci: …`, `docs: …`) plus a body explaining _why_, wrapped at ~72 characters. Note anything unrelated that rides along in the same commit.
-- End commit messages with: `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`
+- **No `Co-Authored-By` trailers and no AI attribution** in commits or PR descriptions. The repo has one contributor; co-author lines add Claude to GitHub's contributor badges.
 - Don't rename CI job names casually — branch protection matches required checks by name.
 - Never use `--no-verify`, and never push straight to `main`.
 
