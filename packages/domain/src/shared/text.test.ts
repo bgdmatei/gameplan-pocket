@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { trimmedText, zodIssuesToErrors } from './text';
+import { optionalTrimmedText, trimmedText, zodIssuesToErrors } from './text';
 
 describe('trimmedText', () => {
   const schema = trimmedText(1, 5);
@@ -17,6 +17,22 @@ describe('trimmedText', () => {
 
   it('rejects non-strings', () => {
     expect(schema.safeParse(7).success).toBe(false);
+  });
+});
+
+describe('optionalTrimmedText', () => {
+  const schema = optionalTrimmedText(5);
+
+  it('keeps trimmed text', () => {
+    expect(schema.parse('  ab  ')).toBe('ab');
+  });
+
+  it.each([null, '', '   '])('stores %o as null', (value) => {
+    expect(schema.parse(value)).toBeNull();
+  });
+
+  it('rejects text over the limit', () => {
+    expect(schema.safeParse('abcdef').success).toBe(false);
   });
 });
 

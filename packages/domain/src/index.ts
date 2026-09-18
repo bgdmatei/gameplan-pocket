@@ -2,8 +2,24 @@ export { compareIsoDate, isoDateSchema, isoDateTimeSchema } from './shared/date'
 export type { IsoDate, IsoDateTime } from './shared/date';
 export { DomainValidationError, throwIfErrors } from './shared/errors';
 export type { DomainError } from './shared/errors';
-export { trimmedText, zodIssuesToErrors } from './shared/text';
+export { optionalTrimmedText, trimmedText, zodIssuesToErrors } from './shared/text';
 
+export { COVER_SIZES, coverUrl } from './catalog/cover-url';
+export type { CoverSize } from './catalog/cover-url';
+export { gameSchema, genreSchema, platformSchema } from './catalog/schema';
+export type { Game, Genre, Platform } from './catalog/schema';
+export { isInLibrary } from './catalog/view';
+export type { GameWithEntry } from './catalog/view';
+export { applyListChange, createList, createListItem, listPatchSchema } from './list/changes';
+export type { ListChange, ListPatch } from './list/changes';
+export {
+  LIST_DESCRIPTION_MAX_LENGTH,
+  LIST_NAME_MAX_LENGTH,
+  compareListItems,
+  listItemSchema,
+  listSchema,
+} from './list/schema';
+export type { List, ListItem } from './list/schema';
 export { applyNoteItemChange, createNoteItem, noteItemPatchSchema } from './note-item/changes';
 export type { CreateNoteItemInput, NoteItemChange, NoteItemPatch } from './note-item/changes';
 export {

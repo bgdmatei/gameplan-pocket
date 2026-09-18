@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { isoDateTimeSchema } from '../shared/date';
-import { trimmedText } from '../shared/text';
+import { optionalTrimmedText, trimmedText } from '../shared/text';
 
 export const NOTE_ITEM_TYPES = ['puzzle', 'secret', 'npc_hint', 'other'] as const;
 
@@ -10,12 +10,6 @@ export type NoteItemType = z.infer<typeof noteItemTypeSchema>;
 
 export const NOTE_TEXT_MAX_LENGTH = 5_000;
 export const NOTE_LOCATION_MAX_LENGTH = 200;
-
-/** Blank means "no location", so it is stored as null rather than an empty string. */
-const locationSchema = z
-  .union([z.string(), z.null()])
-  .transform((value) => (value === null || value.trim().length === 0 ? null : value.trim()))
-  .pipe(z.string().min(1).max(NOTE_LOCATION_MAX_LENGTH).nullable());
 
 /**
  * One fact the player wants to remember: a puzzle solution, a secret, an NPC
@@ -28,7 +22,7 @@ export const noteItemSchema = z
     entryId: z.string().min(1),
     type: noteItemTypeSchema,
     text: trimmedText(1, NOTE_TEXT_MAX_LENGTH),
-    location: locationSchema,
+    location: optionalTrimmedText(NOTE_LOCATION_MAX_LENGTH),
     resolved: z.boolean(),
     createdAt: isoDateTimeSchema,
   })
