@@ -58,7 +58,11 @@ describe('migrate', () => {
   it('brings a fresh database to the latest version', async () => {
     const result = await migrate(executor);
 
-    expect(result).toEqual({ from: 0, to: LATEST_SCHEMA_VERSION, applied: [1] });
+    expect(result).toEqual({
+      from: 0,
+      to: LATEST_SCHEMA_VERSION,
+      applied: MIGRATIONS.map(({ number }) => number),
+    });
     expect(userVersion(database)).toBe(LATEST_SCHEMA_VERSION);
   });
 
@@ -172,6 +176,48 @@ describe('schema', () => {
   beforeEach(async () => {
     database = new DatabaseSync(':memory:');
     await migrate(createTestExecutor(database));
+  });
+
+  it('finds a game whether or not the apostrophe is typed', () => {
+    const search = (term: string): string[] =>
+      (
+        database
+          .prepare('SELECT name FROM games_fts WHERE games_fts MATCH ? ORDER BY rank')
+          .all(term) as { name: string }[]
+      ).map((row) => row.name);
+
+    database
+      .prepare("INSERT INTO games (id, name, slug, fetched_at) VALUES (?, ?, ?, '2026-09-20')")
+      .run(1, "Assassin's Creed II", 'assassins-creed-ii');
+    database
+      .prepare("INSERT INTO games (id, name, slug, fetched_at) VALUES (?, ?, ?, '2026-09-20')")
+      .run(2, 'Baldur’s Gate 3', 'baldurs-gate-3');
+
+    // Straight and curly apostrophes, typed and not typed.
+    expect(search('"assassins"*')).toEqual(["Assassin's Creed II"]);
+    expect(search('"assassin" "s"*')).toEqual(["Assassin's Creed II"]);
+    expect(search('"baldurs"*')).toEqual(['Baldur’s Gate 3']);
+    expect(search('"baldur"*')).toEqual(['Baldur’s Gate 3']);
+  });
+
+  it('reindexes games cached before the search migration ran', async () => {
+    const fresh = new DatabaseSync(':memory:');
+    const executor = createTestExecutor(fresh);
+    await migrate(
+      executor,
+      MIGRATIONS.filter(({ number }) => number === 1),
+    );
+
+    fresh
+      .prepare("INSERT INTO games (id, name, slug, fetched_at) VALUES (?, ?, ?, '2026-09-20')")
+      .run(1, "Assassin's Creed II", 'assassins-creed-ii');
+
+    await migrate(executor);
+
+    const rows = fresh
+      .prepare('SELECT name FROM games_fts WHERE games_fts MATCH ?')
+      .all('"assassins"*') as { name: string }[];
+    expect(rows.map((row) => row.name)).toEqual(["Assassin's Creed II"]);
   });
 
   it('keeps full-text search in step with the games table', () => {

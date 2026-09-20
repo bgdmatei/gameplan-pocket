@@ -56,3 +56,13 @@ export {
   softDeleteList,
 } from './repositories/lists';
 export type { ListSaveOptions } from './repositories/lists';
+
+export {
+  CATALOG_TABLES,
+  getGame,
+  getGamesByIds,
+  pruneCatalog,
+  searchGames,
+  upsertGames,
+} from './repositories/games';
+export type { PruneOptions, SearchOptions, UpsertGamesInput } from './repositories/games';
