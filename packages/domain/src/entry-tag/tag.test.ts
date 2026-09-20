@@ -75,9 +75,19 @@ describe('tagIdentityKey', () => {
     expect(tagIdentityKey(ENTRY_ID, 'co-op')).not.toBe(tagIdentityKey(ENTRY_ID, 'rpg'));
   });
 
-  it('separates the parts so they cannot run together', () => {
-    // Without a separator, ("ab", "c") and ("a", "bc") would collide.
+  it('cannot confuse where the entry id ends and the tag begins', () => {
+    // A plain separator would make ("ab", "c") and ("a", "bc") collide once a
+    // tag contains that separator; the length prefix cannot.
     expect(tagIdentityKey('ab', 'c')).not.toBe(tagIdentityKey('a', 'bc'));
+    expect(tagIdentityKey('a', 'b:c')).not.toBe(tagIdentityKey('a:b', 'c'));
+  });
+
+  it('is plain printable text, so it is safe to store and log', () => {
+    const key = tagIdentityKey('entry-1', 'co-op');
+
+    expect(key).toBe('7:entry-1:co-op');
+    // eslint-disable-next-line no-control-regex -- the point of the assertion
+    expect(/[\u0000-\u001f]/.test(key)).toBe(false);
   });
 });
 

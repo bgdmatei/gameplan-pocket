@@ -18,6 +18,17 @@ const toBindable = (value: SqlValue | undefined, index: number): SqlValue => {
       `Parameter ${index + 1} is undefined. Pass null to store nothing, so a forgotten value fails here rather than silently.`,
     );
   }
+
+  // A NUL character ends a C string, so SQLite stores everything before it and
+  // silently drops the rest. Refuse it instead: truncated data is far harder to
+  // notice than a failed write. (The domain's tag identity key contains one,
+  // which is why it is hashed into an id rather than stored.)
+  if (typeof value === 'string' && value.includes('\u0000')) {
+    throw new Error(
+      `Parameter ${index + 1} contains a NUL character, which SQLite would truncate the value at.`,
+    );
+  }
+
   return typeof value === 'boolean' ? Number(value) : value;
 };
 

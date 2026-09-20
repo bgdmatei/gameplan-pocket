@@ -122,6 +122,22 @@ export const adapterCases: readonly AdapterCase[] = [
     },
   },
   {
+    name: 'refuses a string containing NUL, which SQLite would truncate at',
+    run: async (adapter) => {
+      await setup(adapter);
+
+      await assertRejects(
+        () =>
+          adapter.execute('INSERT INTO things (id, name) VALUES (?, ?)', [
+            'a',
+            'before\u0000after',
+          ]),
+        /NUL/i,
+        'NUL in a string parameter',
+      );
+    },
+  },
+  {
     name: 'names the failing statement when SQL is invalid',
     run: async (adapter) => {
       await assertRejects(

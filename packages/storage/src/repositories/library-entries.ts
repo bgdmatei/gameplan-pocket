@@ -5,7 +5,7 @@ import { writeAtomically } from './write';
 import type { PendingOp, Row } from './write';
 
 /** Tables these queries read, so a change to either can refresh the screen. */
-export const LIBRARY_ENTRY_TABLES = ['library_entries', 'games'] as const;
+export const LIBRARY_ENTRY_TABLES = ['library_entries', 'games', 'entry_tags'] as const;
 
 /** A row of the library: the user's entry plus the game it refers to. */
 export type LibraryEntryWithGame = { entry: LibraryEntry; game: Game };
@@ -276,6 +276,10 @@ export const saveLibraryEntry = async (
 /**
  * Tombstones an entry instead of deleting it, so the removal can sync: a row
  * that simply vanished would come back on the next pull from another device.
+ *
+ * Its tags and notes go in the same transaction. Removing a game has to remove
+ * what hangs off it, and doing it in one transaction means another device can
+ * never receive the entry's removal without the notes that belonged to it.
  */
 export const softDeleteLibraryEntry = async (
   adapter: StorageAdapter,
@@ -284,6 +288,11 @@ export const softDeleteLibraryEntry = async (
 ): Promise<void> => {
   await adapter.transaction(async (tx) => {
     await tx.execute('UPDATE library_entries SET deleted = 1, updated_at = ? WHERE id = ?', [
+      options.updatedAt,
+      id,
+    ]);
+    await tx.execute('UPDATE entry_tags SET deleted = 1 WHERE entry_id = ?', [id]);
+    await tx.execute('UPDATE note_items SET deleted = 1, updated_at = ? WHERE entry_id = ?', [
       options.updatedAt,
       id,
     ]);
