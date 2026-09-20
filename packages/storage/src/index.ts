@@ -66,3 +66,14 @@ export {
   upsertGames,
 } from './repositories/games';
 export type { PruneOptions, SearchOptions, UpsertGamesInput } from './repositories/games';
+
+export {
+  PENDING_OP_TABLES,
+  appendPendingOp,
+  countPendingOps,
+  deletePendingOps,
+  listPendingOps,
+} from './repositories/pending-ops';
+export type { ListPendingOptions } from './repositories/pending-ops';
+export { SYNC_STATE_TABLES, getSyncState, updateSyncState } from './repositories/sync-state';
+export type { SyncState, SyncStatePatch } from './repositories/sync-state';

@@ -35,4 +35,10 @@ export default [
     files: ['src/node/**/*.ts'],
     rules: { 'no-restricted-imports': 'off' },
   },
+  {
+    // Tests never ship to the phone, so they may use a real filesystem to prove
+    // that data survives a relaunch. Same exception as db-schema's tests.
+    files: ['**/*.test.ts'],
+    rules: { 'no-restricted-imports': 'off' },
+  },
 ];
