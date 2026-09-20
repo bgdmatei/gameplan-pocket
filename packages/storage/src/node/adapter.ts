@@ -137,5 +137,23 @@ export const createNodeAdapter = (options: NodeAdapterOptions = {}): StorageAdap
       subscriptions.clear();
       database.close();
     },
+    destroy: async (): Promise<void> => {
+      if (closed) return;
+
+      // Drop every table rather than deleting the file: the same code then
+      // works for an in-memory database, and it needs no filesystem access.
+      // The phone's implementation removes the file as well.
+      const tables = await run<{ name: string }>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+      );
+      for (const { name } of tables) {
+        database.exec(`DROP TABLE IF EXISTS "${name}"`);
+      }
+      database.exec('PRAGMA user_version = 0');
+
+      closed = true;
+      subscriptions.clear();
+      database.close();
+    },
   };
 };

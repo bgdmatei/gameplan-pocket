@@ -49,6 +49,24 @@ describe('createNodeAdapter with a file', () => {
     await adapter.close();
   });
 
+  it('leaves nothing readable in the file after destroy, which is the sign-out path', async () => {
+    const path = join(directory, 'library.db');
+
+    const first = createNodeAdapter({ path });
+    await first.execute('CREATE TABLE note_items (id TEXT PRIMARY KEY, text TEXT)');
+    await first.execute('INSERT INTO note_items (id, text) VALUES (?, ?)', [
+      'n1',
+      'the code is 2-4-6',
+    ]);
+    await first.destroy();
+
+    // Whoever opens the app next on this device must find an empty database.
+    const second = createNodeAdapter({ path });
+    expect(await second.execute("SELECT name FROM sqlite_master WHERE type = 'table'")).toEqual([]);
+    expect(await second.execute('PRAGMA user_version')).toEqual([{ user_version: 0 }]);
+    await second.close();
+  });
+
   it('uses an in-memory database by default, so tests never touch the disk', async () => {
     const adapter = createNodeAdapter();
     expect(await adapter.execute('PRAGMA journal_mode')).toEqual([{ journal_mode: 'memory' }]);

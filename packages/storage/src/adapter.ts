@@ -39,6 +39,20 @@ export type StorageAdapter = Transaction & {
 
   /** Closes the database. Safe to call more than once. */
   close(): Promise<void>;
+
+  /**
+   * Closes the database and destroys its contents.
+   *
+   * This is the sign-out path. Everything here is personal: what someone
+   * plays, how they rate it, and notes they wrote while playing. Signing out
+   * on a shared or borrowed device has to leave none of it behind, and simply
+   * closing the connection leaves the whole library on disk for whoever opens
+   * the app next.
+   *
+   * Afterwards the adapter is closed: a caller that wants a fresh database
+   * creates a new one, which migrations then rebuild empty.
+   */
+  destroy(): Promise<void>;
 };
 
 export type NodeAdapterOptions = {

@@ -347,6 +347,30 @@ export const adapterCases: readonly AdapterCase[] = [
     },
   },
   {
+    name: 'destroy leaves no user data behind, and closes the database',
+    run: async (adapter) => {
+      await setup(adapter);
+      await adapter.execute('INSERT INTO things (id, name) VALUES (?, ?)', ['a', 'private note']);
+
+      await adapter.destroy();
+
+      // Signing out on a shared device must leave nothing readable.
+      await assertRejects(
+        () => adapter.execute('SELECT * FROM things'),
+        /closed/i,
+        'query after destroy',
+      );
+    },
+  },
+  {
+    name: 'destroy can be called twice',
+    run: async (adapter) => {
+      await setup(adapter);
+      await adapter.destroy();
+      await adapter.destroy();
+    },
+  },
+  {
     name: 'can be closed twice and refuses queries afterwards',
     run: async (adapter) => {
       await setup(adapter);
