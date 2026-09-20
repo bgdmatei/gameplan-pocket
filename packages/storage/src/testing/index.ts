@@ -9,3 +9,5 @@ export { AssertionFailed, assertEqual, assertRejects, assertTrue } from './asser
 export { adapterCases } from './cases';
 export type { AdapterCase } from './cases';
 export { runAdapterCases } from './run-cases';
+export { seed } from './seed';
+export type { SeedOptions, SeedResult } from './seed';
