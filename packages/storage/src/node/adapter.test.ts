@@ -9,6 +9,108 @@ import { createNodeAdapter } from './adapter';
  * this file covers only what is specific to node:sqlite: opening a file,
  * journal mode, foreign keys, and surviving a reconnect.
  */
+describe('notification scheduling', () => {
+  it('delivers nothing until the scheduler runs the flush', async () => {
+    const flushes: (() => void)[] = [];
+    const adapter = createNodeAdapter({ scheduleNotify: (flush) => flushes.push(flush) });
+    await adapter.execute('CREATE TABLE things (id TEXT PRIMARY KEY)');
+
+    let calls = 0;
+    adapter.subscribe(['things'], () => {
+      calls += 1;
+    });
+
+    await adapter.execute('INSERT INTO things (id) VALUES (?)', ['a']);
+    await adapter.execute('INSERT INTO things (id) VALUES (?)', ['b']);
+    expect(calls).toBe(0);
+
+    // One flush was scheduled for both writes, not two.
+    expect(flushes).toHaveLength(1);
+    flushes[0]?.();
+    expect(calls).toBe(1);
+
+    await adapter.close();
+  });
+
+  it('schedules again for changes made after a flush', async () => {
+    const flushes: (() => void)[] = [];
+    const adapter = createNodeAdapter({ scheduleNotify: (flush) => flushes.push(flush) });
+    await adapter.execute('CREATE TABLE things (id TEXT PRIMARY KEY)');
+
+    let calls = 0;
+    adapter.subscribe(['things'], () => {
+      calls += 1;
+    });
+
+    await adapter.execute('INSERT INTO things (id) VALUES (?)', ['a']);
+    flushes[0]?.();
+    await adapter.execute('INSERT INTO things (id) VALUES (?)', ['b']);
+    flushes[1]?.();
+
+    expect(calls).toBe(2);
+    await adapter.close();
+  });
+
+  it('reports every table touched since the last delivery', async () => {
+    const flushes: (() => void)[] = [];
+    const adapter = createNodeAdapter({ scheduleNotify: (flush) => flushes.push(flush) });
+    await adapter.execute('CREATE TABLE things (id TEXT PRIMARY KEY)');
+    await adapter.execute('CREATE TABLE others (id TEXT PRIMARY KEY)');
+
+    let things = 0;
+    let others = 0;
+    adapter.subscribe(['things'], () => {
+      things += 1;
+    });
+    adapter.subscribe(['others'], () => {
+      others += 1;
+    });
+
+    await adapter.execute('INSERT INTO things (id) VALUES (?)', ['a']);
+    await adapter.execute('INSERT INTO others (id) VALUES (?)', ['b']);
+    flushes[0]?.();
+
+    expect({ things, others }).toEqual({ things: 1, others: 1 });
+    await adapter.close();
+  });
+
+  it('does not deliver to a listener that unsubscribed before the flush', async () => {
+    const flushes: (() => void)[] = [];
+    const adapter = createNodeAdapter({ scheduleNotify: (flush) => flushes.push(flush) });
+    await adapter.execute('CREATE TABLE things (id TEXT PRIMARY KEY)');
+
+    let calls = 0;
+    const unsubscribe = adapter.subscribe(['things'], () => {
+      calls += 1;
+    });
+
+    await adapter.execute('INSERT INTO things (id) VALUES (?)', ['a']);
+    // A screen closed between the write and the repaint.
+    unsubscribe();
+    flushes[0]?.();
+
+    expect(calls).toBe(0);
+    await adapter.close();
+  });
+
+  it('a flush arriving after close delivers nothing', async () => {
+    const flushes: (() => void)[] = [];
+    const adapter = createNodeAdapter({ scheduleNotify: (flush) => flushes.push(flush) });
+    await adapter.execute('CREATE TABLE things (id TEXT PRIMARY KEY)');
+
+    let calls = 0;
+    adapter.subscribe(['things'], () => {
+      calls += 1;
+    });
+
+    await adapter.execute('INSERT INTO things (id) VALUES (?)', ['a']);
+    await adapter.close();
+    expect(() => flushes[0]?.()).not.toThrow();
+
+    expect(calls).toBe(0);
+  });
+});
+
 describe('createNodeAdapter with a file', () => {
   let directory: string;
 

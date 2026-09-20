@@ -268,6 +268,28 @@ export const adapterCases: readonly AdapterCase[] = [
     },
   },
   {
+    name: 'batches commits made in the same turn into one notification',
+    run: async (adapter) => {
+      await setup(adapter);
+      const watcher = counter();
+      adapter.subscribe(['things'], watcher.listener);
+
+      // Two separate commits, neither awaited before the other starts: a sync
+      // pull applying a batch must wake a screen once, not once per commit.
+      await Promise.all([
+        adapter.execute('INSERT INTO things (id) VALUES (?)', ['a']),
+        adapter.execute('INSERT INTO things (id) VALUES (?)', ['b']),
+      ]);
+
+      assertEqual(watcher.calls, 1, 'notifications for two commits in one turn');
+      assertEqual(
+        (await adapter.execute('SELECT id FROM things ORDER BY id')).length,
+        2,
+        'rows written',
+      );
+    },
+  },
+  {
     name: 'stays quiet when a transaction rolls back',
     run: async (adapter) => {
       await setup(adapter);

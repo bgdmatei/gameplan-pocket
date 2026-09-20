@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import type {
   NodeAdapterOptions,
+  NotifyScheduler,
   SqlParams,
   SqlValue,
   StorageAdapter,
@@ -48,6 +49,12 @@ export const createNodeAdapter = (options: NodeAdapterOptions = {}): StorageAdap
   let inTransaction = false;
   /** Tables written since the current transaction began. */
   let pendingTables = new Set<string>();
+  /** Tables changed since the last delivery, waiting for the scheduler. */
+  let unnotifiedTables = new Set<string>();
+  let flushScheduled = false;
+
+  const scheduleNotify: NotifyScheduler =
+    options.scheduleNotify ?? ((flush) => queueMicrotask(flush));
 
   database.exec('PRAGMA foreign_keys = ON');
   // WAL lets reads continue while a write is in flight. It is a no-op for
@@ -58,9 +65,7 @@ export const createNodeAdapter = (options: NodeAdapterOptions = {}): StorageAdap
     if (closed) throw new Error('This database is closed.');
   };
 
-  const notify = (tables: ReadonlySet<string>): void => {
-    if (tables.size === 0) return;
-
+  const deliver = (tables: ReadonlySet<string>): void => {
     for (const { tables: watched, listener } of subscriptions) {
       if (![...tables].some((table) => watched.has(table))) continue;
       try {
@@ -69,6 +74,26 @@ export const createNodeAdapter = (options: NodeAdapterOptions = {}): StorageAdap
         // One screen's failure must not stop the others being told.
       }
     }
+  };
+
+  /**
+   * Queues a notification rather than delivering it now, so several commits in
+   * the same turn wake a screen once. A sync pull applying a batch of changes
+   * would otherwise re-run every query on screen once per commit.
+   */
+  const notify = (tables: ReadonlySet<string>): void => {
+    if (tables.size === 0) return;
+    for (const table of tables) unnotifiedTables.add(table);
+
+    if (flushScheduled) return;
+    flushScheduled = true;
+
+    scheduleNotify(() => {
+      flushScheduled = false;
+      const changed = unnotifiedTables;
+      unnotifiedTables = new Set();
+      if (changed.size > 0) deliver(changed);
+    });
   };
 
   const run = async <T>(sql: string, params: SqlParams = []): Promise<T[]> => {

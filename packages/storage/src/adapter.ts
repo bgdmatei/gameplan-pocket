@@ -55,7 +55,18 @@ export type StorageAdapter = Transaction & {
   destroy(): Promise<void>;
 };
 
+/**
+ * Decides when batched notifications are delivered. The default is a
+ * microtask, which batches everything committed in the same turn.
+ *
+ * A screen-facing app can pass a frame-based scheduler instead, so a sync pull
+ * writing hundreds of rows repaints once rather than on every commit. Tests
+ * pass a manual one and flush on demand.
+ */
+export type NotifyScheduler = (flush: () => void) => void;
+
 export type NodeAdapterOptions = {
   /** Defaults to an in-memory database, which is what tests want. */
   path?: string;
+  scheduleNotify?: NotifyScheduler;
 };

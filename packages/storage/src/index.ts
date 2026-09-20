@@ -1,5 +1,6 @@
 export type {
   NodeAdapterOptions,
+  NotifyScheduler,
   SqlParams,
   SqlValue,
   StorageAdapter,
