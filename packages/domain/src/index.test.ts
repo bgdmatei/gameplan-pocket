@@ -71,11 +71,7 @@ const EXPECTED_EXPORTS = [
 ] as const;
 
 describe('public API', () => {
-  it.each(EXPECTED_EXPORTS)('exports %s', (name) => {
-    expect(domain[name as keyof typeof domain]).toBeDefined();
-  });
-
-  it('exports nothing beyond the documented surface', () => {
+  it('exports exactly the documented surface, no more and no less', () => {
     expect(Object.keys(domain).sort()).toEqual([...EXPECTED_EXPORTS].sort());
   });
 });

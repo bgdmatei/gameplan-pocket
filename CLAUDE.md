@@ -78,12 +78,30 @@ These are cheap now and very hard to retrofit once code exists.
 
 ## Testing
 
-- Vitest for unit tests, fast-check for property tests, both installed at the root.
-- Write the test first, watch it fail, then implement.
-- Coverage thresholds live in each package's `vitest.config.ts` and are not to be lowered to get a green run.
-- Verify a guard by breaking it on purpose (a violating fixture, a weakened rule) and confirming the check fails. A guard that has never failed hasn't been tested.
-- **Never assert immediately on something delivered asynchronously.** Wait for it. Asserting straight after a write passed in Node only because its SQLite is synchronous, and hid a spec violation that the phone exposed at once.
-- **Node's SQLite is more generous than the phone's.** FTS5 is compiled into Node and not into op-sqlite, so local search was green in CI and dead on the device. Anything depending on a SQLite compile-time feature is only proven by running the contract on a device (`Run the storage contract` on the mobile home screen).
+**Write few tests, and only ones that could fail for a real reason.** Test count is not rigour. A suite of 500 mostly-trivial tests is slower, noisier and less trusted than 100 that each pin a real rule.
+
+Test:
+
+- **Rules we wrote**: status transitions, merge safety, what counts as a change.
+- **Failures a user would notice**: an edit that never syncs, paging that loses a row, search that misses a title, data gone after a restart.
+- **Anything a real bug once caused.** Those tests have earned their place; say so in a comment.
+- **Invariants, as one property test** rather than many examples — convergence, idempotence, round-trips.
+
+Don't test:
+
+- **The library.** zod validating its own schema, SQLite enforcing a unique index, the framework rendering.
+- **Every field of every schema.** One representative case per entity is enough; the types carry the rest.
+- **Both directions of a trivial mapping**, when a single round-trip covers it.
+- **Exhaustive permutations.** Prefer one table-driven test that loops over twenty `it.each` cases: same assertions, one line of output, far easier to read.
+
+Practices that still hold:
+
+- Vitest for unit tests, fast-check for properties, both at the root.
+- Write the test first for anything with real logic; skip the ceremony for a getter.
+- **Prove a guard by breaking it.** A guard that has never failed hasn't been tested.
+- **Never assert immediately on something delivered asynchronously.** Asserting straight after a write passed in Node only because its SQLite is synchronous, and hid a spec violation the phone exposed at once.
+- **Node's SQLite is more generous than the phone's.** FTS5 is compiled into Node and not into op-sqlite, so local search was green in CI and dead on the device. Anything resting on a SQLite compile-time feature is only proven by running the contract on a device (`Run the storage contract` on the mobile home screen).
+- Coverage is a hint, not a target. There are no coverage thresholds: chasing a number is what produced the tests we deleted.
 
 ## Git
 

@@ -60,35 +60,6 @@ export const adapterCases: readonly AdapterCase[] = [
     },
   },
   {
-    name: 'returns an empty list for a write',
-    run: async (adapter) => {
-      await setup(adapter);
-      assertEqual(
-        await adapter.execute('INSERT INTO things (id) VALUES (?)', ['a']),
-        [],
-        'write result',
-      );
-    },
-  },
-  {
-    name: 'binds strings, numbers and null',
-    run: async (adapter) => {
-      await setup(adapter);
-      await adapter.execute('INSERT INTO things (id, name, flag, note) VALUES (?, ?, ?, ?)', [
-        'a',
-        'Witcher',
-        3,
-        null,
-      ]);
-
-      assertEqual(
-        await adapter.execute('SELECT * FROM things'),
-        [{ id: 'a', name: 'Witcher', flag: 3, note: null }],
-        'bound values',
-      );
-    },
-  },
-  {
     name: 'keeps value types: integers come back as numbers, text as strings',
     run: async (adapter) => {
       await setup(adapter);
@@ -400,6 +371,8 @@ export const adapterCases: readonly AdapterCase[] = [
       await adapter.execute('INSERT INTO things (id, name) VALUES (?, ?)', ['a', 'private note']);
 
       await adapter.destroy();
+      // Calling it twice must not blow up: a sign-out can be retried.
+      await adapter.destroy();
 
       // Signing out on a shared device must leave nothing readable.
       await assertRejects(
@@ -407,14 +380,6 @@ export const adapterCases: readonly AdapterCase[] = [
         /closed/i,
         'query after destroy',
       );
-    },
-  },
-  {
-    name: 'destroy can be called twice',
-    run: async (adapter) => {
-      await setup(adapter);
-      await adapter.destroy();
-      await adapter.destroy();
     },
   },
   {
