@@ -17,6 +17,10 @@ const fixtures = [
   'packages/test-utils/tests/fixtures/pkg-imports-app.ts',
   // domain → any other workspace package
   'packages/domain/tests/fixtures/domain-imports-pkg.ts',
+  // storage → a package outside domain/db-schema
+  'packages/storage/tests/fixtures/storage-imports-pkg.ts',
+  // db-schema → anything at all
+  'packages/db-schema/tests/fixtures/db-schema-imports-domain.ts',
 ];
 
 let failed = false;

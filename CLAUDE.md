@@ -41,6 +41,14 @@ A task is done when `pnpm typecheck && pnpm lint && pnpm lint:boundaries && pnpm
 
 **Never judge a command by truncated output.** `| tail -3` once hid a typecheck failure behind a success-looking summary. Grep for `error`, `Failed`, `ERROR`, or check the exit code.
 
+## Privacy rules
+
+These are cheap now and very hard to retrofit once code exists.
+
+- **Note text never leaves the device except through sync.** It is excluded from error reports (Sentry scrubbing), from every log line, and from any structured log or breadcrumb that carries op payloads. Notes are personal playthrough writing; an error report would hand them to a third party.
+- **Signing out destroys the local database** (`adapter.destroy()`), on every platform. Closing the connection leaves the whole library and every note on disk for the next person using that device.
+- **Ops are allowlisted, not just validated.** A `set` op may only name columns the user owns for that entity; server-managed columns (`user_id`, `deleted`, `field_hlc`, sequence numbers) are never assignable from a client, and `user_id` is always forced from the token, never read from the payload. Validation catches malformed input; only an allowlist is safe by construction. Repositories already work this way on the client — every column is mapped explicitly.
+
 ## Architecture rules
 
 - Dependency direction: `apps → packages`. Packages never import apps. Enforced by `eslint-plugin-boundaries` plus fixtures in `scripts/check-boundaries.mjs`.
@@ -74,6 +82,8 @@ A task is done when `pnpm typecheck && pnpm lint && pnpm lint:boundaries && pnpm
 - Write the test first, watch it fail, then implement.
 - Coverage thresholds live in each package's `vitest.config.ts` and are not to be lowered to get a green run.
 - Verify a guard by breaking it on purpose (a violating fixture, a weakened rule) and confirming the check fails. A guard that has never failed hasn't been tested.
+- **Never assert immediately on something delivered asynchronously.** Wait for it. Asserting straight after a write passed in Node only because its SQLite is synchronous, and hid a spec violation that the phone exposed at once.
+- **Node's SQLite is more generous than the phone's.** FTS5 is compiled into Node and not into op-sqlite, so local search was green in CI and dead on the device. Anything depending on a SQLite compile-time feature is only proven by running the contract on a device (`Run the storage contract` on the mobile home screen).
 
 ## Git
 
@@ -91,6 +101,14 @@ A task is done when `pnpm typecheck && pnpm lint && pnpm lint:boundaries && pnpm
 - Changing an approved spec's data contracts (status transitions, rating scale, field limits).
 - Anything that weakens a check: lowering coverage, disabling a lint rule, skipping a test.
 
+## Every module's success criteria include an attack
+
+Functional criteria ("it converges", "it appears on both devices") never catch the interesting failures. Each module that exposes a surface adds negative criteria that try to break it, for example:
+
+- Read another account's data with a valid token for a different account: assert zero rows.
+- Push an op naming another user's row, a server-managed column, and an unknown entity: all rejected, none partially applied.
+- Grep built bundles for API secrets, so "secrets never ship to clients" has a mechanism rather than an intention.
+
 ## Working with me
 
 I'm building this to practise architecture and system design, so:
@@ -103,3 +121,17 @@ I'm building this to practise architecture and system design, so:
 ## Don't
 
 - Don't add dependencies without asking.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `bgdmatei/gameplan-pocket`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

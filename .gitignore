@@ -44,4 +44,7 @@ coverage/
 *.md
 # ...except the agent instructions, which are shared
 !CLAUDE.md
+# ...and measured numbers, which belong with the code they describe
+!PERFORMANCE.md
+!**/PERFORMANCE.md
 

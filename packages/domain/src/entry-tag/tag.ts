@@ -50,10 +50,16 @@ export const displayTag = (tag: string): string => {
 /**
  * Identity of a tag on an entry. `sync-core` hashes this into a deterministic
  * id, so the same tag added offline on two devices becomes one row instead of
- * two. The NUL separator keeps ("ab", "c") distinct from ("a", "bc").
+ * two.
+ *
+ * The entry id is length-prefixed rather than separated by a delimiter, so
+ * ("ab", "c") and ("a", "bc") cannot produce the same key whatever characters a
+ * tag contains. The key is plain printable text and safe to store or log: an
+ * earlier version separated the parts with a NUL character, which SQLite
+ * silently truncates a value at.
  */
 export const tagIdentityKey = (entryId: string, tag: string): string =>
-  `${entryId}\u0000${normaliseTag(tag)}`;
+  `${String(entryId.length)}:${entryId}:${normaliseTag(tag)}`;
 
 export const entryTagSchema = z
   .object({
