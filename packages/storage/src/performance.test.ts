@@ -23,6 +23,11 @@ import { seed } from './testing/seed';
 const ENTRIES = 5_000;
 const RUNS = 5;
 
+/** Long enough for a scheduled notification to land (roughly a frame). */
+const settle = async (): Promise<void> => {
+  await new Promise((resolve) => setTimeout(resolve, 80));
+};
+
 const bestOf = async (runs: number, work: () => Promise<unknown>): Promise<number> => {
   let best = Number.POSITIVE_INFINITY;
 
@@ -145,15 +150,20 @@ describe('performance against a 5,000-entry library', () => {
         ]);
       }
     });
+
+    // Delivery is scheduled about a frame out, so wait for it rather than
+    // assuming it has already happened.
+    await settle();
     expect(calls).toBe(1);
 
-    // A write after that flush is a separate turn, so it wakes the screen
-    // again: batching is per turn, not a mute button.
+    // A write after that delivery falls in a later frame, so it wakes the
+    // screen again: batching is a window, not a mute button.
     await appendPendingOp(adapter, {
       id: 'last',
       payload: '{}',
       createdAt: '2026-09-20T10:00:00Z',
     });
+    await settle();
     expect(calls).toBe(2);
   });
 

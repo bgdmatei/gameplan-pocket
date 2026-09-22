@@ -82,6 +82,8 @@ These are cheap now and very hard to retrofit once code exists.
 - Write the test first, watch it fail, then implement.
 - Coverage thresholds live in each package's `vitest.config.ts` and are not to be lowered to get a green run.
 - Verify a guard by breaking it on purpose (a violating fixture, a weakened rule) and confirming the check fails. A guard that has never failed hasn't been tested.
+- **Never assert immediately on something delivered asynchronously.** Wait for it. Asserting straight after a write passed in Node only because its SQLite is synchronous, and hid a spec violation that the phone exposed at once.
+- **Node's SQLite is more generous than the phone's.** FTS5 is compiled into Node and not into op-sqlite, so local search was green in CI and dead on the device. Anything depending on a SQLite compile-time feature is only proven by running the contract on a device (`Run the storage contract` on the mobile home screen).
 
 ## Git
 
@@ -119,3 +121,17 @@ I'm building this to practise architecture and system design, so:
 ## Don't
 
 - Don't add dependencies without asking.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `bgdmatei/gameplan-pocket`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

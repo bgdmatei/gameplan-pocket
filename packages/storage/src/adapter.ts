@@ -56,12 +56,14 @@ export type StorageAdapter = Transaction & {
 };
 
 /**
- * Decides when batched notifications are delivered. The default is a
- * microtask, which batches everything committed in the same turn.
+ * Decides when batched notifications are delivered. The default is roughly one
+ * frame, so writes landing close together repaint the screen once.
  *
- * A screen-facing app can pass a frame-based scheduler instead, so a sync pull
- * writing hundreds of rows repaints once rather than on every commit. Tests
- * pass a manual one and flush on demand.
+ * A microtask is too short to be useful here: on a driver whose writes are
+ * genuinely asynchronous (the phone's) each write finishes in its own turn, so
+ * nothing batches. A frame is the window that matters to a screen anyway.
+ *
+ * Tests pass a manual scheduler and flush on demand.
  */
 export type NotifyScheduler = (flush: () => void) => void;
 

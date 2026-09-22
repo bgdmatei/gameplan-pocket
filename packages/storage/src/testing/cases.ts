@@ -22,6 +22,18 @@ const setup = async (adapter: StorageAdapter): Promise<void> => {
   await adapter.execute(CREATE_THINGS);
 };
 
+/**
+ * Waits long enough for a scheduled notification to be delivered.
+ *
+ * Delivery is deliberately not immediate: writes landing close together wake a
+ * screen once, about a frame later. A case that asserted straight after a
+ * write would be asserting on timing rather than behaviour — and would pass or
+ * fail depending on whether the driver's writes happen to be synchronous.
+ */
+const settle = async (): Promise<void> => {
+  await new Promise((resolve) => setTimeout(resolve, 80));
+};
+
 /** Counts calls without pulling in a mocking library. */
 const counter = (): { calls: number; listener: () => void } => {
   const state = { calls: 0, listener: (): void => {} };
@@ -247,6 +259,7 @@ export const adapterCases: readonly AdapterCase[] = [
       adapter.subscribe(['things'], watcher.listener);
 
       await adapter.execute('INSERT INTO things (id) VALUES (?)', ['a']);
+      await settle();
 
       assertEqual(watcher.calls, 1, 'notifications after a write');
     },
@@ -264,24 +277,29 @@ export const adapterCases: readonly AdapterCase[] = [
         }
       });
 
+      await settle();
+
       assertEqual(watcher.calls, 1, 'notifications for a three-row transaction');
     },
   },
   {
-    name: 'batches commits made in the same turn into one notification',
+    name: 'batches commits made in the same frame into one notification',
     run: async (adapter) => {
       await setup(adapter);
       const watcher = counter();
       adapter.subscribe(['things'], watcher.listener);
 
-      // Two separate commits, neither awaited before the other starts: a sync
-      // pull applying a batch must wake a screen once, not once per commit.
+      // Two commits close together: a sync pull applying a batch must wake a
+      // screen once, not once per commit. Whether the driver's writes are
+      // synchronous (node) or asynchronous (the phone) must not change this.
       await Promise.all([
         adapter.execute('INSERT INTO things (id) VALUES (?)', ['a']),
         adapter.execute('INSERT INTO things (id) VALUES (?)', ['b']),
       ]);
 
-      assertEqual(watcher.calls, 1, 'notifications for two commits in one turn');
+      await settle();
+
+      assertEqual(watcher.calls, 1, 'notifications for two commits in one frame');
       assertEqual(
         (await adapter.execute('SELECT id FROM things ORDER BY id')).length,
         2,
@@ -306,6 +324,8 @@ export const adapterCases: readonly AdapterCase[] = [
         'failing transaction',
       );
 
+      await settle();
+
       assertEqual(watcher.calls, 0, 'notifications after a rollback');
     },
   },
@@ -321,6 +341,8 @@ export const adapterCases: readonly AdapterCase[] = [
         await tx.execute('SELECT * FROM things');
       });
 
+      await settle();
+
       assertEqual(watcher.calls, 0, 'notifications for reads');
     },
   },
@@ -335,6 +357,7 @@ export const adapterCases: readonly AdapterCase[] = [
       adapter.subscribe(['others'], onOthers.listener);
 
       await adapter.execute('INSERT INTO things (id) VALUES (?)', ['a']);
+      await settle();
 
       assertEqual(onThings.calls, 1, 'notifications for the written table');
       assertEqual(onOthers.calls, 0, 'notifications for an untouched table');
@@ -349,6 +372,7 @@ export const adapterCases: readonly AdapterCase[] = [
 
       unsubscribe();
       await adapter.execute('INSERT INTO things (id) VALUES (?)', ['a']);
+      await settle();
 
       assertEqual(watcher.calls, 0, 'notifications after unsubscribing');
     },
@@ -364,6 +388,7 @@ export const adapterCases: readonly AdapterCase[] = [
       adapter.subscribe(['things'], healthy.listener);
 
       await adapter.execute('INSERT INTO things (id) VALUES (?)', ['a']);
+      await settle();
 
       assertEqual(healthy.calls, 1, 'notifications to a healthy listener');
     },

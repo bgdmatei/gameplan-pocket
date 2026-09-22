@@ -5,6 +5,8 @@
   "private": true,
   "scripts": {
     "start": "expo start --dev-client",
+    "dev:ios": "expo run:ios",
+    "dev:android": "expo run:android",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "prebuild": "expo prebuild",
@@ -12,7 +14,10 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@gameplan/db-schema": "workspace:*",
+    "@gameplan/storage": "workspace:*",
     "@gameplan/test-utils": "workspace:*",
+    "@op-engineering/op-sqlite": "18.2.5",
     "expo": "~57.0.23",
     "expo-constants": "~57.0.18",
     "expo-dev-client": "~57.0.19",

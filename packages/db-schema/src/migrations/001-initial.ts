@@ -137,6 +137,14 @@ export const migration001: Migration = {
     // Full-text search over cached game names: instant local search, offline.
     // `content=games` keeps the text in the games table rather than copying it;
     // the triggers below keep the index in step.
+    //
+    // FTS5 is a compile-time option. Node ships with it; op-sqlite does not,
+    // so the workspace root package.json carries `"op-sqlite": { "fts5": true }`
+    // and a native rebuild is needed, or this fails with "no such module: fts5".
+    // It lives in the root rather than apps/mobile because op-sqlite's podspec
+    // walks up from node_modules for the nearest package.json, which under
+    // pnpm is the workspace root. Caught on a simulator, not in CI, which is
+    // why the contract also runs there.
     `CREATE VIRTUAL TABLE games_fts USING fts5 (
       name,
       content = 'games',

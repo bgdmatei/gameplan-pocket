@@ -53,8 +53,10 @@ export const createNodeAdapter = (options: NodeAdapterOptions = {}): StorageAdap
   let unnotifiedTables = new Set<string>();
   let flushScheduled = false;
 
+  // Roughly a frame. See NotifyScheduler: a microtask batches nothing on a
+  // driver whose writes are actually asynchronous.
   const scheduleNotify: NotifyScheduler =
-    options.scheduleNotify ?? ((flush) => queueMicrotask(flush));
+    options.scheduleNotify ?? ((flush) => void setTimeout(flush, 16));
 
   database.exec('PRAGMA foreign_keys = ON');
   // WAL lets reads continue while a write is in flight. It is a no-op for
