@@ -1,4 +1,12 @@
+import {
+  entryTagSchema,
+  libraryEntrySchema,
+  listItemSchema,
+  listSchema,
+  noteItemSchema,
+} from '@gameplan/domain';
 import type { EntryTag, LibraryEntry, List, ListItem, NoteItem } from '@gameplan/domain';
+import type { z } from 'zod';
 import { SYNCED_ROWS } from '@gameplan/storage';
 import type { SyncedRowCodec } from '@gameplan/storage';
 import type { RandomBytes } from '../ids';
@@ -34,18 +42,33 @@ const CODECS: { [E in StoredEntity]: SyncedRowCodec<EntityValues[E]> } = {
 };
 
 /**
+ * Shape checks for a merged row before it is written. Shape only: a merge may
+ * produce any combination of valid fields (SPEC-domain-model.md §Merge safety).
+ */
+export const SCHEMAS: { [E in StoredEntity]: z.ZodType<EntityValues[E]> } = {
+  library_entry: libraryEntrySchema,
+  entry_tag: entryTagSchema,
+  note_item: noteItemSchema,
+  list: listSchema,
+  list_item: listItemSchema,
+};
+
+/**
  * `note_conflict` is a synced entity with no repository yet: `notes-conflicts`
  * (module 10) adds one. Until then an op for it cannot be stored, and saying
  * so beats dropping it.
  */
-export const codecFor = (entity: SyncedEntity): SyncedRowCodec<EntityValues[StoredEntity]> => {
+export const storedEntity = (entity: SyncedEntity): StoredEntity => {
   if (entity === 'note_conflict') {
     throw new Error(
       'note_conflict ops are not yet supported; notes-conflicts (module 10) adds them.',
     );
   }
-  return CODECS[entity] as SyncedRowCodec<EntityValues[StoredEntity]>;
+  return entity;
 };
+
+export const codecFor = (entity: SyncedEntity): SyncedRowCodec<EntityValues[StoredEntity]> =>
+  CODECS[storedEntity(entity)] as SyncedRowCodec<EntityValues[StoredEntity]>;
 
 export type Clocks = Record<string, string>;
 

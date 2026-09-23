@@ -31,17 +31,17 @@ export const mergeOp = (state: RowState, op: Op): RowState => {
     return { fields: state.fields, clocks: { ...state.clocks, [DELETE_CLOCK]: op.hlc } };
   }
 
-  const fields: Record<string, unknown> = { ...state.fields };
-  const clocks: Record<string, string> = { ...state.clocks };
+  const newer = Object.entries(op.fields).filter(([field]) => {
+    const current = state.clocks[field];
+    return current === undefined || current < op.hlc;
+  });
+  // Nothing newer: hand back the same state, so callers can skip the write.
+  if (newer.length === 0) return state;
 
-  for (const [field, value] of Object.entries(op.fields)) {
-    const current = clocks[field];
-    if (current !== undefined && current >= op.hlc) continue;
-    fields[field] = value;
-    clocks[field] = op.hlc;
-  }
-
-  return { fields, clocks };
+  return {
+    fields: { ...state.fields, ...Object.fromEntries(newer) },
+    clocks: { ...state.clocks, ...Object.fromEntries(newer.map(([field]) => [field, op.hlc])) },
+  };
 };
 
 /**

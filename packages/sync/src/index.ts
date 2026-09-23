@@ -18,3 +18,6 @@ export type { RowState } from './merge/merge';
 export { commitLocalChange, commitLocalCreate, commitLocalDelete } from './store/commit';
 export type { LocalChange } from './store/commit';
 export type { DeletableEntity, EntityValues, StoredEntity, SyncEnv } from './store/entities';
+export { applyRemoteOps } from './store/apply';
+export { createSingleFlight } from './single-flight';
+export type { SingleFlight } from './single-flight';
