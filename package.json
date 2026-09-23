@@ -12,11 +12,12 @@
     "dev": "pnpm --filter mobile start",
     "dev:ios": "pnpm --filter mobile dev:ios",
     "dev:android": "pnpm --filter mobile dev:android",
-    "dev:web": "echo 'The web app is a separate Next.js app (apps/web), built in module 14 — not the mobile app in a browser. See SPEC-map.md.' && exit 1",
+    "dev:web": "echo 'The web app is a separate Next.js app (apps/web), built in module 14 \u2014 not the mobile app in a browser. See SPEC-map.md.' && exit 1",
     "dev:api": "pnpm --filter api dev",
     "lint:boundaries": "node scripts/check-boundaries.mjs",
     "build": "turbo run build",
-    "format": "turbo run format"
+    "format": "turbo run format",
+    "check:secrets": "node scripts/check-secrets.mjs"
   },
   "op-sqlite": {
     "fts5": true

@@ -10,7 +10,9 @@
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vitest run --coverage"
+    "test": "vitest run --coverage",
+    "igdb:smoke": "tsx src/scripts/igdb-smoke.ts",
+    "capture:games": "tsx src/scripts/capture-games.ts"
   },
   "dependencies": {
     "@gameplan/domain": "workspace:*",

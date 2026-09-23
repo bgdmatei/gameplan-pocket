@@ -1,8 +1,6 @@
 import { serve } from '@hono/node-server';
 import { createApp } from './app';
-import { createIgdbClient } from './catalog/igdb/client';
-import { IGDB_LIMITS, createRateLimitedQueue } from './catalog/igdb/queue';
-import { createTwitchToken } from './catalog/igdb/token';
+import { createIgdbFromEnv } from './catalog/igdb/create';
 import { createCatalogRepository } from './catalog/repository';
 import { createCatalogService } from './catalog/service';
 import { createDb } from './db/client';
@@ -14,16 +12,7 @@ loadDotEnv();
 const env = readEnv(process.env);
 
 const logger = consoleLogger;
-const igdb = createIgdbClient({
-  clientId: env.TWITCH_CLIENT_ID,
-  token: createTwitchToken({
-    clientId: env.TWITCH_CLIENT_ID,
-    clientSecret: env.TWITCH_CLIENT_SECRET,
-    now: Date.now,
-  }),
-  queue: createRateLimitedQueue(IGDB_LIMITS),
-  logger,
-});
+const igdb = createIgdbFromEnv(env, logger);
 const catalog = createCatalogService({
   repository: createCatalogRepository(createDb(env.DATABASE_URL)),
   igdb,

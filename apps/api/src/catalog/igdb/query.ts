@@ -43,6 +43,15 @@ export const gamesByIdQuery = (ids: readonly number[]): IgdbQuery => {
   };
 };
 
+/**
+ * The most-rated games, a page at a time: what people actually own, for the
+ * storage seed fixture. Rated by enough people to be real, not placeholders.
+ */
+export const popularGamesQuery = (offset: number, limit: number): IgdbQuery => ({
+  endpoint: 'games',
+  body: `fields ${GAME_FIELDS}; where total_rating_count > 20; sort total_rating_count desc; limit ${limit}; offset ${offset};`,
+});
+
 export const genresQuery = (): IgdbQuery => ({
   endpoint: 'genres',
   body: `fields name,slug; limit ${IGDB_MAX_LIMIT};`,

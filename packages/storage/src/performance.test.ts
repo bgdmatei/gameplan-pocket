@@ -1,10 +1,12 @@
 import { migrate } from '@gameplan/db-schema';
+import { gameSchema, genreSchema, platformSchema } from '@gameplan/domain';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { StorageAdapter } from './adapter';
 import { createNodeAdapter } from './node/adapter';
 import { listLibraryEntries } from './repositories/library-entries';
 import { searchGames } from './repositories/games';
 import { appendPendingOp } from './repositories/pending-ops';
+import fixture from './testing/fixtures/catalog.json';
 import { seed } from './testing/seed';
 
 /**
@@ -21,6 +23,13 @@ import { seed } from './testing/seed';
  * while still catching a real slowdown.
  */
 const ENTRIES = 5_000;
+
+/** 1,000 real IGDB games; parsing also proves the captured fixture is well formed. */
+const CATALOG = {
+  games: gameSchema.array().parse(fixture.games),
+  genres: genreSchema.array().parse(fixture.genres),
+  platforms: platformSchema.array().parse(fixture.platforms),
+};
 const RUNS = 5;
 
 /** Long enough for a scheduled notification to land (roughly a frame). */
@@ -49,7 +58,7 @@ describe('performance against a 5,000-entry library', () => {
     await migrate(adapter);
 
     const started = performance.now();
-    const result = await seed(adapter, { entries: ENTRIES });
+    const result = await seed(adapter, { catalog: CATALOG, entries: ENTRIES });
     timings['seed'] = performance.now() - started;
 
     expect(result.entries).toBe(ENTRIES);
@@ -57,8 +66,8 @@ describe('performance against a 5,000-entry library', () => {
 
   it('searches the catalog in under 50 ms, including as-you-type prefixes', async () => {
     for (const [name, query] of [
-      ['search', 'shadow real'],
-      ['search (prefix)', 'sha'],
+      ['search', 'dark souls'],
+      ['search (prefix)', 'zel'],
     ] as const) {
       const elapsed = await bestOf(RUNS, () => searchGames(adapter, query, { limit: 20 }));
       timings[name] = elapsed;

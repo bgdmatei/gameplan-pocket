@@ -2,7 +2,13 @@ import type { Game, Genre, Platform } from '@gameplan/domain';
 import type { Logger } from '../../logger';
 import { mapGames, mapGenres, mapPlatforms } from './map';
 import type { Mapped } from './map';
-import { gamesByIdQuery, genresQuery, platformsQuery, searchGamesQuery } from './query';
+import {
+  gamesByIdQuery,
+  genresQuery,
+  platformsQuery,
+  popularGamesQuery,
+  searchGamesQuery,
+} from './query';
 import type { IgdbQuery } from './query';
 import type { RateLimitedQueue } from './queue';
 import type { TokenSource } from './token';
@@ -15,6 +21,8 @@ export type IgdbClient = {
   getGames: (ids: readonly number[]) => Promise<Game[]>;
   getGenres: () => Promise<Genre[]>;
   getPlatforms: () => Promise<Platform[]>;
+  /** Most-rated games, for capturing the seed fixture. */
+  getPopularGames: (offset: number, limit: number) => Promise<Game[]>;
 };
 
 export type IgdbFailure = 'rate-limited' | 'unavailable' | 'timeout';
@@ -93,5 +101,7 @@ export const createIgdbClient = ({
     getGenres: async () => reportSkipped('genres', mapGenres(await post(genresQuery()))),
     getPlatforms: async () =>
       reportSkipped('platforms', mapPlatforms(await post(platformsQuery()))),
+    getPopularGames: async (offset, limit) =>
+      reportSkipped('games', mapGames(await post(popularGamesQuery(offset, limit)))),
   };
 };

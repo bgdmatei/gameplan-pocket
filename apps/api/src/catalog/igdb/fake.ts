@@ -39,6 +39,7 @@ export const createFakeIgdb = (
       getGames: (ids) => answer(() => games.filter((game) => ids.includes(game.id))),
       getGenres: () => answer(() => reference.genres ?? []),
       getPlatforms: () => answer(() => reference.platforms ?? []),
+      getPopularGames: (offset, limit) => answer(() => games.slice(offset, offset + limit)),
     },
     calls: () => calls,
     failWith: (error) => {
