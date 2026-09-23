@@ -28,7 +28,7 @@ pnpm install
 pnpm typecheck            # turbo: tsc across all workspaces
 pnpm lint                 # turbo: eslint
 pnpm lint:boundaries      # asserts the boundary fixtures still fail lint
-pnpm test                 # turbo: vitest with coverage thresholds
+pnpm test                 # turbo: vitest
 pnpm build
 pnpm --filter api dev     # Hono on :3000 (/health)
 pnpm --filter mobile start
@@ -102,11 +102,13 @@ Practices that still hold:
 - **Never assert immediately on something delivered asynchronously.** Asserting straight after a write passed in Node only because its SQLite is synchronous, and hid a spec violation the phone exposed at once.
 - **Node's SQLite is more generous than the phone's.** FTS5 is compiled into Node and not into op-sqlite, so local search was green in CI and dead on the device. Anything resting on a SQLite compile-time feature is only proven by running the contract on a device (`Run the storage contract` on the mobile home screen).
 - Coverage is a hint, not a target. There are no coverage thresholds: chasing a number is what produced the tests we deleted.
+- When reporting information to me, be extremely concise and sacrifice grammar for the sake of concision.
 
 ## Git
 
 - Work on `dev`. `main` only via pull request, after a module's success criteria are met.
 - Commit only when asked.
+- **Stage explicit paths, never `git add -A`.** A blanket add swept an unrelated `CLAUDE.md` edit into an op-sqlite commit unnoticed, and it reached `main` unreviewed. Check `git status` and add only what the commit is about.
 - Conventional subject (`feat(domain): …`, `ci: …`, `docs: …`) plus a body explaining _why_, wrapped at ~72 characters. Note anything unrelated that rides along in the same commit.
 - **No `Co-Authored-By` trailers and no AI attribution** in commits or PR descriptions. The repo has one contributor; co-author lines add Claude to GitHub's contributor badges.
 - Don't rename CI job names casually — branch protection matches required checks by name.
