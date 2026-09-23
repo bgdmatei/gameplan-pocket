@@ -5,7 +5,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createApp } from '../app';
 import { createTestDb } from '../testing/database';
+import { IgdbError } from './igdb/client';
 import { createFakeIgdb } from './igdb/fake';
+import type { FakeIgdb } from './igdb/fake';
 import { createCatalogRepository } from './repository';
 import { createCatalogService } from './service';
 
@@ -25,10 +27,11 @@ const gamesResponse = z.object({ games: z.array(gameSchema), stale: z.boolean() 
 
 describe('catalog routes', () => {
   let app: Hono;
+  let igdb: FakeIgdb;
 
   beforeAll(async () => {
     const logger = { warn: () => undefined };
-    const igdb = createFakeIgdb([WITCHER_3], {
+    igdb = createFakeIgdb([WITCHER_3], {
       genres: [{ id: 12, name: 'Role-playing (RPG)', slug: 'role-playing-rpg' }],
       platforms: [{ id: 6, name: 'PC (Microsoft Windows)', abbreviation: 'PC' }],
     });
@@ -80,5 +83,16 @@ describe('catalog routes', () => {
 
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ error: 'invalid_request' });
+  });
+
+  // IGDB being down is not the client's problem: 200, from cache, marked stale.
+  it('answers 200 with stale results when IGDB fails', async () => {
+    igdb.failWith(new IgdbError('unavailable'));
+
+    const response = await get('/catalog/search?q=hollow knight');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ games: [], stale: true });
+    igdb.failWith(null);
   });
 });
