@@ -1,11 +1,6 @@
 import { DomainValidationError, applyEntryChange, createEntry } from '@gameplan/domain';
-import {
-  countPendingOps,
-  createMigratedNodeAdapter,
-  getLibraryEntry,
-  getSyncState,
-  listPendingOps,
-} from '@gameplan/storage';
+import { countPendingOps, getLibraryEntry, getSyncState, listPendingOps } from '@gameplan/storage';
+import { createMigratedNodeAdapter } from '@gameplan/storage/node';
 import { describe, expect, it } from 'vitest';
 import { entryId } from '../ids';
 import { fakeEnv } from '../testing/env';

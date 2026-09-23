@@ -1,5 +1,4 @@
 export type {
-  NodeAdapterOptions,
   NotifyScheduler,
   SqlParams,
   SqlValue,
@@ -7,8 +6,6 @@ export type {
   Transaction,
   Unsubscribe,
 } from './adapter';
-export { createNodeAdapter } from './node/adapter';
-export { createMigratedNodeAdapter } from './node/migrated';
 export { tablesWritten } from './sql-tables';
 
 export {

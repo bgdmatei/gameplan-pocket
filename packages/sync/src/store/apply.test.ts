@@ -5,13 +5,8 @@ import {
   createNoteItem,
 } from '@gameplan/domain';
 import type { LibraryEntry, NoteItem } from '@gameplan/domain';
-import {
-  SYNCED_ROWS,
-  createMigratedNodeAdapter,
-  getLibraryEntry,
-  getSyncState,
-  readSyncedRow,
-} from '@gameplan/storage';
+import { SYNCED_ROWS, getLibraryEntry, getSyncState, readSyncedRow } from '@gameplan/storage';
+import { createMigratedNodeAdapter } from '@gameplan/storage/node';
 import type { StorageAdapter } from '@gameplan/storage';
 import { describe, expect, it } from 'vitest';
 import { formatHlc } from '../clock/hlc';
