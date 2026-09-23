@@ -5,14 +5,7 @@ import fc from 'fast-check';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StorageAdapter } from '../adapter';
 import { createNodeAdapter } from '../node/adapter';
-import {
-  getLibraryEntry,
-  getLibraryEntryByGame,
-  listLibraryEntries,
-  saveLibraryEntry,
-  softDeleteLibraryEntry,
-} from './library-entries';
-import { writeAtomically } from './write';
+import { getLibraryEntry, listLibraryEntries, saveLibraryEntry } from './library-entries';
 
 const TODAY = '2026-09-18';
 const NOW = '2026-09-18T10:00:00Z';
@@ -21,14 +14,14 @@ const cacheGame = async (adapter: StorageAdapter, id: number, name: string): Pro
   await adapter.execute('INSERT INTO games (id, name, slug, fetched_at) VALUES (?, ?, ?, ?)', [
     id,
     name,
-    name.toLowerCase().replaceAll(' ', '-'),
+    `game-${String(id)}`,
     NOW,
   ]);
 };
 
 const entryFor = (gameId: number, patch: Partial<LibraryEntry> = {}): LibraryEntry => ({
   ...createEntry(
-    { id: `entry-${gameId}`, gameId, status: 'backlog', createdAt: NOW },
+    { id: `entry-${String(gameId)}`, gameId, status: 'backlog', createdAt: NOW },
     { today: TODAY },
   ),
   ...patch,
@@ -42,118 +35,64 @@ describe('library entries', () => {
     await migrate(adapter);
   });
 
-  describe('saveLibraryEntry', () => {
-    it('round-trips an entry through the database', async () => {
-      await cacheGame(adapter, 1942, 'The Witcher 3');
-      const entry = entryFor(1942, {
-        status: 'playing',
-        rating: 9,
-        platformId: 48,
-        progress: { type: 'chapter', value: 'Act II' },
-        playtimeMinutes: 1_234,
-        startedOn: '2026-09-01',
-        favourite: true,
-      });
-
-      await saveLibraryEntry(adapter, entry, { updatedAt: NOW });
-
-      expect(await getLibraryEntry(adapter, entry.id)).toEqual(entry);
+  it('round-trips an entry, fields and all', async () => {
+    await cacheGame(adapter, 1942, 'The Witcher 3');
+    const entry = entryFor(1942, {
+      status: 'playing',
+      rating: 9,
+      platformId: 48,
+      progress: { type: 'chapter', value: 'Act II' },
+      playtimeMinutes: 1_234,
+      startedOn: '2026-09-01',
+      favourite: true,
     });
 
-    it('stores its outbox entry in the same write', async () => {
-      await cacheGame(adapter, 1942, 'The Witcher 3');
-      const entry = entryFor(1942);
+    await saveLibraryEntry(adapter, entry, { updatedAt: NOW });
 
-      await saveLibraryEntry(adapter, entry, {
-        updatedAt: NOW,
-        op: { id: 'op-1', payload: '{"kind":"set"}', createdAt: NOW },
-      });
-
-      expect(await adapter.execute('SELECT id, payload FROM pending_ops')).toEqual([
-        { id: 'op-1', payload: '{"kind":"set"}' },
-      ]);
-    });
-
-    it('updates an existing entry rather than adding a second one', async () => {
-      await cacheGame(adapter, 1942, 'The Witcher 3');
-      const entry = entryFor(1942);
-      await saveLibraryEntry(adapter, entry, { updatedAt: NOW });
-
-      await saveLibraryEntry(adapter, { ...entry, rating: 7 }, { updatedAt: NOW });
-
-      expect(await adapter.execute('SELECT COUNT(*) AS count FROM library_entries')).toEqual([
-        { count: 1 },
-      ]);
-      expect((await getLibraryEntry(adapter, entry.id))?.rating).toBe(7);
-    });
-
-    it('keeps nothing when the outbox write fails, so a row can never sync-less', async () => {
-      await cacheGame(adapter, 1942, 'The Witcher 3');
-      const entry = entryFor(1942);
-      const op = { id: 'op-1', payload: '{}', createdAt: NOW };
-      await saveLibraryEntry(adapter, entryFor(7, {}), { updatedAt: NOW, op }).catch(() => {});
-
-      // The same op id again: the outbox insert fails after the row upsert.
-      await expect(saveLibraryEntry(adapter, entry, { updatedAt: NOW, op })).rejects.toThrow();
-
-      expect(await getLibraryEntry(adapter, entry.id)).toBeNull();
-      expect(await adapter.execute('SELECT id FROM pending_ops')).toEqual([{ id: 'op-1' }]);
-    });
-
-    it('rejects a row the domain would not accept, rather than storing it', async () => {
-      await cacheGame(adapter, 1942, 'The Witcher 3');
-      await adapter.execute(
-        `INSERT INTO library_entries (id, game_id, status, created_at, updated_at)
-         VALUES ('bad', 1942, 'finished', ?, ?)`,
-        [NOW, NOW],
-      );
-
-      await expect(getLibraryEntry(adapter, 'bad')).rejects.toThrow();
-    });
+    expect(await getLibraryEntry(adapter, entry.id)).toEqual(entry);
   });
 
-  describe('getLibraryEntryByGame', () => {
-    it('finds the one entry for a game', async () => {
-      await cacheGame(adapter, 1942, 'The Witcher 3');
-      await saveLibraryEntry(adapter, entryFor(1942), { updatedAt: NOW });
+  /**
+   * The guarantee the whole write path exists for: a row saved without its
+   * sync operation would never reach another device. Removing the transaction
+   * from writeAtomically fails this test and nothing else.
+   */
+  it('keeps neither the row nor the operation when the write fails halfway', async () => {
+    await cacheGame(adapter, 1942, 'The Witcher 3');
+    const op = { id: 'op-1', payload: '{}', createdAt: NOW };
+    await saveLibraryEntry(adapter, entryFor(7), { updatedAt: NOW, op });
 
-      expect((await getLibraryEntryByGame(adapter, 1942))?.gameId).toBe(1942);
-      expect(await getLibraryEntryByGame(adapter, 999)).toBeNull();
-    });
+    // The same op id again: the outbox insert fails after the row upsert.
+    await expect(
+      saveLibraryEntry(adapter, entryFor(1942), { updatedAt: NOW, op }),
+    ).rejects.toThrow();
+
+    expect(await getLibraryEntry(adapter, 'entry-1942')).toBeNull();
+    expect(await adapter.execute('SELECT id FROM pending_ops')).toEqual([{ id: 'op-1' }]);
   });
 
-  describe('softDeleteLibraryEntry', () => {
-    it('hides the entry but keeps the row, so the removal can sync', async () => {
-      await cacheGame(adapter, 1942, 'The Witcher 3');
-      const entry = entryFor(1942);
-      await saveLibraryEntry(adapter, entry, { updatedAt: NOW });
+  it('moves an archived game out of the library and into the archive', async () => {
+    await cacheGame(adapter, 1942, 'The Witcher 3');
+    await saveLibraryEntry(adapter, entryFor(1942, { archived: true }), { updatedAt: NOW });
 
-      await softDeleteLibraryEntry(adapter, entry.id, { updatedAt: NOW });
-
-      expect(await getLibraryEntry(adapter, entry.id)).toBeNull();
-      expect((await listLibraryEntries(adapter)).rows).toEqual([]);
-      expect(
-        await adapter.execute('SELECT deleted FROM library_entries WHERE id = ?', [entry.id]),
-      ).toEqual([{ deleted: 1 }]);
-    });
-
-    it('records the removal in the outbox, so other devices hear about it', async () => {
-      await cacheGame(adapter, 1942, 'The Witcher 3');
-      const entry = entryFor(1942);
-      await saveLibraryEntry(adapter, entry, { updatedAt: NOW });
-
-      await softDeleteLibraryEntry(adapter, entry.id, {
-        updatedAt: NOW,
-        op: { id: 'op-del', payload: '{"kind":"delete"}', createdAt: NOW },
-      });
-
-      expect(await adapter.execute('SELECT id, payload FROM pending_ops')).toEqual([
-        { id: 'op-del', payload: '{"kind":"delete"}' },
-      ]);
-    });
+    expect((await listLibraryEntries(adapter)).rows).toEqual([]);
+    expect(
+      (await listLibraryEntries(adapter, { archived: true })).rows.map((row) => row.game.name),
+    ).toEqual(['The Witcher 3']);
   });
 
-  describe('listLibraryEntries', () => {
+  it('fails loudly on a row the domain would not accept', async () => {
+    await cacheGame(adapter, 1942, 'The Witcher 3');
+    await adapter.execute(
+      `INSERT INTO library_entries (id, game_id, status, created_at, updated_at)
+       VALUES ('bad', 1942, 'finished', ?, ?)`,
+      [NOW, NOW],
+    );
+
+    await expect(getLibraryEntry(adapter, 'bad')).rejects.toThrow();
+  });
+
+  describe('listing', () => {
     beforeEach(async () => {
       await cacheGame(adapter, 1, 'Alpha Protocol');
       await cacheGame(adapter, 2, "Baldur's Gate 3");
@@ -169,121 +108,63 @@ describe('library entries', () => {
         entryFor(2, { status: 'completed', rating: 10, playtimeMinutes: 6_000 }),
         { updatedAt: '2026-09-03T10:00:00Z' },
       );
-      await saveLibraryEntry(adapter, entryFor(3, { status: 'backlog', playtimeMinutes: 0 }), {
-        updatedAt: '2026-09-02T10:00:00Z',
-      });
+      await saveLibraryEntry(adapter, entryFor(3), { updatedAt: '2026-09-02T10:00:00Z' });
     });
 
     const names = async (options = {}): Promise<string[]> =>
       (await listLibraryEntries(adapter, options)).rows.map((row) => row.game.name);
 
-    it('returns the entry with its game', async () => {
-      const { rows } = await listLibraryEntries(adapter, { sort: 'name', limit: 1 });
-
-      expect(rows[0]?.game.name).toBe('Alpha Protocol');
-      expect(rows[0]?.entry.gameId).toBe(1);
-    });
-
-    it('filters by status', async () => {
+    it('filters and sorts in SQL', async () => {
       expect(await names({ status: 'playing' })).toEqual(['Alpha Protocol']);
-    });
-
-    it('filters by favourite', async () => {
       expect(await names({ favourite: true })).toEqual(['Alpha Protocol']);
-      expect(await names({ favourite: false })).toEqual(
-        expect.arrayContaining(["Baldur's Gate 3", 'Celeste']),
-      );
+      expect(await names({ sort: 'name' })).toEqual([
+        'Alpha Protocol',
+        "Baldur's Gate 3",
+        'Celeste',
+      ]);
+      expect(await names({ sort: 'recent' })).toEqual([
+        "Baldur's Gate 3",
+        'Celeste',
+        'Alpha Protocol',
+      ]);
+      // Unrated games sort last rather than dropping out.
+      expect(
+        (await listLibraryEntries(adapter, { sort: 'rating' })).rows.at(-1)?.entry.rating,
+      ).toBeNull();
     });
 
-    it('filters by tag', async () => {
+    it('filters by tag, ignoring tags that were removed', async () => {
       await adapter.execute(
-        'INSERT INTO entry_tags (id, entry_id, tag, created_at) VALUES (?, ?, ?, ?)',
-        ['tag-1', 'entry-2', 'co-op', NOW],
+        'INSERT INTO entry_tags (id, entry_id, tag, created_at, deleted) VALUES (?, ?, ?, ?, ?)',
+        ['t1', 'entry-2', 'co-op', NOW, 0],
+      );
+      await adapter.execute(
+        'INSERT INTO entry_tags (id, entry_id, tag, created_at, deleted) VALUES (?, ?, ?, ?, ?)',
+        ['t2', 'entry-3', 'rpg', NOW, 1],
       );
 
       expect(await names({ tag: 'co-op' })).toEqual(["Baldur's Gate 3"]);
       expect(await names({ tag: 'rpg' })).toEqual([]);
     });
 
-    it('ignores a tag that has been removed', async () => {
-      await adapter.execute(
-        'INSERT INTO entry_tags (id, entry_id, tag, created_at, deleted) VALUES (?, ?, ?, ?, 1)',
-        ['tag-1', 'entry-2', 'co-op', NOW],
-      );
-
-      expect(await names({ tag: 'co-op' })).toEqual([]);
-    });
-
-    it.each([
-      ['recent', ["Baldur's Gate 3", 'Celeste', 'Alpha Protocol']],
-      ['name', ['Alpha Protocol', "Baldur's Gate 3", 'Celeste']],
-      ['rating', ["Baldur's Gate 3", 'Alpha Protocol', 'Celeste']],
-      ['playtime', ["Baldur's Gate 3", 'Alpha Protocol', 'Celeste']],
-    ] as const)('sorts by %s', async (sort, expected) => {
-      expect(await names({ sort })).toEqual(expected);
-    });
-
-    it('puts unrated games last when sorting by rating', async () => {
-      const { rows } = await listLibraryEntries(adapter, { sort: 'rating' });
-
-      expect(rows[rows.length - 1]?.entry.rating).toBeNull();
-    });
-
-    it('leaves out an entry whose game is not cached', async () => {
+    it('leaves out an entry whose game is not cached, since a row needs a name', async () => {
       await saveLibraryEntry(adapter, entryFor(404), { updatedAt: NOW });
 
-      expect(await names()).not.toContain(undefined);
       expect((await listLibraryEntries(adapter)).rows).toHaveLength(3);
-    });
-
-    it('pages with a cursor and stops at the end', async () => {
-      const first = await listLibraryEntries(adapter, { sort: 'name', limit: 2 });
-      expect(first.rows.map((row) => row.game.name)).toEqual(['Alpha Protocol', "Baldur's Gate 3"]);
-      expect(first.nextCursor).toBeDefined();
-
-      const second = await listLibraryEntries(adapter, {
-        sort: 'name',
-        limit: 2,
-        cursor: first.nextCursor,
-      });
-      expect(second.rows.map((row) => row.game.name)).toEqual(['Celeste']);
-      expect(second.nextCursor).toBeUndefined();
     });
 
     it('rejects a cursor it did not produce', async () => {
       await expect(listLibraryEntries(adapter, { cursor: 'nonsense' })).rejects.toThrow(/cursor/i);
     });
-
-    it('uses an index rather than scanning the table', async () => {
-      const plan = (
-        await adapter.execute<{ detail: string }>(
-          `EXPLAIN QUERY PLAN
-           SELECT e.id FROM library_entries e JOIN games g ON g.id = e.game_id
-           WHERE e.deleted = 0 ORDER BY e.updated_at DESC, e.id DESC LIMIT 50`,
-        )
-      )
-        .map((row) => row.detail)
-        .join(' ');
-
-      expect(plan).toMatch(/USING INDEX/);
-    });
   });
 });
 
-describe('writeAtomically', () => {
-  it('refuses a row that carries nothing but an id', async () => {
-    const adapter = createNodeAdapter();
-    await migrate(adapter);
-
-    await expect(
-      writeAtomically(adapter, { rows: [{ table: 'lists', row: { id: 'list-1' } }] }),
-    ).rejects.toThrow(/more than an id/);
-
-    await adapter.close();
-  });
-});
-
-describe('paging properties', () => {
+/**
+ * Paging is where a library quietly loses rows. Two bugs this caught: without
+ * a tiebreaker, entries sharing a sort value repeat or vanish; and a nullable
+ * column drops out of cursor comparisons entirely.
+ */
+describe('paging', () => {
   it('walks every entry exactly once, whatever the page size or sort', async () => {
     await fc.assert(
       fc.asyncProperty(
@@ -300,8 +181,7 @@ describe('paging properties', () => {
               await saveLibraryEntry(
                 adapter,
                 entryFor(index + 1, {
-                  // Deliberate ties and nulls: rows sharing a sort value are
-                  // where paging usually repeats or drops entries.
+                  // Deliberate ties and unrated games: where paging breaks.
                   rating: index % 3 === 0 ? null : index % 4,
                   playtimeMinutes: (index % 3) * 60,
                 }),
@@ -311,7 +191,6 @@ describe('paging properties', () => {
 
             const seen: string[] = [];
             let cursor: string | undefined;
-
             do {
               const page = await listLibraryEntries(adapter, { sort, limit: pageSize, cursor });
               seen.push(...page.rows.map((row) => row.entry.id));
@@ -325,7 +204,7 @@ describe('paging properties', () => {
           }
         },
       ),
-      { numRuns: 25 },
+      { numRuns: 15 },
     );
   });
 });

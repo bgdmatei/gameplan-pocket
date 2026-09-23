@@ -1,4 +1,4 @@
-import type { SqlValue, StorageAdapter } from '../adapter';
+import type { SqlValue, StorageAdapter, Transaction } from '../adapter';
 
 export type Row = Readonly<Record<string, SqlValue>>;
 
@@ -54,20 +54,31 @@ const buildUpsert = (table: string, row: Row): { sql: string; params: SqlValue[]
  */
 export const writeAtomically = async (
   adapter: StorageAdapter,
+  write: AtomicWrite,
+): Promise<void> => {
+  await adapter.transaction((tx) => writeRows(tx, write));
+};
+
+/**
+ * The same writes, inside a transaction the caller already holds. For
+ * `sync-core`, which must read a row's clocks and write the merged row back in
+ * one transaction, or two edits committing at once could each overwrite the
+ * other's clocks.
+ */
+export const writeRows = async (
+  tx: Transaction,
   { rows, ops = [] }: AtomicWrite,
 ): Promise<void> => {
-  await adapter.transaction(async (tx) => {
-    for (const { table, row } of rows) {
-      const { sql, params } = buildUpsert(table, row);
-      await tx.execute(sql, params);
-    }
+  for (const { table, row } of rows) {
+    const { sql, params } = buildUpsert(table, row);
+    await tx.execute(sql, params);
+  }
 
-    for (const op of ops) {
-      await tx.execute('INSERT INTO pending_ops (id, payload, created_at) VALUES (?, ?, ?)', [
-        op.id,
-        op.payload,
-        op.createdAt,
-      ]);
-    }
-  });
+  for (const op of ops) {
+    await tx.execute('INSERT INTO pending_ops (id, payload, created_at) VALUES (?, ?, ?)', [
+      op.id,
+      op.payload,
+      op.createdAt,
+    ]);
+  }
 };

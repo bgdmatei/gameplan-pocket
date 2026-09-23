@@ -47,4 +47,6 @@ coverage/
 # ...and measured numbers, which belong with the code they describe
 !PERFORMANCE.md
 !**/PERFORMANCE.md
+# ...and architecture decisions, the durable record of why
+!docs/adr/*.md
 

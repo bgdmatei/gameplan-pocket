@@ -21,6 +21,10 @@ const fixtures = [
   'packages/storage/tests/fixtures/storage-imports-pkg.ts',
   // db-schema → anything at all
   'packages/db-schema/tests/fixtures/db-schema-imports-domain.ts',
+  // sync → app
+  'packages/sync/tests/fixtures/sync-imports-app.ts',
+  // storage → sync
+  'packages/storage/tests/fixtures/storage-imports-sync.ts',
 ];
 
 let failed = false;

@@ -55,47 +55,38 @@ describe('performance against a 5,000-entry library', () => {
     expect(result.entries).toBe(ENTRIES);
   }, 120_000);
 
-  it('searches the catalog in under 50 ms', async () => {
-    const elapsed = await bestOf(RUNS, () => searchGames(adapter, 'shadow real', { limit: 20 }));
-    timings['search'] = elapsed;
+  it('searches the catalog in under 50 ms, including as-you-type prefixes', async () => {
+    for (const [name, query] of [
+      ['search', 'shadow real'],
+      ['search (prefix)', 'sha'],
+    ] as const) {
+      const elapsed = await bestOf(RUNS, () => searchGames(adapter, query, { limit: 20 }));
+      timings[name] = elapsed;
 
-    expect(elapsed).toBeLessThan(50);
-  });
-
-  it('searches by prefix in under 50 ms, which is what typing does', async () => {
-    const elapsed = await bestOf(RUNS, () => searchGames(adapter, 'sha', { limit: 20 }));
-    timings['search (prefix)'] = elapsed;
-
-    expect(elapsed).toBeLessThan(50);
+      expect(elapsed, name).toBeLessThan(50);
+    }
   });
 
   it('changes filter in under 100 ms', async () => {
-    const elapsed = await bestOf(RUNS, () =>
-      listLibraryEntries(adapter, { status: 'playing', limit: 50 }),
-    );
-    timings['filter by status'] = elapsed;
+    for (const [name, options] of [
+      ['filter by status', { status: 'playing' as const, limit: 50 }],
+      ['filter by tag', { tag: 'co-op', limit: 50 }],
+    ] as const) {
+      const elapsed = await bestOf(RUNS, () => listLibraryEntries(adapter, options));
+      timings[name] = elapsed;
 
-    expect(elapsed).toBeLessThan(100);
+      expect(elapsed, name).toBeLessThan(100);
+    }
   });
 
-  it('filters by tag in under 100 ms', async () => {
-    const elapsed = await bestOf(RUNS, () =>
-      listLibraryEntries(adapter, { tag: 'co-op', limit: 50 }),
-    );
-    timings['filter by tag'] = elapsed;
-
-    expect(elapsed).toBeLessThan(100);
-  });
-
-  it.each(['recent', 'name', 'rating', 'playtime'] as const)(
-    'sorts by %s in under 100 ms',
-    async (sort) => {
+  it('sorts by any key in under 100 ms', async () => {
+    for (const sort of ['recent', 'name', 'rating', 'playtime'] as const) {
       const elapsed = await bestOf(RUNS, () => listLibraryEntries(adapter, { sort, limit: 50 }));
       timings[`sort by ${sort}`] = elapsed;
 
-      expect(elapsed).toBeLessThan(100);
-    },
-  );
+      expect(elapsed, sort).toBeLessThan(100);
+    }
+  });
 
   it('pages deep into the library as fast as the first page', async () => {
     let cursor: string | undefined;

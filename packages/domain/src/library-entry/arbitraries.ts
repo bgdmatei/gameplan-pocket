@@ -67,6 +67,7 @@ export const libraryEntryArb: fc.Arbitrary<LibraryEntry> = fc.record({
   startedOn: fc.option(isoDateArb, { nil: null }),
   finishedOn: fc.option(isoDateArb, { nil: null }),
   favourite: fc.boolean(),
+  archived: fc.boolean(),
   createdAt: isoDateTimeArb,
 });
 
@@ -78,6 +79,7 @@ export const entryPatchArb: fc.Arbitrary<EntryPatch> = fc.record(
     progress: fc.option(progressArb, { nil: null }),
     playtimeMinutes: fc.integer({ min: 0, max: 1_000_000 }),
     favourite: fc.boolean(),
+    archived: fc.boolean(),
   },
   { requiredKeys: [] },
 );

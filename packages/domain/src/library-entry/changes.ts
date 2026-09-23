@@ -53,6 +53,7 @@ const DEFAULTS = {
   startedOn: null,
   finishedOn: null,
   favourite: false,
+  archived: false,
 } as const;
 
 type DerivedDates = { startedOn?: IsoDate; finishedOn?: IsoDate };
