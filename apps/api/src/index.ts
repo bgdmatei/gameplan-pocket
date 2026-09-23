@@ -19,5 +19,5 @@ const catalog = createCatalogService({
   logger,
 });
 
-serve({ fetch: createApp({ catalog, logger }).fetch, port: env.PORT });
+serve({ fetch: createApp({ catalog, logger, apiKey: env.CATALOG_API_KEY }).fetch, port: env.PORT });
 console.warn(`api listening on http://localhost:${env.PORT}`);

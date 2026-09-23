@@ -1,4 +1,5 @@
 import {
+  HEADERS,
   errorResponseSchema,
   gameResponseSchema,
   gamesResponseSchema,
@@ -28,6 +29,7 @@ const WITCHER_3: Game = {
 
 const RPG = { id: 12, name: 'Role-playing (RPG)', slug: 'role-playing-rpg' };
 const PC = { id: 6, name: 'PC (Microsoft Windows)', abbreviation: 'PC' };
+const API_KEY = 'test-api-key-0123456789';
 
 describe('catalog routes', () => {
   let app: Hono;
@@ -40,10 +42,12 @@ describe('catalog routes', () => {
     app = createApp({
       catalog: createCatalogService({ repository, igdb: igdb.client, logger }),
       logger,
+      apiKey: API_KEY,
     });
   });
 
-  const get = (path: string) => app.request(path);
+  const get = (path: string, key: string | null = API_KEY) =>
+    app.request(path, key === null ? {} : { headers: { [HEADERS.apiKey]: key } });
 
   it('answers each endpoint in the shape clients parse', async () => {
     // Exact bodies, so nothing beyond the contract leaks out (cache columns,
@@ -87,6 +91,26 @@ describe('catalog routes', () => {
 
     expect(response.status).toBe(400);
     expect(errorResponseSchema.parse(await response.json()).error).toBe('invalid_request');
+  });
+
+  // The key keeps casual scrapers off the IGDB quota. A request without it
+  // must be refused before any work, so it cannot cost an IGDB call either.
+  it.each([
+    { case: 'no key', key: null },
+    { case: 'a wrong key', key: 'not-the-key-0123456789' },
+    { case: 'a key differing in length', key: API_KEY + 'x' },
+  ])('refuses $case with 401 and never calls IGDB', async ({ key }) => {
+    const before = igdb.calls();
+
+    const response = await get('/catalog/search?q=never cached', key);
+
+    expect(response.status).toBe(401);
+    expect(errorResponseSchema.parse(await response.json())).toEqual({ error: 'unauthorized' });
+    expect(igdb.calls()).toBe(before);
+  });
+
+  it('leaves the health check open, for the host to probe', async () => {
+    expect((await get('/health', null)).status).toBe(200);
   });
 
   // IGDB being down is not the client's problem: 200, from cache, marked stale.
