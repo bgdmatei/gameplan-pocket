@@ -1,4 +1,4 @@
-import { createEntry } from '@gameplan/domain';
+import { DomainValidationError, applyEntryChange, createEntry } from '@gameplan/domain';
 import {
   countPendingOps,
   createMigratedNodeAdapter,
@@ -9,26 +9,86 @@ import {
 import { describe, expect, it } from 'vitest';
 import { entryId } from '../ids';
 import { fakeEnv } from '../testing/env';
-import { commitLocalChange, commitLocalCreate } from './commit';
+import { applyRemoteOps } from './apply';
+import { commitLocalCreate, commitLocalEdit } from './commit';
+
+const TODAY = '2026-09-23';
 
 const entry = createEntry(
   { id: entryId(1942), gameId: 1942, status: 'playing', createdAt: '2026-09-23T10:00:00.000Z' },
-  { today: '2026-09-23' },
+  { today: TODAY },
 );
 
-describe('commitLocalChange', () => {
+describe('commitLocalEdit', () => {
   it('writes nothing for an edit that changed nothing', async () => {
     const adapter = await createMigratedNodeAdapter();
+    const env = fakeEnv();
+    const created = await commitLocalCreate(adapter, env, { entity: 'library_entry', next: entry });
 
-    const op = await commitLocalChange(adapter, fakeEnv(), {
+    const op = await commitLocalEdit(adapter, env, {
       entity: 'library_entry',
-      next: entry,
-      changed: {},
+      id: entry.id,
+      update: (current) => applyEntryChange(current, { rating: current.rating }, { today: TODAY }),
     });
 
     expect(op).toBeNull();
-    expect(await countPendingOps(adapter)).toBe(0);
-    expect((await getSyncState(adapter)).hlcLast).toBeNull();
+    expect(await countPendingOps(adapter)).toBe(1);
+    expect((await getSyncState(adapter)).hlcLast).toBe(created.hlc);
+  });
+
+  /**
+   * The bug this function exists to prevent: a screen read the entry, a pull
+   * then changed it, and saving the screen's copy wrote the old value back
+   * under a new clock, so every device lost the pulled change.
+   */
+  it('edits the row as it is now, not as a screen last saw it', async () => {
+    const phone = await createMigratedNodeAdapter();
+    const tablet = await createMigratedNodeAdapter();
+    const phoneEnv = fakeEnv(Date.UTC(2026, 8, 23, 10), 1);
+    const tabletEnv = fakeEnv(Date.UTC(2026, 8, 23, 10), 2);
+
+    const created = await commitLocalCreate(phone, phoneEnv, {
+      entity: 'library_entry',
+      next: entry,
+    });
+    await applyRemoteOps(tablet, tabletEnv, [created], { lastPulledSeq: 1 });
+
+    const onScreen = await getLibraryEntry(phone, entry.id);
+    tabletEnv.advance(1_000);
+    const rated = await commitLocalEdit(tablet, tabletEnv, {
+      entity: 'library_entry',
+      id: entry.id,
+      update: (current) => applyEntryChange(current, { rating: 8 }, { today: TODAY }),
+    });
+    await applyRemoteOps(phone, phoneEnv, rated === null ? [] : [rated], { lastPulledSeq: 2 });
+
+    phoneEnv.advance(2_000);
+    await commitLocalEdit(phone, phoneEnv, {
+      entity: 'library_entry',
+      id: entry.id,
+      update: (current) => applyEntryChange(current, { favourite: true }, { today: TODAY }),
+    });
+
+    expect(onScreen?.rating).toBeNull();
+    expect(await getLibraryEntry(phone, entry.id)).toMatchObject({ rating: 8, favourite: true });
+  });
+
+  it('writes nothing when the domain rule rejects the edit', async () => {
+    const adapter = await createMigratedNodeAdapter();
+    const env = fakeEnv();
+    const created = await commitLocalCreate(adapter, env, { entity: 'library_entry', next: entry });
+
+    await expect(
+      commitLocalEdit(adapter, env, {
+        entity: 'library_entry',
+        id: entry.id,
+        update: (current) => applyEntryChange(current, { status: 'wishlist' }, { today: TODAY }),
+      }),
+    ).rejects.toThrow(DomainValidationError);
+
+    expect(await getLibraryEntry(adapter, entry.id)).toEqual(entry);
+    expect(await countPendingOps(adapter)).toBe(1);
+    expect((await getSyncState(adapter)).hlcLast).toBe(created.hlc);
   });
 
   /**
@@ -48,10 +108,10 @@ describe('commitLocalChange', () => {
     expect((await getSyncState(adapter)).hlcLast).toBe(op.hlc);
 
     await expect(
-      commitLocalChange(adapter, env, {
+      commitLocalEdit(adapter, env, {
         entity: 'library_entry',
-        next: { ...entry, rating: 9 },
-        changed: { rating: 9 },
+        id: entry.id,
+        update: (current) => applyEntryChange(current, { rating: 9 }, { today: TODAY }),
       }),
     ).rejects.toThrow();
 

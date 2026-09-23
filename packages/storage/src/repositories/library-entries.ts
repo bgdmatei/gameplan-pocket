@@ -1,8 +1,7 @@
 import { gameSchema, libraryEntrySchema } from '@gameplan/domain';
 import type { EntryStatus, Game, LibraryEntry } from '@gameplan/domain';
 import type { SqlValue, StorageAdapter } from '../adapter';
-import { writeAtomically } from './write';
-import type { PendingOp, Row } from './write';
+import type { Row } from './write';
 
 /** Tables these queries read, so a change to either can refresh the screen. */
 export const LIBRARY_ENTRY_TABLES = ['library_entries', 'games', 'entry_tags'] as const;
@@ -34,8 +33,6 @@ export type SaveOptions = {
   updatedAt: string;
   /** Per-field clocks, written by `sync-core`. */
   fieldHlc?: string;
-  /** Present for a local edit, absent when applying a change from another device. */
-  op?: PendingOp;
 };
 
 export const toRow = (entry: LibraryEntry, { updatedAt, fieldHlc }: SaveOptions): Row => ({
@@ -261,19 +258,4 @@ export const getLibraryEntryByGame = async (
   );
   const row = rows[0];
   return row === undefined ? null : toEntry(row);
-};
-
-/**
- * Saves an entry produced by a domain rule, together with its outbox entry.
- * Used for both creating and updating: the row is upserted by id.
- */
-export const saveLibraryEntry = async (
-  adapter: StorageAdapter,
-  entry: LibraryEntry,
-  options: SaveOptions,
-): Promise<void> => {
-  await writeAtomically(adapter, {
-    rows: [{ table: 'library_entries', row: toRow(entry, options) }],
-    ...(options.op === undefined ? {} : { ops: [options.op] }),
-  });
 };

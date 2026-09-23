@@ -10,12 +10,21 @@ import type { DeletableEntity, EntityValues, StoredEntity, SyncEnv } from './ent
 
 /** The result of a domain write rule, ready to commit. */
 export type LocalChange<E extends StoredEntity> = {
-  entity: E;
   next: EntityValues[E];
   /** Exactly the domain rule's `changed`: what the op tells other devices. */
   changed: Partial<EntityValues[E]>;
   /** Note text edits only: the clock of the text the edit started from. */
   baseHlc?: string;
+};
+
+/**
+ * An edit to an existing row. `update` is the domain write rule, given the row
+ * as it stands inside the transaction, never a copy a screen read earlier.
+ */
+export type LocalEdit<E extends StoredEntity> = {
+  entity: E;
+  id: string;
+  update: (current: EntityValues[E]) => LocalChange<E>;
 };
 
 /**
@@ -46,59 +55,79 @@ const queue = (op: unknown, nowMs: number) => {
 };
 
 /**
- * Commits a local edit: the row, its per-field clocks, the outbox entry and
- * the clock state, in one transaction. All land or none do.
+ * Writes a change on top of the clocks the row already had: the row, its
+ * per-field clocks, the outbox entry and the clock state. Callers hold the
+ * transaction, so all land or none do.
+ */
+const writeChange = async <E extends StoredEntity>(
+  tx: Transaction,
+  env: SyncEnv,
+  entity: E,
+  { next, changed, baseHlc }: LocalChange<E>,
+  fieldHlc: string | undefined,
+): Promise<Op> => {
+  const codec = codecFor(entity);
+  const { hlc, nowMs } = await nextClock(tx, env);
+
+  const clocks = parseClocks(fieldHlc);
+  for (const field of Object.keys(changed)) clocks[field] = hlc;
+
+  const { op, pending } = queue(
+    {
+      id: newId(env.randomBytes, nowMs),
+      entity,
+      entityId: next.id,
+      type: 'set',
+      fields: changed,
+      ...(baseHlc === undefined ? {} : { baseHlc }),
+      hlc,
+      schemaVersion: OP_SCHEMA_VERSION,
+    },
+    nowMs,
+  );
+
+  const meta = { fieldHlc: stringifyClocks(clocks), deleted: isDeleted(clocks), now: isoAt(nowMs) };
+  await writeRows(tx, {
+    rows: [{ table: codec.table, row: codec.toRow(next, meta) }],
+    ops: [pending],
+  });
+  return op;
+};
+
+/**
+ * Commits a local edit. The row is read, the domain rule applied and the
+ * result written in one transaction, so a change that landed after a screen
+ * loaded the row (another edit, or one pulled from another device) is edited
+ * on top of rather than overwritten.
  *
  * An empty `changed` writes nothing and returns `null`: re-saving an unchanged
- * form must not send an op.
+ * form must not send an op. A rule that throws writes nothing either.
  */
-export const commitLocalChange = async <E extends StoredEntity>(
+export const commitLocalEdit = async <E extends StoredEntity>(
   adapter: StorageAdapter,
   env: SyncEnv,
-  { entity, next, changed, baseHlc }: LocalChange<E>,
-): Promise<Op | null> => {
-  const fields = Object.keys(changed);
-  if (fields.length === 0) return null;
+  { entity, id, update }: LocalEdit<E>,
+): Promise<Op | null> =>
+  adapter.transaction(async (tx) => {
+    const stored = await readSyncedRow(tx, codecFor(entity), id);
+    if (stored === null) throw new Error(`Cannot edit ${entity} ${id}: it does not exist.`);
 
-  return adapter.transaction(async (tx) => {
-    const codec = codecFor(entity);
-    const { hlc, nowMs } = await nextClock(tx, env);
-    const stored = await readSyncedRow(tx, codec, next.id);
+    const change = update(stored.value as EntityValues[E]);
+    if (change.next.id !== id) {
+      throw new Error(`An edit to ${entity} ${id} returned ${change.next.id} instead.`);
+    }
+    if (Object.keys(change.changed).length === 0) return null;
 
-    const clocks = parseClocks(stored?.fieldHlc);
-    for (const field of fields) clocks[field] = hlc;
-
-    const { op, pending } = queue(
-      {
-        id: newId(env.randomBytes, nowMs),
-        entity,
-        entityId: next.id,
-        type: 'set',
-        fields: changed,
-        ...(baseHlc === undefined ? {} : { baseHlc }),
-        hlc,
-        schemaVersion: OP_SCHEMA_VERSION,
-      },
-      nowMs,
-    );
-
-    const meta = {
-      fieldHlc: stringifyClocks(clocks),
-      deleted: isDeleted(clocks),
-      now: isoAt(nowMs),
-    };
-    await writeRows(tx, {
-      rows: [{ table: codec.table, row: codec.toRow(next, meta) }],
-      ops: [pending],
-    });
-    return op;
+    return writeChange(tx, env, entity, change, stored.fieldHlc);
   });
-};
 
 /**
  * Commits a newly created row, or re-adds one: every field but the id is sent,
  * since the other devices know nothing of it yet. The domain's create rules
  * return the value alone, so this saves every caller building `changed` by hand.
+ *
+ * A re-add keeps the clocks the row already had, so a tag removed and added
+ * back comes back with clocks newer than its delete.
  */
 export const commitLocalCreate = async <E extends StoredEntity>(
   adapter: StorageAdapter,
@@ -108,9 +137,13 @@ export const commitLocalCreate = async <E extends StoredEntity>(
   const changed = Object.fromEntries(
     Object.entries(next).filter(([field]) => field !== 'id'),
   ) as Partial<EntityValues[E]>;
-  const op = await commitLocalChange(adapter, env, { entity, next, changed });
-  if (op === null) throw new Error(`A new ${entity} must have fields to send.`);
-  return op;
+  if (Object.keys(changed).length === 0)
+    throw new Error(`A new ${entity} must have fields to send.`);
+
+  return adapter.transaction(async (tx) => {
+    const stored = await readSyncedRow(tx, codecFor(entity), next.id);
+    return writeChange(tx, env, entity, { next, changed }, stored?.fieldHlc);
+  });
 };
 
 /**

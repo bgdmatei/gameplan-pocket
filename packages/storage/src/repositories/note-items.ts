@@ -1,15 +1,13 @@
 import { noteItemSchema } from '@gameplan/domain';
 import type { NoteItem, NoteItemType } from '@gameplan/domain';
 import type { SqlValue, StorageAdapter } from '../adapter';
-import { writeAtomically } from './write';
-import type { PendingOp, Row } from './write';
+import type { Row } from './write';
 
 export const NOTE_ITEM_TABLES = ['note_items'] as const;
 
 export type NoteSaveOptions = {
   updatedAt: string;
   fieldHlc?: string;
-  op?: PendingOp;
 };
 
 export type ListNoteOptions = {
@@ -106,36 +104,4 @@ export const countOpenNotes = async (adapter: StorageAdapter, entryId: string): 
     [entryId],
   );
   return rows[0]?.count ?? 0;
-};
-
-export const saveNoteItem = async (
-  adapter: StorageAdapter,
-  item: NoteItem,
-  options: NoteSaveOptions,
-): Promise<void> => {
-  await writeAtomically(adapter, {
-    rows: [{ table: 'note_items', row: toRow(item, options) }],
-    ...(options.op === undefined ? {} : { ops: [options.op] }),
-  });
-};
-
-export const softDeleteNoteItem = async (
-  adapter: StorageAdapter,
-  id: string,
-  options: NoteSaveOptions,
-): Promise<void> => {
-  await adapter.transaction(async (tx) => {
-    await tx.execute('UPDATE note_items SET deleted = 1, updated_at = ? WHERE id = ?', [
-      options.updatedAt,
-      id,
-    ]);
-
-    if (options.op !== undefined) {
-      await tx.execute('INSERT INTO pending_ops (id, payload, created_at) VALUES (?, ?, ?)', [
-        options.op.id,
-        options.op.payload,
-        options.op.createdAt,
-      ]);
-    }
-  });
 };

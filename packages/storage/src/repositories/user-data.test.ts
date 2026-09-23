@@ -10,16 +10,22 @@ import {
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StorageAdapter } from '../adapter';
 import { createNodeAdapter } from '../node/adapter';
-import { addEntryTag, listEntryTags, listTagsInUse, removeEntryTag } from './entry-tags';
-import { getLibraryEntry, saveLibraryEntry } from './library-entries';
-import { addGameToList, listGamesOf, listItemsOf, saveList, softDeleteList } from './lists';
-import { countOpenNotes, listNoteItems, saveNoteItem, softDeleteNoteItem } from './note-items';
+import { putRows } from '../testing/rows';
+import { listEntryTags, listTagsInUse } from './entry-tags';
+import { listGamesOf, listItemsOf } from './lists';
+import { countOpenNotes, listNoteItems } from './note-items';
+import { SYNCED_ROWS } from './synced-rows';
 
 const NOW = '2026-09-18T10:00:00Z';
 const ENTRY_ID = 'entry-1942';
 
 const tagFor = (entryId: string, raw: string) =>
   createEntryTag({ id: tagIdentityKey(entryId, raw), entryId, tag: raw });
+
+const entry = createEntry(
+  { id: ENTRY_ID, gameId: 1942, status: 'playing', createdAt: NOW },
+  { today: '2026-09-18' },
+);
 
 describe('user data', () => {
   let adapter: StorageAdapter;
@@ -33,39 +39,24 @@ describe('user data', () => {
       'the-witcher-3',
       NOW,
     ]);
-    await saveLibraryEntry(
-      adapter,
-      createEntry(
-        { id: ENTRY_ID, gameId: 1942, status: 'playing', createdAt: NOW },
-        {
-          today: '2026-09-18',
-        },
-      ),
-      { updatedAt: NOW },
-    );
+    await putRows(adapter, SYNCED_ROWS.library_entries, [entry], { now: NOW });
   });
 
   describe('tags', () => {
-    it('keeps one row per tag however often it is added, and revives a removed one', async () => {
-      const tag = tagFor(ENTRY_ID, 'co-op');
-      await addEntryTag(adapter, tag, { createdAt: NOW });
-      await addEntryTag(adapter, tagFor(ENTRY_ID, 'CO-OP'), { createdAt: NOW });
-      expect(await listEntryTags(adapter, ENTRY_ID)).toHaveLength(1);
+    it('lists live tags, and counts them for a filter list ignoring archived games', async () => {
+      const coOp = tagFor(ENTRY_ID, 'co-op');
+      await putRows(adapter, SYNCED_ROWS.entry_tags, [coOp], { now: NOW });
+      await putRows(adapter, SYNCED_ROWS.entry_tags, [tagFor(ENTRY_ID, 'rpg')], {
+        now: NOW,
+        deleted: true,
+      });
 
-      await removeEntryTag(adapter, tag.id);
-      expect(await listEntryTags(adapter, ENTRY_ID)).toEqual([]);
-
-      await addEntryTag(adapter, tag, { createdAt: NOW });
-      expect(await listEntryTags(adapter, ENTRY_ID)).toEqual([tag]);
-    });
-
-    it('counts tags in use for a filter list, ignoring archived games', async () => {
-      await addEntryTag(adapter, tagFor(ENTRY_ID, 'co-op'), { createdAt: NOW });
+      expect(await listEntryTags(adapter, ENTRY_ID)).toEqual([coOp]);
       expect(await listTagsInUse(adapter)).toEqual([{ tag: 'co-op', count: 1 }]);
 
-      const entry = await getLibraryEntry(adapter, ENTRY_ID);
-      if (entry === null) throw new Error('The entry was not saved.');
-      await saveLibraryEntry(adapter, { ...entry, archived: true }, { updatedAt: NOW });
+      await putRows(adapter, SYNCED_ROWS.library_entries, [{ ...entry, archived: true }], {
+        now: NOW,
+      });
       expect(await listTagsInUse(adapter)).toEqual([]);
     });
   });
@@ -81,12 +72,18 @@ describe('user data', () => {
         ...patch,
       });
 
-    it('lists what is open, filtered by type, in reading order', async () => {
-      await saveNoteItem(adapter, noteFor('a', { location: 'Chapter 2' }), { updatedAt: NOW });
-      await saveNoteItem(adapter, noteFor('b', { location: 'Chapter 1', type: 'npc_hint' }), {
-        updatedAt: NOW,
-      });
-      await saveNoteItem(adapter, noteFor('c', { resolved: true }), { updatedAt: NOW });
+    it('lists live notes, filtered by type, in reading order', async () => {
+      await putRows(
+        adapter,
+        SYNCED_ROWS.note_items,
+        [
+          noteFor('a', { location: 'Chapter 2' }),
+          noteFor('b', { location: 'Chapter 1', type: 'npc_hint' }),
+          noteFor('c', { resolved: true }),
+        ],
+        { now: NOW },
+      );
+      await putRows(adapter, SYNCED_ROWS.note_items, [noteFor('d')], { now: NOW, deleted: true });
 
       expect((await listNoteItems(adapter, ENTRY_ID)).map((note) => note.id)).toEqual([
         'b',
@@ -101,37 +98,19 @@ describe('user data', () => {
       );
       expect(await countOpenNotes(adapter, ENTRY_ID)).toBe(2);
     });
-
-    it('hides a deleted note and records the removal for other devices', async () => {
-      await saveNoteItem(adapter, noteFor('a'), { updatedAt: NOW });
-
-      await softDeleteNoteItem(adapter, 'a', {
-        updatedAt: NOW,
-        op: { id: 'op-1', payload: '{}', createdAt: NOW },
-      });
-
-      expect(await listNoteItems(adapter, ENTRY_ID)).toEqual([]);
-      expect(await adapter.execute('SELECT id FROM pending_ops')).toEqual([{ id: 'op-1' }]);
-    });
   });
 
   describe('lists', () => {
     const list = createList({ id: 'list-1', name: 'Best of 2026', createdAt: NOW });
+    const item = createListItem({ id: 'i-1', listId: 'list-1', gameId: 1942, addedAt: NOW });
 
     it('holds catalog games in the order added, leaving out uncached ones', async () => {
-      await saveList(adapter, list, { updatedAt: NOW });
-      await addGameToList(
+      await putRows(adapter, SYNCED_ROWS.lists, [list], { now: NOW });
+      await putRows(
         adapter,
-        createListItem({ id: 'i-1', listId: 'list-1', gameId: 1942, addedAt: NOW }),
-      );
-      // Added twice: the shared id means one entry, not two.
-      await addGameToList(
-        adapter,
-        createListItem({ id: 'i-1', listId: 'list-1', gameId: 1942, addedAt: NOW }),
-      );
-      await addGameToList(
-        adapter,
-        createListItem({ id: 'i-2', listId: 'list-1', gameId: 404, addedAt: NOW }),
+        SYNCED_ROWS.list_items,
+        [item, createListItem({ id: 'i-2', listId: 'list-1', gameId: 404, addedAt: NOW })],
+        { now: NOW },
       );
 
       expect(await listItemsOf(adapter, 'list-1')).toHaveLength(2);
@@ -144,13 +123,8 @@ describe('user data', () => {
     // list brought back by a later edit comes back with its games on every
     // device. A cascade once set `deleted` on the items with no op to undo it.
     it('hides the games of a deleted list, and shows them again if the list comes back', async () => {
-      await saveList(adapter, list, { updatedAt: NOW });
-      await addGameToList(
-        adapter,
-        createListItem({ id: 'i-1', listId: 'list-1', gameId: 1942, addedAt: NOW }),
-      );
-
-      await softDeleteList(adapter, 'list-1', { updatedAt: NOW });
+      await putRows(adapter, SYNCED_ROWS.lists, [list], { now: NOW, deleted: true });
+      await putRows(adapter, SYNCED_ROWS.list_items, [item], { now: NOW });
       expect(await listItemsOf(adapter, 'list-1')).toEqual([]);
       expect(await listGamesOf(adapter, 'list-1')).toEqual([]);
 

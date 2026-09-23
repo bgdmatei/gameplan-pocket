@@ -1,15 +1,13 @@
 import { gameSchema, listItemSchema, listSchema } from '@gameplan/domain';
 import type { Game, List, ListItem } from '@gameplan/domain';
 import type { StorageAdapter } from '../adapter';
-import { writeAtomically } from './write';
-import type { PendingOp, Row } from './write';
+import type { Row } from './write';
 
 export const LIST_TABLES = ['lists', 'list_items', 'games'] as const;
 
 export type ListSaveOptions = {
   updatedAt: string;
   fieldHlc?: string;
-  op?: PendingOp;
 };
 
 export const toListRow = (list: List, { updatedAt, fieldHlc }: ListSaveOptions): Row => ({
@@ -65,75 +63,11 @@ export const getList = async (adapter: StorageAdapter, id: string): Promise<List
   return row === undefined ? null : toList(row);
 };
 
-export const saveList = async (
-  adapter: StorageAdapter,
-  list: List,
-  options: ListSaveOptions,
-): Promise<void> => {
-  await writeAtomically(adapter, {
-    rows: [{ table: 'lists', row: toListRow(list, options) }],
-    ...(options.op === undefined ? {} : { ops: [options.op] }),
-  });
-};
-
 /**
- * Tombstones the list row, and only it. Its items are hidden because every
- * item query requires a live list. Deletes never cascade: a cascade would set
- * `deleted` on the items with no op and no clock, so after the list was
- * brought back by a later edit, devices would disagree about what is on it
- * (SPEC-sync-core.md §Merge).
+ * A deleted list hides its items through the join, not by tombstoning them:
+ * deletes never cascade, so a list brought back by a later edit comes back
+ * with its games on every device (SPEC-sync-core.md §Merge).
  */
-export const softDeleteList = async (
-  adapter: StorageAdapter,
-  id: string,
-  options: ListSaveOptions,
-): Promise<void> => {
-  await adapter.transaction(async (tx) => {
-    await tx.execute('UPDATE lists SET deleted = 1, updated_at = ? WHERE id = ?', [
-      options.updatedAt,
-      id,
-    ]);
-
-    if (options.op !== undefined) {
-      await tx.execute('INSERT INTO pending_ops (id, payload, created_at) VALUES (?, ?, ?)', [
-        options.op.id,
-        options.op.payload,
-        options.op.createdAt,
-      ]);
-    }
-  });
-};
-
-/** Adding a game already on the list changes nothing, thanks to the shared id. */
-export const addGameToList = async (
-  adapter: StorageAdapter,
-  item: ListItem,
-  options: { fieldHlc?: string; op?: PendingOp } = {},
-): Promise<void> => {
-  await writeAtomically(adapter, {
-    rows: [{ table: 'list_items', row: toListItemRow(item, options.fieldHlc) }],
-    ...(options.op === undefined ? {} : { ops: [options.op] }),
-  });
-};
-
-export const removeGameFromList = async (
-  adapter: StorageAdapter,
-  id: string,
-  options: { op?: PendingOp } = {},
-): Promise<void> => {
-  await adapter.transaction(async (tx) => {
-    await tx.execute('UPDATE list_items SET deleted = 1 WHERE id = ?', [id]);
-
-    if (options.op !== undefined) {
-      await tx.execute('INSERT INTO pending_ops (id, payload, created_at) VALUES (?, ?, ?)', [
-        options.op.id,
-        options.op.payload,
-        options.op.createdAt,
-      ]);
-    }
-  });
-};
-
 export const listItemsOf = async (adapter: StorageAdapter, listId: string): Promise<ListItem[]> => {
   const rows = await adapter.execute<ListItemRow>(
     `SELECT i.id, i.list_id, i.game_id, i.added_at

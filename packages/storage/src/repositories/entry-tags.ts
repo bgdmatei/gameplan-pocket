@@ -1,15 +1,13 @@
 import { entryTagSchema } from '@gameplan/domain';
 import type { EntryTag } from '@gameplan/domain';
 import type { StorageAdapter } from '../adapter';
-import { writeAtomically } from './write';
-import type { PendingOp, Row } from './write';
+import type { Row } from './write';
 
 export const ENTRY_TAG_TABLES = ['entry_tags'] as const;
 
 export type TagSaveOptions = {
   createdAt: string;
   fieldHlc?: string;
-  op?: PendingOp;
 };
 
 export const toRow = (tag: EntryTag, { createdAt, fieldHlc }: TagSaveOptions): Row => ({
@@ -27,41 +25,6 @@ export type TagRow = { id: string; entry_id: string; tag: string };
 
 export const toTag = (row: TagRow): EntryTag =>
   entryTagSchema.parse({ id: row.id, entryId: row.entry_id, tag: row.tag });
-
-/**
- * Adds a tag. The id comes from the domain's identity key, so the same tag
- * added on two devices while offline produces one row rather than two, and
- * adding it twice on one device changes nothing.
- */
-export const addEntryTag = async (
-  adapter: StorageAdapter,
-  tag: EntryTag,
-  options: TagSaveOptions,
-): Promise<void> => {
-  await writeAtomically(adapter, {
-    rows: [{ table: 'entry_tags', row: toRow(tag, options) }],
-    ...(options.op === undefined ? {} : { ops: [options.op] }),
-  });
-};
-
-/** Tombstoned, not deleted, so the removal reaches other devices. */
-export const removeEntryTag = async (
-  adapter: StorageAdapter,
-  id: string,
-  options: { op?: PendingOp } = {},
-): Promise<void> => {
-  await adapter.transaction(async (tx) => {
-    await tx.execute('UPDATE entry_tags SET deleted = 1 WHERE id = ?', [id]);
-
-    if (options.op !== undefined) {
-      await tx.execute('INSERT INTO pending_ops (id, payload, created_at) VALUES (?, ?, ?)', [
-        options.op.id,
-        options.op.payload,
-        options.op.createdAt,
-      ]);
-    }
-  });
-};
 
 /** A game's tags, alphabetically, which is how they are shown. */
 export const listEntryTags = async (

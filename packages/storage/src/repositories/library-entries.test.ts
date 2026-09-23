@@ -5,7 +5,9 @@ import fc from 'fast-check';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StorageAdapter } from '../adapter';
 import { createNodeAdapter } from '../node/adapter';
-import { getLibraryEntry, listLibraryEntries, saveLibraryEntry } from './library-entries';
+import { putRows } from '../testing/rows';
+import { getLibraryEntry, listLibraryEntries } from './library-entries';
+import { SYNCED_ROWS } from './synced-rows';
 
 const TODAY = '2026-09-18';
 const NOW = '2026-09-18T10:00:00Z';
@@ -18,6 +20,9 @@ const cacheGame = async (adapter: StorageAdapter, id: number, name: string): Pro
     NOW,
   ]);
 };
+
+const putEntries = (adapter: StorageAdapter, entries: LibraryEntry[], now = NOW) =>
+  putRows(adapter, SYNCED_ROWS.library_entries, entries, { now });
 
 const entryFor = (gameId: number, patch: Partial<LibraryEntry> = {}): LibraryEntry => ({
   ...createEntry(
@@ -47,33 +52,14 @@ describe('library entries', () => {
       favourite: true,
     });
 
-    await saveLibraryEntry(adapter, entry, { updatedAt: NOW });
+    await putEntries(adapter, [entry]);
 
     expect(await getLibraryEntry(adapter, entry.id)).toEqual(entry);
   });
 
-  /**
-   * The guarantee the whole write path exists for: a row saved without its
-   * sync operation would never reach another device. Removing the transaction
-   * from writeAtomically fails this test and nothing else.
-   */
-  it('keeps neither the row nor the operation when the write fails halfway', async () => {
-    await cacheGame(adapter, 1942, 'The Witcher 3');
-    const op = { id: 'op-1', payload: '{}', createdAt: NOW };
-    await saveLibraryEntry(adapter, entryFor(7), { updatedAt: NOW, op });
-
-    // The same op id again: the outbox insert fails after the row upsert.
-    await expect(
-      saveLibraryEntry(adapter, entryFor(1942), { updatedAt: NOW, op }),
-    ).rejects.toThrow();
-
-    expect(await getLibraryEntry(adapter, 'entry-1942')).toBeNull();
-    expect(await adapter.execute('SELECT id FROM pending_ops')).toEqual([{ id: 'op-1' }]);
-  });
-
   it('moves an archived game out of the library and into the archive', async () => {
     await cacheGame(adapter, 1942, 'The Witcher 3');
-    await saveLibraryEntry(adapter, entryFor(1942, { archived: true }), { updatedAt: NOW });
+    await putEntries(adapter, [entryFor(1942, { archived: true })]);
 
     expect((await listLibraryEntries(adapter)).rows).toEqual([]);
     expect(
@@ -98,17 +84,17 @@ describe('library entries', () => {
       await cacheGame(adapter, 2, "Baldur's Gate 3");
       await cacheGame(adapter, 3, 'Celeste');
 
-      await saveLibraryEntry(
+      await putEntries(
         adapter,
-        entryFor(1, { status: 'playing', rating: 5, playtimeMinutes: 100, favourite: true }),
-        { updatedAt: '2026-09-01T10:00:00Z' },
+        [entryFor(1, { status: 'playing', rating: 5, playtimeMinutes: 100, favourite: true })],
+        '2026-09-01T10:00:00Z',
       );
-      await saveLibraryEntry(
+      await putEntries(
         adapter,
-        entryFor(2, { status: 'completed', rating: 10, playtimeMinutes: 6_000 }),
-        { updatedAt: '2026-09-03T10:00:00Z' },
+        [entryFor(2, { status: 'completed', rating: 10, playtimeMinutes: 6_000 })],
+        '2026-09-03T10:00:00Z',
       );
-      await saveLibraryEntry(adapter, entryFor(3), { updatedAt: '2026-09-02T10:00:00Z' });
+      await putEntries(adapter, [entryFor(3)], '2026-09-02T10:00:00Z');
     });
 
     const names = async (options = {}): Promise<string[]> =>
@@ -148,7 +134,7 @@ describe('library entries', () => {
     });
 
     it('leaves out an entry whose game is not cached, since a row needs a name', async () => {
-      await saveLibraryEntry(adapter, entryFor(404), { updatedAt: NOW });
+      await putEntries(adapter, [entryFor(404)]);
 
       expect((await listLibraryEntries(adapter)).rows).toHaveLength(3);
     });
@@ -178,14 +164,16 @@ describe('paging', () => {
             const total = 20;
             for (let index = 0; index < total; index += 1) {
               await cacheGame(adapter, index + 1, `Game ${String(index % 5)}`);
-              await saveLibraryEntry(
+              await putEntries(
                 adapter,
-                entryFor(index + 1, {
-                  // Deliberate ties and unrated games: where paging breaks.
-                  rating: index % 3 === 0 ? null : index % 4,
-                  playtimeMinutes: (index % 3) * 60,
-                }),
-                { updatedAt: `2026-09-${String(10 + (index % 3)).padStart(2, '0')}T10:00:00Z` },
+                [
+                  entryFor(index + 1, {
+                    // Deliberate ties and unrated games: where paging breaks.
+                    rating: index % 3 === 0 ? null : index % 4,
+                    playtimeMinutes: (index % 3) * 60,
+                  }),
+                ],
+                `2026-09-${String(10 + (index % 3)).padStart(2, '0')}T10:00:00Z`,
               );
             }
 

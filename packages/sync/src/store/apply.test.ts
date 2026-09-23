@@ -19,7 +19,7 @@ import { entryId } from '../ids';
 import type { Op } from '../op/schema';
 import { fakeEnv } from '../testing/env';
 import { applyRemoteOps } from './apply';
-import { commitLocalChange, commitLocalCreate, commitLocalDelete } from './commit';
+import { commitLocalCreate, commitLocalDelete, commitLocalEdit } from './commit';
 
 const TODAY = '2026-09-23';
 const START = Date.UTC(2026, 8, 23, 10);
@@ -61,17 +61,27 @@ describe('applyRemoteOps', () => {
 
     // Offline on both. Each status change is valid on its own device.
     phoneEnv.advance(1_000);
-    const completed = applyEntryChange(entry, { status: 'completed' }, { today: TODAY });
     const fromPhone = ops([
-      await commitLocalChange(phone, phoneEnv, { entity: 'library_entry', ...completed }),
+      await commitLocalEdit(phone, phoneEnv, {
+        entity: 'library_entry',
+        id: entry.id,
+        update: (current) => applyEntryChange(current, { status: 'completed' }, { today: TODAY }),
+      }),
       await commitLocalDelete(phone, phoneEnv, { entity: 'note_item', entityId: 'note-1' }),
     ]);
 
-    const dropped = applyEntryChange(entry, { status: 'dropped', rating: 7 }, { today: TODAY });
-    const edited = applyNoteItemChange(note, { text: 'Lever behind the waterfall' });
     const fromTablet = ops([
-      await commitLocalChange(tablet, tabletEnv, { entity: 'library_entry', ...dropped }),
-      await commitLocalChange(tablet, tabletEnv, { entity: 'note_item', ...edited }),
+      await commitLocalEdit(tablet, tabletEnv, {
+        entity: 'library_entry',
+        id: entry.id,
+        update: (current) =>
+          applyEntryChange(current, { status: 'dropped', rating: 7 }, { today: TODAY }),
+      }),
+      await commitLocalEdit(tablet, tabletEnv, {
+        entity: 'note_item',
+        id: note.id,
+        update: (current) => applyNoteItemChange(current, { text: 'Lever behind the waterfall' }),
+      }),
     ]);
 
     // Exchange, the tablet also receiving a batch it already has.
