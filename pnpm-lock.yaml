@@ -84,6 +84,9 @@ importers:
       '@gameplan/db-schema':
         specifier: workspace:*
         version: link:../../packages/db-schema
+      '@gameplan/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@gameplan/storage':
         specifier: workspace:*
         version: link:../../packages/storage

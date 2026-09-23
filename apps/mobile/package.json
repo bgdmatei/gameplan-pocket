@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@gameplan/db-schema": "workspace:*",
+    "@gameplan/domain": "workspace:*",
     "@gameplan/storage": "workspace:*",
     "@gameplan/test-utils": "workspace:*",
     "@op-engineering/op-sqlite": "18.2.5",
