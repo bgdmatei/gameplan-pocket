@@ -30,6 +30,7 @@ export default tseslint.config(
         { type: 'domain', pattern: 'packages/domain' },
         { type: 'db-schema', pattern: 'packages/db-schema' },
         { type: 'storage', pattern: 'packages/storage' },
+        { type: 'sync', pattern: 'packages/sync' },
         { type: 'pkg', pattern: 'packages/*' },
       ],
       'boundaries/include': ['apps/**/*.{js,jsx,ts,tsx}', 'packages/**/*.{js,jsx,ts,tsx}'],
@@ -51,6 +52,7 @@ export default tseslint.config(
                 { to: { element: { type: 'domain' } } },
                 { to: { element: { type: 'db-schema' } } },
                 { to: { element: { type: 'storage' } } },
+                { to: { element: { type: 'sync' } } },
               ],
             },
             {
@@ -78,6 +80,16 @@ export default tseslint.config(
                 { to: { element: { type: 'storage' } } },
                 { to: { element: { type: 'domain' } } },
                 { to: { element: { type: 'db-schema' } } },
+              ],
+            },
+            // sync is built on domain and the storage interface; storage never
+            // imports sync (SPEC-sync-core.md §Tech stack).
+            {
+              from: [{ element: { type: 'sync' } }],
+              allow: [
+                { to: { element: { type: 'sync' } } },
+                { to: { element: { type: 'domain' } } },
+                { to: { element: { type: 'storage' } } },
               ],
             },
           ],
