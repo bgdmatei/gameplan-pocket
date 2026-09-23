@@ -1,12 +1,12 @@
 import { migrate } from '@gameplan/db-schema';
-import { createEntry } from '@gameplan/domain';
+import { createEntry, createNoteItem } from '@gameplan/domain';
 import type { LibraryEntry } from '@gameplan/domain';
 import fc from 'fast-check';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StorageAdapter } from '../adapter';
 import { createNodeAdapter } from '../node/adapter';
 import { putRows } from '../testing/rows';
-import { getLibraryEntry, listLibraryEntries } from './library-entries';
+import { getLibraryEntry, listLibraryGrid } from './library-entries';
 import { SYNCED_ROWS } from './synced-rows';
 
 const TODAY = '2026-09-18';
@@ -61,9 +61,9 @@ describe('library entries', () => {
     await cacheGame(adapter, 1942, 'The Witcher 3');
     await putEntries(adapter, [entryFor(1942, { archived: true })]);
 
-    expect((await listLibraryEntries(adapter)).rows).toEqual([]);
+    expect((await listLibraryGrid(adapter)).rows).toEqual([]);
     expect(
-      (await listLibraryEntries(adapter, { archived: true })).rows.map((row) => row.game.name),
+      (await listLibraryGrid(adapter, { archived: true })).rows.map((row) => row.name),
     ).toEqual(['The Witcher 3']);
   });
 
@@ -98,7 +98,7 @@ describe('library entries', () => {
     });
 
     const names = async (options = {}): Promise<string[]> =>
-      (await listLibraryEntries(adapter, options)).rows.map((row) => row.game.name);
+      (await listLibraryGrid(adapter, options)).rows.map((row) => row.name);
 
     it('filters and sorts in SQL', async () => {
       expect(await names({ status: 'playing' })).toEqual(['Alpha Protocol']);
@@ -114,9 +114,7 @@ describe('library entries', () => {
         'Alpha Protocol',
       ]);
       // Unrated games sort last rather than dropping out.
-      expect(
-        (await listLibraryEntries(adapter, { sort: 'rating' })).rows.at(-1)?.entry.rating,
-      ).toBeNull();
+      expect((await listLibraryGrid(adapter, { sort: 'rating' })).rows.at(-1)?.rating).toBeNull();
     });
 
     it('filters by tag, ignoring tags that were removed', async () => {
@@ -133,14 +131,36 @@ describe('library entries', () => {
       expect(await names({ tag: 'rpg' })).toEqual([]);
     });
 
+    it('badges only notes still open: resolved and deleted ones do not count', async () => {
+      const note = (id: string, resolved: boolean) =>
+        createNoteItem({
+          id,
+          entryId: 'entry-3',
+          createdAt: NOW,
+          type: 'puzzle',
+          text: id,
+          resolved,
+        });
+      await putRows(adapter, SYNCED_ROWS.note_items, [note('open', false), note('done', true)], {
+        now: NOW,
+      });
+      await putRows(adapter, SYNCED_ROWS.note_items, [note('gone', false)], {
+        now: NOW,
+        deleted: true,
+      });
+
+      const rows = (await listLibraryGrid(adapter, { sort: 'name' })).rows;
+      expect(rows.map((row) => row.openNotes)).toEqual([0, 0, 1]);
+    });
+
     it('leaves out an entry whose game is not cached, since a row needs a name', async () => {
       await putEntries(adapter, [entryFor(404)]);
 
-      expect((await listLibraryEntries(adapter)).rows).toHaveLength(3);
+      expect((await listLibraryGrid(adapter)).rows).toHaveLength(3);
     });
 
     it('rejects a cursor it did not produce', async () => {
-      await expect(listLibraryEntries(adapter, { cursor: 'nonsense' })).rejects.toThrow(/cursor/i);
+      await expect(listLibraryGrid(adapter, { cursor: 'nonsense' })).rejects.toThrow(/cursor/i);
     });
   });
 });
@@ -180,8 +200,8 @@ describe('paging', () => {
             const seen: string[] = [];
             let cursor: string | undefined;
             do {
-              const page = await listLibraryEntries(adapter, { sort, limit: pageSize, cursor });
-              seen.push(...page.rows.map((row) => row.entry.id));
+              const page = await listLibraryGrid(adapter, { sort, limit: pageSize, cursor });
+              seen.push(...page.rows.map((row) => row.id));
               cursor = page.nextCursor;
             } while (cursor !== undefined);
 

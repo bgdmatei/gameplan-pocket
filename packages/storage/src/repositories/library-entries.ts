@@ -3,11 +3,23 @@ import type { EntryStatus, Game, LibraryEntry } from '@gameplan/domain';
 import type { SqlValue, StorageAdapter } from '../adapter';
 import type { Row } from './write';
 
-/** Tables these queries read, so a change to either can refresh the screen. */
-export const LIBRARY_ENTRY_TABLES = ['library_entries', 'games', 'entry_tags'] as const;
+/** Tables these queries read, so a change to any of them can refresh the screen. */
+export const LIBRARY_ENTRY_TABLES = [
+  'library_entries',
+  'games',
+  'entry_tags',
+  'note_items',
+] as const;
 
-/** A row of the library: the user's entry plus the game it refers to. */
-export type LibraryEntryWithGame = { entry: LibraryEntry; game: Game };
+/**
+ * One cell of the library grid: only what the cell shows, plus the open-note
+ * badge. The detail screen reads the full entry and game separately.
+ */
+export type LibraryGridRow = Pick<
+  LibraryEntry,
+  'id' | 'gameId' | 'status' | 'rating' | 'favourite'
+> &
+  Pick<Game, 'name' | 'coverImageId'> & { openNotes: number };
 
 export type LibrarySort = 'recent' | 'name' | 'rating' | 'playtime';
 
@@ -24,7 +36,7 @@ export type ListLibraryOptions = {
 };
 
 export type LibraryPage = {
-  rows: LibraryEntryWithGame[];
+  rows: LibraryGridRow[];
   /** Absent when this was the last page. */
   nextCursor?: string;
 };
@@ -88,40 +100,52 @@ export const toEntry = (row: EntryRow): LibraryEntry =>
     createdAt: row.created_at,
   });
 
-type GameRow = {
-  g_id: number;
-  g_name: string;
-  g_slug: string;
-  g_summary: string | null;
-  g_first_release_date: string | null;
-  g_cover_image_id: string | null;
-  genre_ids: string | null;
-  platform_ids: string | null;
+type GridRow = {
+  id: string;
+  game_id: number;
+  status: string;
+  rating: number | null;
+  favourite: number;
+  name: string;
+  cover_image_id: string | null;
+  open_notes: number;
+  // Read for the cursor only.
+  updated_at: string;
+  playtime_minutes: number;
 };
 
-const idList = (value: string | null): number[] =>
-  value === null || value === '' ? [] : value.split(',').map(Number);
+const gridEntrySchema = libraryEntrySchema.pick({
+  id: true,
+  gameId: true,
+  status: true,
+  rating: true,
+  favourite: true,
+});
+const gridGameSchema = gameSchema.pick({ name: true, coverImageId: true });
 
-const toGame = (row: GameRow): Game =>
-  gameSchema.parse({
-    id: row.g_id,
-    name: row.g_name,
-    slug: row.g_slug,
-    summary: row.g_summary,
-    firstReleaseDate: row.g_first_release_date,
-    coverImageId: row.g_cover_image_id,
-    genreIds: idList(row.genre_ids),
-    platformIds: idList(row.platform_ids),
-  });
+/** Parsed like a full entry, so a corrupt row fails here rather than in a cell. */
+const toGridRow = (row: GridRow): LibraryGridRow => ({
+  ...gridEntrySchema.parse({
+    id: row.id,
+    gameId: row.game_id,
+    status: row.status,
+    rating: row.rating,
+    favourite: row.favourite === 1,
+  }),
+  ...gridGameSchema.parse({ name: row.name, coverImageId: row.cover_image_id }),
+  openNotes: row.open_notes,
+});
 
-const SELECT_ROW = `
-  SELECT e.id, e.game_id, e.status, e.rating, e.platform_id, e.progress,
-         e.playtime_minutes, e.started_on, e.finished_on, e.favourite, e.archived,
-         e.created_at, e.updated_at,
-         g.id AS g_id, g.name AS g_name, g.slug AS g_slug, g.summary AS g_summary,
-         g.first_release_date AS g_first_release_date, g.cover_image_id AS g_cover_image_id,
-         (SELECT group_concat(genre_id) FROM game_genres WHERE game_id = g.id) AS genre_ids,
-         (SELECT group_concat(platform_id) FROM game_platforms WHERE game_id = g.id) AS platform_ids
+/**
+ * Only the columns a cell renders (plan §12.2). The open-note count is a
+ * correlated count over `idx_note_items_entry (entry_id, resolved)`, one index
+ * lookup per row on the page.
+ */
+const SELECT_GRID = `
+  SELECT e.id, e.game_id, e.status, e.rating, e.favourite, e.updated_at, e.playtime_minutes,
+         g.name, g.cover_image_id,
+         (SELECT COUNT(*) FROM note_items n
+          WHERE n.entry_id = e.id AND n.resolved = 0 AND n.deleted = 0) AS open_notes
   FROM library_entries e
   JOIN games g ON g.id = e.game_id
 `;
@@ -165,7 +189,7 @@ const decodeCursor = (cursor: string): [SqlValue, string] => {
  * game's name and cover, and the add-to-library flow caches the game first, so
  * a missing game means an incomplete sync rather than something to display.
  */
-export const listLibraryEntries = async (
+export const listLibraryGrid = async (
   adapter: StorageAdapter,
   options: ListLibraryOptions = {},
 ): Promise<LibraryPage> => {
@@ -197,22 +221,19 @@ export const listLibraryEntries = async (
     params.push(value, value, id);
   }
 
-  const sql = `${SELECT_ROW}
+  const sql = `${SELECT_GRID}
     WHERE ${conditions.join(' AND ')}
     ORDER BY ${column} ${direction}, e.id ${direction}
     LIMIT ?`;
 
-  const rows = await adapter.execute<EntryRow & GameRow & Record<string, SqlValue>>(sql, [
-    ...params,
-    limit + 1,
-  ]);
+  const rows = await adapter.execute<GridRow>(sql, [...params, limit + 1]);
 
   const page = rows.slice(0, limit);
   const last = page[page.length - 1];
   const hasMore = rows.length > limit;
 
   return {
-    rows: page.map((row) => ({ entry: toEntry(row), game: toGame(row) })),
+    rows: page.map(toGridRow),
     ...(hasMore && last !== undefined
       ? { nextCursor: encodeCursor(sortValueOf(last, sort), last.id) }
       : {}),
@@ -220,15 +241,12 @@ export const listLibraryEntries = async (
 };
 
 /** The value the cursor continues from, matching the SQL sort expression. */
-const sortValueOf = (
-  row: EntryRow & { updated_at?: string; g_name?: string },
-  sort: LibrarySort,
-) => {
+const sortValueOf = (row: GridRow, sort: LibrarySort): SqlValue => {
   switch (sort) {
     case 'recent':
-      return row.updated_at ?? null;
+      return row.updated_at;
     case 'name':
-      return row.g_name ?? null;
+      return row.name;
     case 'rating':
       return row.rating ?? -1;
     case 'playtime':

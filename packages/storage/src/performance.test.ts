@@ -3,7 +3,7 @@ import { gameSchema, genreSchema, platformSchema } from '@gameplan/domain';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { StorageAdapter } from './adapter';
 import { createNodeAdapter } from './node/adapter';
-import { listLibraryEntries } from './repositories/library-entries';
+import { listLibraryGrid } from './repositories/library-entries';
 import { searchGames } from './repositories/games';
 import { appendPendingOp } from './repositories/pending-ops';
 import fixture from './testing/fixtures/catalog.json';
@@ -81,7 +81,7 @@ describe('performance against a 5,000-entry library', () => {
       ['filter by status', { status: 'playing' as const, limit: 50 }],
       ['filter by tag', { tag: 'co-op', limit: 50 }],
     ] as const) {
-      const elapsed = await bestOf(RUNS, () => listLibraryEntries(adapter, options));
+      const elapsed = await bestOf(RUNS, () => listLibraryGrid(adapter, options));
       timings[name] = elapsed;
 
       expect(elapsed, name).toBeLessThan(100);
@@ -90,7 +90,7 @@ describe('performance against a 5,000-entry library', () => {
 
   it('sorts by any key in under 100 ms', async () => {
     for (const sort of ['recent', 'name', 'rating', 'playtime'] as const) {
-      const elapsed = await bestOf(RUNS, () => listLibraryEntries(adapter, { sort, limit: 50 }));
+      const elapsed = await bestOf(RUNS, () => listLibraryGrid(adapter, { sort, limit: 50 }));
       timings[`sort by ${sort}`] = elapsed;
 
       expect(elapsed, sort).toBeLessThan(100);
@@ -100,14 +100,14 @@ describe('performance against a 5,000-entry library', () => {
   it('pages deep into the library as fast as the first page', async () => {
     let cursor: string | undefined;
     for (let page = 0; page < 20; page += 1) {
-      const result = await listLibraryEntries(adapter, { sort: 'name', limit: 50, cursor });
+      const result = await listLibraryGrid(adapter, { sort: 'name', limit: 50, cursor });
       cursor = result.nextCursor;
     }
 
     // The 21st page, a thousand rows in: keyset paging must not slow down,
     // which is the whole reason for not using OFFSET.
     const elapsed = await bestOf(RUNS, () =>
-      listLibraryEntries(adapter, { sort: 'name', limit: 50, cursor }),
+      listLibraryGrid(adapter, { sort: 'name', limit: 50, cursor }),
     );
     timings['page 21 of the library'] = elapsed;
 

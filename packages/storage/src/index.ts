@@ -15,10 +15,10 @@ export {
   LIBRARY_ENTRY_TABLES,
   getLibraryEntry,
   getLibraryEntryByGame,
-  listLibraryEntries,
+  listLibraryGrid,
 } from './repositories/library-entries';
 export type {
-  LibraryEntryWithGame,
+  LibraryGridRow,
   LibraryPage,
   LibrarySort,
   ListLibraryOptions,
