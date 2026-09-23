@@ -1,10 +1,23 @@
 import { serve } from '@hono/node-server';
-import { Hono } from 'hono';
+import { createApp } from './app';
+import { createIgdbFromEnv } from './catalog/igdb/create';
+import { createCatalogRepository } from './catalog/repository';
+import { createCatalogService } from './catalog/service';
+import { createDb } from './db/client';
+import { loadDotEnv, readEnv } from './env';
+import { consoleLogger } from './logger';
 
-const app = new Hono();
+// Refuses to start without its configuration, naming what is missing.
+loadDotEnv();
+const env = readEnv(process.env);
 
-app.get('/health', (c) => c.json({ status: 'ok' }));
+const logger = consoleLogger;
+const igdb = createIgdbFromEnv(env, logger);
+const catalog = createCatalogService({
+  repository: createCatalogRepository(createDb(env.DATABASE_URL)),
+  igdb,
+  logger,
+});
 
-const port = Number(process.env['PORT'] ?? 3000);
-serve({ fetch: app.fetch, port });
-console.warn(`api listening on http://localhost:${port}`);
+serve({ fetch: createApp({ catalog, logger }).fetch, port: env.PORT });
+console.warn(`api listening on http://localhost:${env.PORT}`);

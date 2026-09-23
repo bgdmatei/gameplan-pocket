@@ -1,5 +1,5 @@
 import { createEntry, createEntryTag, createNoteItem, tagIdentityKey } from '@gameplan/domain';
-import type { EntryStatus, Game } from '@gameplan/domain';
+import type { EntryStatus, Game, Genre, Platform } from '@gameplan/domain';
 import type { StorageAdapter } from '../adapter';
 import { addEntryTag } from '../repositories/entry-tags';
 import { upsertGames } from '../repositories/games';
@@ -10,16 +10,18 @@ import { saveNoteItem } from '../repositories/note-items';
  * Fills a database with a library the size of a heavy user's, for performance
  * work and for something to look at while building screens.
  *
- * TEMPORARY. Generated titles flatter full-text search and grid layout: they
- * are too uniform. `catalog-service` (module 5) captures a real IGDB fixture
- * and this points at it instead — recorded in `SPEC-map.md`. Until then the
- * generator deliberately produces awkward titles (apostrophes, colons,
- * numerals, long subtitles) so search and layout meet the same edge cases.
+ * The games are real: `catalog` is normally `fixtures/catalog.json`, 1,000 of
+ * IGDB's most-rated games with their genres and platforms, captured by
+ * `pnpm --filter api capture:games`. A
+ * library of 5,000 needs 5,000 games, so the catalog is cycled: later rounds
+ * reuse the titles under new ids. Real titles keep search and layout honest;
+ * generated ones were too uniform and flattered both.
  *
- * Deterministic: the same seed gives the same library on every machine, so a
- * timing difference is a real change rather than different data.
+ * Deterministic: the same catalog and seed give the same library on every
+ * machine, so a timing difference is a real change rather than different data.
  */
 export type SeedOptions = {
+  catalog: { games: readonly Game[]; genres: readonly Genre[]; platforms: readonly Platform[] };
   entries?: number;
   /** Any string; the same one always produces the same library. */
   seed?: string;
@@ -42,32 +44,6 @@ const createRandom = (seed: string): (() => number) => {
   };
 };
 
-const FIRST = [
-  'Shadow',
-  'Iron',
-  'Crimson',
-  'Hollow',
-  "Dragon's",
-  'Eternal',
-  'Silent',
-  'Neon',
-  "Baldur's",
-  'Frozen',
-  'Broken',
-  'Astral',
-];
-
-const SECOND = ['Realm', 'Legacy', 'Protocol', 'Covenant', 'Requiem', 'Ascent', 'Tide', 'Vigil'];
-
-const SUBTITLE = [
-  'Director’s Cut',
-  'The Long Road Home',
-  'Chapters of the Fallen Kingdom',
-  'Remastered',
-  'Episode II: The Gathering Storm',
-  'Definitive Edition',
-];
-
 const STATUSES: EntryStatus[] = [
   'backlog',
   'backlog',
@@ -86,47 +62,34 @@ const NOTE_TYPES = ['puzzle', 'secret', 'npc_hint', 'other'] as const;
 const pick = <T>(random: () => number, values: readonly T[]): T =>
   values[Math.floor(random() * values.length)] as T;
 
-/** Titles as messy as real ones: apostrophes, colons, numerals, subtitles. */
-const titleFor = (random: () => number, index: number): string => {
-  const base = `${pick(random, FIRST)} ${pick(random, SECOND)}`;
-  const roll = random();
+/** Keeps ids of repeated titles clear of real IGDB ids, which stay below this. */
+const CYCLE_OFFSET = 10_000_000;
 
-  if (roll < 0.2) return `${base}: ${pick(random, SUBTITLE)}`;
-  if (roll < 0.35) return `${base} ${String((index % 4) + 2)}`;
-  if (roll < 0.45) return `${base} ${['II', 'III', 'IV', 'VII'][index % 4] ?? 'II'}`;
-  return base;
-};
+export const seed = async (adapter: StorageAdapter, options: SeedOptions): Promise<SeedResult> => {
+  const { catalog, entries: wanted = 5_000, seed: seedValue = 'gameplan' } = options;
+  const { games: real } = catalog;
+  if (real.length === 0) throw new Error('The seed needs at least one game to cycle.');
 
-const dateFor = (random: () => number): string => {
-  const year = 1998 + Math.floor(random() * 28);
-  const month = String(1 + Math.floor(random() * 12)).padStart(2, '0');
-  const day = String(1 + Math.floor(random() * 28)).padStart(2, '0');
-  return `${String(year)}-${month}-${day}`;
-};
-
-export const seed = async (
-  adapter: StorageAdapter,
-  options: SeedOptions = {},
-): Promise<SeedResult> => {
-  const { entries: wanted = 5_000, seed: seedValue = 'gameplan' } = options;
   const random = createRandom(seedValue);
   const now = '2026-09-20T10:00:00Z';
   const today = '2026-09-20';
 
-  const games: Game[] = Array.from({ length: wanted }, (_, index) => ({
-    id: index + 1,
-    name: titleFor(random, index),
-    slug: `game-${String(index + 1)}`,
-    summary: random() < 0.7 ? 'A game about something, described at some length.' : null,
-    firstReleaseDate: random() < 0.9 ? dateFor(random) : null,
-    coverImageId: random() < 0.95 ? `co${String(index + 1).padStart(5, '0')}` : null,
-    genreIds: [],
-    platformIds: [],
-  }));
+  const games: Game[] = Array.from({ length: wanted }, (_, index) => {
+    const game = real[index % real.length] as Game;
+    const round = Math.floor(index / real.length);
+    return round === 0
+      ? game
+      : { ...game, id: game.id + round * CYCLE_OFFSET, slug: `${game.slug}-${String(round)}` };
+  });
 
   // One transaction for the whole catalog: 5,000 separate ones would dominate
   // the timings this seed exists to measure.
-  await upsertGames(adapter, { games, fetchedAt: now });
+  await upsertGames(adapter, {
+    games,
+    genres: [...catalog.genres],
+    platforms: [...catalog.platforms],
+    fetchedAt: now,
+  });
 
   let tags = 0;
   let notes = 0;

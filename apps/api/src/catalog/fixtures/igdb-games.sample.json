@@ -1,0 +1,21 @@
+[
+  {
+    "id": 1942,
+    "name": "The Witcher 3: Wild Hunt",
+    "slug": "the-witcher-3-wild-hunt",
+    "summary": "RPG and sequel to The Witcher 2.",
+    "first_release_date": 1431993600,
+    "cover": { "id": 89386, "image_id": "co1wyy" },
+    "genres": [12, 31],
+    "platforms": [6, 48, 49, 130]
+  },
+  {
+    "id": 119133,
+    "name": "Untitled Prototype",
+    "slug": "untitled-prototype"
+  },
+  {
+    "id": 5,
+    "slug": "a-game-with-no-name"
+  }
+]
