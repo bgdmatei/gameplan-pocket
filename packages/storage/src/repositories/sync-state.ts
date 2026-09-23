@@ -1,4 +1,4 @@
-import type { SqlValue, StorageAdapter } from '../adapter';
+import type { SqlValue, Transaction } from '../adapter';
 
 export const SYNC_STATE_TABLES = ['sync_state'] as const;
 
@@ -37,7 +37,8 @@ const COLUMNS: Record<keyof SyncState, string> = {
   catalogVersion: 'catalog_version',
 };
 
-export const getSyncState = async (adapter: StorageAdapter): Promise<SyncState> => {
+/** Takes a transaction too, so a write can read and advance the clock atomically. */
+export const getSyncState = async (adapter: Transaction): Promise<SyncState> => {
   const rows = await adapter.execute<SyncStateRow>(
     `SELECT node_id, last_pulled_seq, hlc_last, schema_version, catalog_version
      FROM sync_state WHERE id = 1`,
@@ -63,7 +64,7 @@ export const getSyncState = async (adapter: StorageAdapter): Promise<SyncState> 
  * rather than stored.
  */
 export const updateSyncState = async (
-  adapter: StorageAdapter,
+  adapter: Transaction,
   patch: SyncStatePatch,
 ): Promise<void> => {
   for (const field of ['lastPulledSeq', 'schemaVersion', 'catalogVersion'] as const) {

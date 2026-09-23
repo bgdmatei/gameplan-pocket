@@ -111,6 +111,7 @@ describe('createEntry', () => {
       startedOn: null,
       playtimeMinutes: 0,
       favourite: false,
+      archived: false,
     });
   });
 });

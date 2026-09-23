@@ -5,12 +5,7 @@ import fc from 'fast-check';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StorageAdapter } from '../adapter';
 import { createNodeAdapter } from '../node/adapter';
-import {
-  getLibraryEntry,
-  listLibraryEntries,
-  saveLibraryEntry,
-  softDeleteLibraryEntry,
-} from './library-entries';
+import { getLibraryEntry, listLibraryEntries, saveLibraryEntry } from './library-entries';
 
 const TODAY = '2026-09-18';
 const NOW = '2026-09-18T10:00:00Z';
@@ -76,17 +71,14 @@ describe('library entries', () => {
     expect(await adapter.execute('SELECT id FROM pending_ops')).toEqual([{ id: 'op-1' }]);
   });
 
-  it('hides a removed entry but keeps the row, so the removal can sync', async () => {
+  it('moves an archived game out of the library and into the archive', async () => {
     await cacheGame(adapter, 1942, 'The Witcher 3');
-    await saveLibraryEntry(adapter, entryFor(1942), { updatedAt: NOW });
-
-    await softDeleteLibraryEntry(adapter, 'entry-1942', {
-      updatedAt: NOW,
-      op: { id: 'op-del', payload: '{}', createdAt: NOW },
-    });
+    await saveLibraryEntry(adapter, entryFor(1942, { archived: true }), { updatedAt: NOW });
 
     expect((await listLibraryEntries(adapter)).rows).toEqual([]);
-    expect(await adapter.execute('SELECT id FROM pending_ops')).toEqual([{ id: 'op-del' }]);
+    expect(
+      (await listLibraryEntries(adapter, { archived: true })).rows.map((row) => row.game.name),
+    ).toEqual(['The Witcher 3']);
   });
 
   it('fails loudly on a row the domain would not accept', async () => {

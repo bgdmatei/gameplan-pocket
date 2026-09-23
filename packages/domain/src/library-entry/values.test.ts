@@ -15,6 +15,7 @@ const entry = {
   startedOn: null,
   finishedOn: null,
   favourite: false,
+  archived: false,
   createdAt: '2026-09-18T10:00:00Z',
 };
 

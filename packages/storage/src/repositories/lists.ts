@@ -12,7 +12,7 @@ export type ListSaveOptions = {
   op?: PendingOp;
 };
 
-const toListRow = (list: List, { updatedAt, fieldHlc }: ListSaveOptions): Row => ({
+export const toListRow = (list: List, { updatedAt, fieldHlc }: ListSaveOptions): Row => ({
   id: list.id,
   name: list.name,
   description: list.description,
@@ -21,9 +21,9 @@ const toListRow = (list: List, { updatedAt, fieldHlc }: ListSaveOptions): Row =>
   field_hlc: fieldHlc ?? '{}',
 });
 
-type ListRow = { id: string; name: string; description: string | null; created_at: string };
+export type ListRow = { id: string; name: string; description: string | null; created_at: string };
 
-const toList = (row: ListRow): List =>
+export const toList = (row: ListRow): List =>
   listSchema.parse({
     id: row.id,
     name: row.name,
@@ -31,15 +31,24 @@ const toList = (row: ListRow): List =>
     createdAt: row.created_at,
   });
 
-type ListItemRow = { id: string; list_id: string; game_id: number; added_at: string };
+export type ListItemRow = { id: string; list_id: string; game_id: number; added_at: string };
 
-const toListItem = (row: ListItemRow): ListItem =>
+export const toListItem = (row: ListItemRow): ListItem =>
   listItemSchema.parse({
     id: row.id,
     listId: row.list_id,
     gameId: row.game_id,
     addedAt: row.added_at,
   });
+
+export const toListItemRow = (item: ListItem, fieldHlc?: string): Row => ({
+  id: item.id,
+  list_id: item.listId,
+  game_id: item.gameId,
+  added_at: item.addedAt,
+  deleted: false,
+  field_hlc: fieldHlc ?? '{}',
+});
 
 export const listLists = async (adapter: StorageAdapter): Promise<List[]> => {
   const rows = await adapter.execute<ListRow>(
@@ -68,9 +77,11 @@ export const saveList = async (
 };
 
 /**
- * Tombstones the list and everything in it, in one transaction: a list whose
- * items outlived it would leave rows pointing at nothing, and half a deletion
- * would sync as half a deletion.
+ * Tombstones the list row, and only it. Its items are hidden because every
+ * item query requires a live list. Deletes never cascade: a cascade would set
+ * `deleted` on the items with no op and no clock, so after the list was
+ * brought back by a later edit, devices would disagree about what is on it
+ * (SPEC-sync-core.md §Merge).
  */
 export const softDeleteList = async (
   adapter: StorageAdapter,
@@ -82,7 +93,6 @@ export const softDeleteList = async (
       options.updatedAt,
       id,
     ]);
-    await tx.execute('UPDATE list_items SET deleted = 1 WHERE list_id = ?', [id]);
 
     if (options.op !== undefined) {
       await tx.execute('INSERT INTO pending_ops (id, payload, created_at) VALUES (?, ?, ?)', [
@@ -101,19 +111,7 @@ export const addGameToList = async (
   options: { fieldHlc?: string; op?: PendingOp } = {},
 ): Promise<void> => {
   await writeAtomically(adapter, {
-    rows: [
-      {
-        table: 'list_items',
-        row: {
-          id: item.id,
-          list_id: item.listId,
-          game_id: item.gameId,
-          added_at: item.addedAt,
-          deleted: false,
-          field_hlc: options.fieldHlc ?? '{}',
-        },
-      },
-    ],
+    rows: [{ table: 'list_items', row: toListItemRow(item, options.fieldHlc) }],
     ...(options.op === undefined ? {} : { ops: [options.op] }),
   });
 };
@@ -138,8 +136,11 @@ export const removeGameFromList = async (
 
 export const listItemsOf = async (adapter: StorageAdapter, listId: string): Promise<ListItem[]> => {
   const rows = await adapter.execute<ListItemRow>(
-    `SELECT id, list_id, game_id, added_at FROM list_items
-     WHERE list_id = ? AND deleted = 0 ORDER BY added_at, id`,
+    `SELECT i.id, i.list_id, i.game_id, i.added_at
+     FROM list_items i
+     JOIN lists l ON l.id = i.list_id AND l.deleted = 0
+     WHERE i.list_id = ? AND i.deleted = 0
+     ORDER BY i.added_at, i.id`,
     [listId],
   );
   return rows.map(toListItem);
@@ -163,6 +164,7 @@ export const listGamesOf = async (adapter: StorageAdapter, listId: string): Prom
   const rows = await adapter.execute<GameRow>(
     `SELECT g.id, g.name, g.slug, g.summary, g.first_release_date, g.cover_image_id
      FROM list_items i
+     JOIN lists l ON l.id = i.list_id AND l.deleted = 0
      JOIN games g ON g.id = i.game_id
      WHERE i.list_id = ? AND i.deleted = 0
      ORDER BY i.added_at, i.id`,

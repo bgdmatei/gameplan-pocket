@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { StorageAdapter } from '../adapter';
 import { createNodeAdapter } from '../node/adapter';
 import { addEntryTag, listEntryTags, listTagsInUse, removeEntryTag } from './entry-tags';
-import { saveLibraryEntry, softDeleteLibraryEntry } from './library-entries';
+import { getLibraryEntry, saveLibraryEntry } from './library-entries';
 import { addGameToList, listGamesOf, listItemsOf, saveList, softDeleteList } from './lists';
 import { countOpenNotes, listNoteItems, saveNoteItem, softDeleteNoteItem } from './note-items';
 
@@ -59,11 +59,13 @@ describe('user data', () => {
       expect(await listEntryTags(adapter, ENTRY_ID)).toEqual([tag]);
     });
 
-    it('counts tags in use for a filter list, ignoring removed games', async () => {
+    it('counts tags in use for a filter list, ignoring archived games', async () => {
       await addEntryTag(adapter, tagFor(ENTRY_ID, 'co-op'), { createdAt: NOW });
       expect(await listTagsInUse(adapter)).toEqual([{ tag: 'co-op', count: 1 }]);
 
-      await softDeleteLibraryEntry(adapter, ENTRY_ID, { updatedAt: NOW });
+      const entry = await getLibraryEntry(adapter, ENTRY_ID);
+      if (entry === null) throw new Error('The entry was not saved.');
+      await saveLibraryEntry(adapter, { ...entry, archived: true }, { updatedAt: NOW });
       expect(await listTagsInUse(adapter)).toEqual([]);
     });
   });
@@ -113,24 +115,6 @@ describe('user data', () => {
     });
   });
 
-  /**
-   * One transaction, so another device can never receive the game's removal
-   * without the notes and tags that belonged to it.
-   */
-  it('removing a game takes its tags and notes with it', async () => {
-    await addEntryTag(adapter, tagFor(ENTRY_ID, 'co-op'), { createdAt: NOW });
-    await saveNoteItem(
-      adapter,
-      createNoteItem({ id: 'n1', entryId: ENTRY_ID, createdAt: NOW, type: 'other', text: 'x' }),
-      { updatedAt: NOW },
-    );
-
-    await softDeleteLibraryEntry(adapter, ENTRY_ID, { updatedAt: NOW });
-
-    expect(await listEntryTags(adapter, ENTRY_ID)).toEqual([]);
-    expect(await listNoteItems(adapter, ENTRY_ID)).toEqual([]);
-  });
-
   describe('lists', () => {
     const list = createList({ id: 'list-1', name: 'Best of 2026', createdAt: NOW });
 
@@ -156,7 +140,10 @@ describe('user data', () => {
       ]);
     });
 
-    it('deleting a list takes its games with it', async () => {
+    // Deletes never cascade: the items are hidden through their list, so a
+    // list brought back by a later edit comes back with its games on every
+    // device. A cascade once set `deleted` on the items with no op to undo it.
+    it('hides the games of a deleted list, and shows them again if the list comes back', async () => {
       await saveList(adapter, list, { updatedAt: NOW });
       await addGameToList(
         adapter,
@@ -164,8 +151,12 @@ describe('user data', () => {
       );
 
       await softDeleteList(adapter, 'list-1', { updatedAt: NOW });
-
       expect(await listItemsOf(adapter, 'list-1')).toEqual([]);
+      expect(await listGamesOf(adapter, 'list-1')).toEqual([]);
+
+      // What applying a newer edit from another device does to the list row.
+      await adapter.execute('UPDATE lists SET deleted = 0 WHERE id = ?', ['list-1']);
+      expect(await listItemsOf(adapter, 'list-1')).toHaveLength(1);
     });
   });
 });

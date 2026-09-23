@@ -8,6 +8,7 @@ export type {
   Unsubscribe,
 } from './adapter';
 export { createNodeAdapter } from './node/adapter';
+export { createMigratedNodeAdapter } from './node/migrated';
 export { tablesWritten } from './sql-tables';
 
 export {
@@ -16,7 +17,6 @@ export {
   getLibraryEntryByGame,
   listLibraryEntries,
   saveLibraryEntry,
-  softDeleteLibraryEntry,
 } from './repositories/library-entries';
 export type {
   LibraryEntryWithGame,
@@ -25,7 +25,7 @@ export type {
   ListLibraryOptions,
   SaveOptions,
 } from './repositories/library-entries';
-export { writeAtomically } from './repositories/write';
+export { writeAtomically, writeRows } from './repositories/write';
 export type { AtomicWrite, PendingOp, Row, RowWrite } from './repositories/write';
 
 export {
@@ -78,3 +78,5 @@ export {
 export type { ListPendingOptions } from './repositories/pending-ops';
 export { SYNC_STATE_TABLES, getSyncState, updateSyncState } from './repositories/sync-state';
 export type { SyncState, SyncStatePatch } from './repositories/sync-state';
+export { SYNCED_ROWS, readSyncedRow } from './repositories/synced-rows';
+export type { RowMeta, StoredRow, SyncedRowCodec } from './repositories/synced-rows';

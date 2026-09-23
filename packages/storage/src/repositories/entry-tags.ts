@@ -12,7 +12,7 @@ export type TagSaveOptions = {
   op?: PendingOp;
 };
 
-const toRow = (tag: EntryTag, { createdAt, fieldHlc }: TagSaveOptions): Row => ({
+export const toRow = (tag: EntryTag, { createdAt, fieldHlc }: TagSaveOptions): Row => ({
   id: tag.id,
   entry_id: tag.entryId,
   tag: tag.tag,
@@ -23,9 +23,9 @@ const toRow = (tag: EntryTag, { createdAt, fieldHlc }: TagSaveOptions): Row => (
   field_hlc: fieldHlc ?? '{}',
 });
 
-type TagRow = { id: string; entry_id: string; tag: string };
+export type TagRow = { id: string; entry_id: string; tag: string };
 
-const toTag = (row: TagRow): EntryTag =>
+export const toTag = (row: TagRow): EntryTag =>
   entryTagSchema.parse({ id: row.id, entryId: row.entry_id, tag: row.tag });
 
 /**
@@ -75,14 +75,17 @@ export const listEntryTags = async (
   return rows.map(toTag);
 };
 
-/** Every tag in use, with how many games carry it, for a filter list. */
+/**
+ * Every tag in use, with how many games carry it, for the library's filter
+ * list. Archived games are left out, as they are from the library itself.
+ */
 export const listTagsInUse = async (
   adapter: StorageAdapter,
 ): Promise<{ tag: string; count: number }[]> =>
   adapter.execute<{ tag: string; count: number }>(
     `SELECT t.tag, COUNT(*) AS count
      FROM entry_tags t
-     JOIN library_entries e ON e.id = t.entry_id AND e.deleted = 0
+     JOIN library_entries e ON e.id = t.entry_id AND e.deleted = 0 AND e.archived = 0
      WHERE t.deleted = 0
      GROUP BY t.tag
      ORDER BY count DESC, t.tag`,

@@ -15,6 +15,8 @@ export type LibrarySort = 'recent' | 'name' | 'rating' | 'playtime';
 export type ListLibraryOptions = {
   status?: EntryStatus;
   favourite?: boolean;
+  /** `true` lists the Archive; the library shows only games not archived. */
+  archived?: boolean;
   tag?: string;
   sort?: LibrarySort;
   limit?: number;
@@ -36,7 +38,7 @@ export type SaveOptions = {
   op?: PendingOp;
 };
 
-const toRow = (entry: LibraryEntry, { updatedAt, fieldHlc }: SaveOptions): Row => ({
+export const toRow = (entry: LibraryEntry, { updatedAt, fieldHlc }: SaveOptions): Row => ({
   id: entry.id,
   game_id: entry.gameId,
   status: entry.status,
@@ -48,12 +50,13 @@ const toRow = (entry: LibraryEntry, { updatedAt, fieldHlc }: SaveOptions): Row =
   started_on: entry.startedOn,
   finished_on: entry.finishedOn,
   favourite: entry.favourite,
+  archived: entry.archived,
   created_at: entry.createdAt,
   updated_at: updatedAt,
   field_hlc: fieldHlc ?? '{}',
 });
 
-type EntryRow = {
+export type EntryRow = {
   id: string;
   game_id: number;
   status: string;
@@ -64,6 +67,7 @@ type EntryRow = {
   started_on: string | null;
   finished_on: string | null;
   favourite: number;
+  archived: number;
   created_at: string;
 };
 
@@ -71,7 +75,7 @@ type EntryRow = {
  * Parses a row through the domain schema, so a corrupt row fails here with a
  * clear message rather than surfacing as odd behaviour in a screen.
  */
-const toEntry = (row: EntryRow): LibraryEntry =>
+export const toEntry = (row: EntryRow): LibraryEntry =>
   libraryEntrySchema.parse({
     id: row.id,
     gameId: row.game_id,
@@ -83,6 +87,7 @@ const toEntry = (row: EntryRow): LibraryEntry =>
     startedOn: row.started_on,
     finishedOn: row.finished_on,
     favourite: row.favourite === 1,
+    archived: row.archived === 1,
     createdAt: row.created_at,
   });
 
@@ -114,8 +119,8 @@ const toGame = (row: GameRow): Game =>
 
 const SELECT_ROW = `
   SELECT e.id, e.game_id, e.status, e.rating, e.platform_id, e.progress,
-         e.playtime_minutes, e.started_on, e.finished_on, e.favourite, e.created_at,
-         e.updated_at,
+         e.playtime_minutes, e.started_on, e.finished_on, e.favourite, e.archived,
+         e.created_at, e.updated_at,
          g.id AS g_id, g.name AS g_name, g.slug AS g_slug, g.summary AS g_summary,
          g.first_release_date AS g_first_release_date, g.cover_image_id AS g_cover_image_id,
          (SELECT group_concat(genre_id) FROM game_genres WHERE game_id = g.id) AS genre_ids,
@@ -167,10 +172,10 @@ export const listLibraryEntries = async (
   adapter: StorageAdapter,
   options: ListLibraryOptions = {},
 ): Promise<LibraryPage> => {
-  const { status, favourite, tag, sort = 'recent', limit = 50, cursor } = options;
+  const { status, favourite, archived = false, tag, sort = 'recent', limit = 50, cursor } = options;
   const { column, direction } = SORTS[sort];
-  const conditions = ['e.deleted = 0'];
-  const params: SqlValue[] = [];
+  const conditions = ['e.deleted = 0', 'e.archived = ?'];
+  const params: SqlValue[] = [archived];
 
   if (status !== undefined) {
     conditions.push('e.status = ?');
@@ -270,39 +275,5 @@ export const saveLibraryEntry = async (
   await writeAtomically(adapter, {
     rows: [{ table: 'library_entries', row: toRow(entry, options) }],
     ...(options.op === undefined ? {} : { ops: [options.op] }),
-  });
-};
-
-/**
- * Tombstones an entry instead of deleting it, so the removal can sync: a row
- * that simply vanished would come back on the next pull from another device.
- *
- * Its tags and notes go in the same transaction. Removing a game has to remove
- * what hangs off it, and doing it in one transaction means another device can
- * never receive the entry's removal without the notes that belonged to it.
- */
-export const softDeleteLibraryEntry = async (
-  adapter: StorageAdapter,
-  id: string,
-  options: SaveOptions,
-): Promise<void> => {
-  await adapter.transaction(async (tx) => {
-    await tx.execute('UPDATE library_entries SET deleted = 1, updated_at = ? WHERE id = ?', [
-      options.updatedAt,
-      id,
-    ]);
-    await tx.execute('UPDATE entry_tags SET deleted = 1 WHERE entry_id = ?', [id]);
-    await tx.execute('UPDATE note_items SET deleted = 1, updated_at = ? WHERE entry_id = ?', [
-      options.updatedAt,
-      id,
-    ]);
-
-    if (options.op !== undefined) {
-      await tx.execute('INSERT INTO pending_ops (id, payload, created_at) VALUES (?, ?, ?)', [
-        options.op.id,
-        options.op.payload,
-        options.op.createdAt,
-      ]);
-    }
   });
 };

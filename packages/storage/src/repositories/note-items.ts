@@ -18,7 +18,7 @@ export type ListNoteOptions = {
   resolved?: boolean;
 };
 
-const toRow = (item: NoteItem, { updatedAt, fieldHlc }: NoteSaveOptions): Row => ({
+export const toRow = (item: NoteItem, { updatedAt, fieldHlc }: NoteSaveOptions): Row => ({
   id: item.id,
   entry_id: item.entryId,
   type: item.type,
@@ -30,7 +30,7 @@ const toRow = (item: NoteItem, { updatedAt, fieldHlc }: NoteSaveOptions): Row =>
   field_hlc: fieldHlc ?? '{}',
 });
 
-type NoteRow = {
+export type NoteRow = {
   id: string;
   entry_id: string;
   type: string;
@@ -40,7 +40,7 @@ type NoteRow = {
   created_at: string;
 };
 
-const toNote = (row: NoteRow): NoteItem =>
+export const toNote = (row: NoteRow): NoteItem =>
   noteItemSchema.parse({
     id: row.id,
     entryId: row.entry_id,

@@ -189,6 +189,7 @@ type SearchRow = GameRow & {
   e_started_on: string | null;
   e_finished_on: string | null;
   e_favourite: number | null;
+  e_archived: number | null;
   e_created_at: string | null;
 };
 
@@ -206,6 +207,7 @@ const toEntry = (row: SearchRow): LibraryEntry | null => {
     startedOn: row.e_started_on,
     finishedOn: row.e_finished_on,
     favourite: row.e_favourite === 1,
+    archived: row.e_archived === 1,
     createdAt: row.e_created_at,
   });
 };
@@ -234,7 +236,7 @@ export const searchGames = async (
             e.platform_id AS e_platform_id, e.progress AS e_progress,
             e.playtime_minutes AS e_playtime_minutes, e.started_on AS e_started_on,
             e.finished_on AS e_finished_on, e.favourite AS e_favourite,
-            e.created_at AS e_created_at
+            e.archived AS e_archived, e.created_at AS e_created_at
      FROM games_fts
      JOIN games g ON g.id = games_fts.rowid
      LEFT JOIN library_entries e ON e.game_id = g.id AND e.deleted = 0
