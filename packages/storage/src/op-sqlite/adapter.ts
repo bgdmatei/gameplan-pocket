@@ -8,6 +8,7 @@ import type {
   Transaction,
   Unsubscribe,
 } from '../adapter';
+import { createSerialQueue } from '../serial-queue';
 import { tablesWritten } from '../sql-tables';
 
 export type OpSqliteAdapterOptions = {
@@ -53,6 +54,8 @@ const toPlainObject = <T>(row: unknown): T => ({ ...(row as object) }) as T;
 export const createOpSqliteAdapter = (options: OpSqliteAdapterOptions = {}): StorageAdapter => {
   const database: DB = open({ name: options.name ?? 'gameplan.db' });
   const subscriptions = new Set<Subscription>();
+  // One transaction at a time; a query outside one waits for it to commit.
+  const queue = createSerialQueue();
 
   let closed = false;
   let inTransaction = false;
@@ -135,52 +138,48 @@ export const createOpSqliteAdapter = (options: OpSqliteAdapterOptions = {}): Sto
     return rows.map((row) => toPlainObject<T>(row));
   };
 
-  const transaction = async <T>(fn: (tx: Transaction) => Promise<T>): Promise<T> => {
-    assertOpen();
-    if (inTransaction) {
-      throw new Error(
-        'Nested transactions are not supported: SQLite has no inner commit, so the inner one would appear to succeed while the outer one could still roll everything back.',
-      );
-    }
+  const transaction = async <T>(fn: (tx: Transaction) => Promise<T>): Promise<T> =>
+    queue.run(async () => {
+      assertOpen();
+      inTransaction = true;
+      pendingTables = new Set();
 
-    inTransaction = true;
-    pendingTables = new Set();
+      // op-sqlite's transaction resolves to nothing, so the callback's value
+      // comes back through this. Wrapped rather than left bare so "never ran"
+      // is distinguishable from "returned undefined".
+      let outcome: { value: T } | undefined;
 
-    // op-sqlite's transaction resolves to nothing, so the callback's value
-    // comes back through this. Wrapped rather than left bare so "never ran"
-    // is distinguishable from "returned undefined".
-    let outcome: { value: T } | undefined;
+      try {
+        await database.transaction(async (tx) => {
+          const value = await fn({
+            execute: async <R>(sql: string, params: SqlParams = []): Promise<R[]> => {
+              const queryResult = await tx.execute(sql, params.map(toBindable));
+              trackWrites(sql);
+              return queryResult.rows.map((row) => toPlainObject<R>(row));
+            },
+          });
 
-    try {
-      await database.transaction(async (tx) => {
-        const value = await fn({
-          execute: async <R>(sql: string, params: SqlParams = []): Promise<R[]> => {
-            const queryResult = await tx.execute(sql, params.map(toBindable));
-            trackWrites(sql);
-            return queryResult.rows.map((row) => toPlainObject<R>(row));
-          },
+          outcome = { value };
         });
+      } catch (error) {
+        inTransaction = false;
+        throw error;
+      }
 
-        outcome = { value };
-      });
-    } catch (error) {
+      const changed = pendingTables;
       inTransaction = false;
-      throw error;
-    }
 
-    const changed = pendingTables;
-    inTransaction = false;
+      if (outcome === undefined) {
+        throw new Error('The transaction finished without running its callback.');
+      }
 
-    if (outcome === undefined) {
-      throw new Error('The transaction finished without running its callback.');
-    }
-
-    notify(changed);
-    return outcome.value;
-  };
+      notify(changed);
+      return outcome.value;
+    });
 
   return {
-    execute: run,
+    execute: async <T>(sql: string, params?: SqlParams): Promise<T[]> =>
+      queue.run(() => run<T>(sql, params)),
     transaction,
     subscribe: (tables: readonly string[], listener: () => void): Unsubscribe => {
       const subscription: Subscription = { tables: new Set(tables), listener };

@@ -8,14 +8,14 @@ Offline-first, multi-device game logbook: Expo (React Native) + Hono API + a cus
 
 ## Planning documents (read before starting work)
 
-| File                     | Purpose                                                                             |
-| ------------------------ | ----------------------------------------------------------------------------------- |
-| `SPEC-map.md`            | Capability map: the 14 modules, dependencies, build order. The index of what exists |
-| `SPEC-<module-id>.md`    | One approved spec per module (`SPEC-foundation.md`, `SPEC-domain-model.md`)         |
-| `tasks/plan.md`          | Implementation plan for the module in progress                                      |
-| `tasks/todo.md`          | Its ordered task list; tick tasks off as they land                                  |
-| `tasks/archive/`         | Plans and task lists from finished modules                                          |
-| `game-logbook-plan.html` | The original architecture plan; authoritative for design decisions                  |
+| File                     | Purpose                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `SPEC-map.md`            | Capability map: the 14 modules, dependencies, build order. The index of what exists                          |
+| `SPEC-<module-id>.md`    | One approved spec per module (`SPEC-foundation.md`, `SPEC-domain-model.md`)                                  |
+| `tasks/plan.md`          | Implementation plan for the module in progress                                                               |
+| `tasks/todo.md`          | Its ordered task list; tick tasks off as they land                                                           |
+| `tasks/archive/`         | Plans and task lists from finished modules                                                                   |
+| `game-logbook-plan.html` | The original architecture plan; authoritative for design decisions. Lives outside the repo, in `~/Downloads` |
 
 Work follows spec → plan → tasks → implement, with a human review gate between phases. Don't start a module without an approved spec, and don't overwrite a plan that still has unchecked tasks — archive it instead.
 
