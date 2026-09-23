@@ -1,0 +1,24 @@
+{
+  "name": "@gameplan/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@gameplan/domain": "workspace:*",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@gameplan/config": "workspace:*",
+    "eslint": "^9.39.5",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,13 +1,26 @@
+import { CATALOG_LIMITS } from '@gameplan/contracts';
+import type {
+  ErrorResponse,
+  GameResponse,
+  GamesResponse,
+  ReferenceResponse,
+} from '@gameplan/contracts';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { CatalogService } from './service';
 import { normaliseQuery } from './service';
 
-const MAX_BATCH = 100;
-
 const searchSchema = z.object({
-  q: z.string().transform(normaliseQuery).pipe(z.string().min(2).max(100)),
-  limit: z.coerce.number().int().min(1).max(50).default(20),
+  q: z
+    .string()
+    .transform(normaliseQuery)
+    .pipe(z.string().min(CATALOG_LIMITS.queryMinLength).max(CATALOG_LIMITS.queryMaxLength)),
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(CATALOG_LIMITS.searchMaxLimit)
+    .default(CATALOG_LIMITS.searchDefaultLimit),
 });
 
 /** A positive integer written as digits only: no signs, decimals or exponents. */
@@ -19,11 +32,14 @@ const idSchema = z
 const idsSchema = z
   .string()
   .transform((text) => text.split(','))
-  .pipe(z.array(idSchema).min(1).max(MAX_BATCH))
+  .pipe(z.array(idSchema).min(1).max(CATALOG_LIMITS.batchMaxIds))
   .transform((ids) => [...new Set(ids)]);
 
 /** Names the fields that failed, never what was sent. */
-const invalid = (fields: readonly string[]) => ({ error: 'invalid_request', fields });
+const invalid = (fields: readonly string[]): ErrorResponse => ({
+  error: 'invalid_request',
+  fields: [...fields],
+});
 
 const fieldsOf = (error: z.ZodError): string[] => [
   ...new Set(error.issues.map((issue) => String(issue.path[0] ?? 'request'))),
@@ -40,13 +56,13 @@ export const createCatalogRoutes = (service: CatalogService): Hono => {
   routes.get('/search', async (c) => {
     const input = searchSchema.safeParse(c.req.query());
     if (!input.success) return c.json(invalid(fieldsOf(input.error)), 400);
-    return c.json(await service.search(input.data.q, input.data.limit));
+    return c.json((await service.search(input.data.q, input.data.limit)) satisfies GamesResponse);
   });
 
   routes.get('/games', async (c) => {
     const ids = idsSchema.safeParse(c.req.query('ids') ?? '');
     if (!ids.success) return c.json(invalid(['ids']), 400);
-    return c.json(await service.getGames(ids.data));
+    return c.json((await service.getGames(ids.data)) satisfies GamesResponse);
   });
 
   routes.get('/games/:id', async (c) => {
@@ -54,11 +70,13 @@ export const createCatalogRoutes = (service: CatalogService): Hono => {
     if (!id.success) return c.json(invalid(['id']), 400);
 
     const { game, stale } = await service.getGame(id.data);
-    if (game === null) return c.json({ error: 'not_found', stale }, 404);
-    return c.json({ game, stale });
+    if (game === null) return c.json({ error: 'not_found', stale } satisfies ErrorResponse, 404);
+    return c.json({ game, stale } satisfies GameResponse);
   });
 
-  routes.get('/reference', async (c) => c.json(await service.getReference()));
+  routes.get('/reference', async (c) =>
+    c.json((await service.getReference()) satisfies ReferenceResponse),
+  );
 
   return routes;
 };

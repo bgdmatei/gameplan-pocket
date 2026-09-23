@@ -25,6 +25,8 @@ const fixtures = [
   'packages/sync/tests/fixtures/sync-imports-app.ts',
   // storage → sync
   'packages/storage/tests/fixtures/storage-imports-sync.ts',
+  // contracts → anything but domain
+  'packages/contracts/tests/fixtures/contracts-imports-storage.ts',
 ];
 
 let failed = false;

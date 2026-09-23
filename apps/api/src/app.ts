@@ -1,3 +1,4 @@
+import type { ErrorResponse } from '@gameplan/contracts';
 import { Hono } from 'hono';
 import { createCatalogRoutes } from './catalog/routes';
 import type { CatalogService } from './catalog/service';
@@ -16,7 +17,7 @@ export const createApp = ({ catalog, logger }: AppDependencies): Hono => {
   // carry details a client should not see. The name is enough for the log.
   app.onError((error, c) => {
     logger.warn(`Unhandled ${error.name} on ${c.req.method} ${c.req.path}`);
-    return c.json({ error: 'internal' }, 500);
+    return c.json({ error: 'internal' } satisfies ErrorResponse, 500);
   });
 
   return app;

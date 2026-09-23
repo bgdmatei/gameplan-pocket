@@ -15,6 +15,7 @@
     "capture:games": "tsx src/scripts/capture-games.ts"
   },
   "dependencies": {
+    "@gameplan/contracts": "workspace:*",
     "@gameplan/domain": "workspace:*",
     "@hono/node-server": "^1.13.7",
     "hono": "^4.6.14",
