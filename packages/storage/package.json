@@ -9,7 +9,8 @@
     ".": "./src/index.ts",
     "./node": "./src/node/index.ts",
     "./testing": "./src/testing/index.ts",
-    "./op-sqlite": "./src/op-sqlite/index.ts"
+    "./op-sqlite": "./src/op-sqlite/index.ts",
+    "./testing/catalog.json": "./src/testing/fixtures/catalog.json"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

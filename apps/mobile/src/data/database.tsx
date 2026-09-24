@@ -7,7 +7,17 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
-const DatabaseContext = createContext<StorageAdapter | null>(null);
+type Database = {
+  adapter: StorageAdapter;
+  /**
+   * Destroys everything on this phone and opens an empty database in its
+   * place. The debug menu's reset today; signing out in `auth-identity`
+   * (module 7), which must leave nothing behind (CLAUDE.md §Privacy rules).
+   */
+  erase: () => Promise<void>;
+};
+
+const DatabaseContext = createContext<Database | null>(null);
 
 type Opening =
   { kind: 'opening' } | { kind: 'ready'; adapter: StorageAdapter } | { kind: 'failed' };
@@ -19,6 +29,8 @@ type Opening =
  */
 export const DatabaseProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<Opening>({ kind: 'opening' });
+  // Bumped by `erase`, which opens a fresh database.
+  const [generation, setGeneration] = useState(0);
   const { colors } = useTheme();
 
   useEffect(() => {
@@ -35,10 +47,20 @@ export const DatabaseProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       void adapter.close();
     };
-  }, []);
+  }, [generation]);
 
   if (state.kind === 'ready') {
-    return <DatabaseContext.Provider value={state.adapter}>{children}</DatabaseContext.Provider>;
+    const erase = async (): Promise<void> => {
+      setState({ kind: 'opening' });
+      await state.adapter.destroy();
+      setGeneration((current) => current + 1);
+    };
+
+    return (
+      <DatabaseContext.Provider value={{ adapter: state.adapter, erase }}>
+        {children}
+      </DatabaseContext.Provider>
+    );
   }
 
   return (
@@ -54,12 +76,17 @@ export const DatabaseProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-/** The app's database. Only usable below `DatabaseProvider`, which renders nothing else until it is open. */
-export const useDatabase = (): StorageAdapter => {
-  const adapter = useContext(DatabaseContext);
-  if (adapter === null) throw new Error('useDatabase is used outside DatabaseProvider.');
-  return adapter;
+const useDatabaseContext = (): Database => {
+  const database = useContext(DatabaseContext);
+  if (database === null) throw new Error('Used outside DatabaseProvider.');
+  return database;
 };
+
+/** The app's database. Only usable below `DatabaseProvider`, which renders nothing else until it is open. */
+export const useDatabase = (): StorageAdapter => useDatabaseContext().adapter;
+
+/** See `Database.erase`. */
+export const useEraseDatabase = (): (() => Promise<void>) => useDatabaseContext().erase;
 
 const styles = StyleSheet.create({
   centred: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.xl },

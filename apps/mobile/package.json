@@ -15,6 +15,7 @@
     "test": "vitest run --coverage"
   },
   "dependencies": {
+    "@expo/vector-icons": "^15.1.1",
     "@gameplan/contracts": "workspace:*",
     "@gameplan/db-schema": "workspace:*",
     "@gameplan/domain": "workspace:*",
