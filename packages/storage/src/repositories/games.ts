@@ -7,6 +7,8 @@ export const CATALOG_TABLES = [
   'games',
   'game_genres',
   'game_platforms',
+  'genres',
+  'platforms',
   'library_entries',
 ] as const;
 
@@ -139,6 +141,24 @@ export const getGame = async (adapter: StorageAdapter, id: number): Promise<Game
 };
 
 /** Returns the games it has, in the order asked for; unknown ids are skipped. */
+/**
+ * Every cached genre and platform. Small tables (tens of rows), read whole:
+ * the detail screen names a game's genres and platforms from them, and a game
+ * can only be cached once the ones it refers to are.
+ */
+export const getReference = async (
+  adapter: StorageAdapter,
+): Promise<{ genres: Genre[]; platforms: Platform[] }> => {
+  const genres = await adapter.execute<Genre>('SELECT id, name, slug FROM genres ORDER BY name');
+  const platforms = await adapter.execute<Platform>(
+    'SELECT id, name, abbreviation FROM platforms ORDER BY name',
+  );
+  return {
+    genres: genres.map((genre) => genreSchema.parse(genre)),
+    platforms: platforms.map((platform) => platformSchema.parse(platform)),
+  };
+};
+
 export const getGamesByIds = async (
   adapter: StorageAdapter,
   ids: readonly number[],

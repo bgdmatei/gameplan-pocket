@@ -9,7 +9,13 @@ const RootLayout = () => {
 
   // Debug screens are plain lists, so they get the native header and its back
   // button; the app's own screens draw their own tops.
-  const withHeader = (title: string) => ({ headerShown: true, title });
+  // Chevron only: the screen behind may be either tab, so a named back button
+  // would often name the wrong one.
+  const withHeader = (title: string) => ({
+    headerShown: true,
+    title,
+    headerBackButtonDisplayMode: 'minimal' as const,
+  });
 
   return (
     <DatabaseProvider>
@@ -24,8 +30,8 @@ const RootLayout = () => {
             headerTitleStyle: { color: colors.text },
           }}
         >
-          {/* The title is what a pushed screen's back button says. */}
-          <Stack.Screen name="(tabs)" options={{ title: 'Library' }} />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="game/[id]" options={withHeader('')} />
           <Stack.Screen name="debug/index" options={withHeader('Debug')} />
           <Stack.Screen name="debug/outbox" options={withHeader('Outbox')} />
           <Stack.Screen name="debug/storage-check" options={withHeader('Storage contract')} />

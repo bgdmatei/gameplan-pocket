@@ -1,9 +1,10 @@
 import { migrate } from '@gameplan/db-schema';
 import type { StorageAdapter } from '@gameplan/storage';
+import { pruneCatalog } from '@gameplan/storage';
 import { createOpSqliteAdapter } from '@gameplan/storage/op-sqlite';
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, InteractionManager, StyleSheet, Text, View } from 'react-native';
 import { space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
@@ -36,7 +37,15 @@ export const DatabaseProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const adapter = createOpSqliteAdapter();
     migrate(adapter)
-      .then(() => setState({ kind: 'ready', adapter }))
+      .then(() => {
+        setState({ kind: 'ready', adapter });
+        // After the first frame, not before it (plan §12.4): drops cached games
+        // that are not in the library and were not viewed in the last 30 days.
+        InteractionManager.runAfterInteractions(() => {
+          const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+          void pruneCatalog(adapter, { keepFetchedSince: monthAgo }).catch(() => undefined);
+        });
+      })
       .catch((error: unknown) => {
         // A migration error names the failing statement, never a row's values,
         // so it is safe to log (CLAUDE.md §Privacy rules).

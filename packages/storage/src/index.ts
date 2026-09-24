@@ -37,6 +37,7 @@ export {
   CATALOG_TABLES,
   getGame,
   getGamesByIds,
+  getReference,
   pruneCatalog,
   searchGames,
   upsertGames,
