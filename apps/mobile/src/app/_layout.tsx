@@ -32,6 +32,7 @@ const RootLayout = () => {
         >
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="game/[id]" options={withHeader('')} />
+          <Stack.Screen name="archive" options={withHeader('Archive')} />
           <Stack.Screen name="debug/index" options={withHeader('Debug')} />
           <Stack.Screen name="debug/outbox" options={withHeader('Outbox')} />
           <Stack.Screen name="debug/storage-check" options={withHeader('Storage contract')} />
