@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useDatabase } from '@/data/database';
 import { syncEnv, today } from '@/data/env';
+import { EntryEditor } from '@/features/entry/entry-editor';
 import { addGame } from '@/features/library/add-game';
 import { useGameDetail } from '@/features/library/use-game-detail';
 import { Cover } from '@/ui/components/cover';
@@ -47,9 +48,8 @@ const GameScreen = () => {
 
   const { game, entry, genres, platforms, cached } = detail;
   const genreNames = genres.filter((genre) => game.genreIds.includes(genre.id)).map((g) => g.name);
-  const platformNames = platforms
-    .filter((platform) => game.platformIds.includes(platform.id))
-    .map((platform) => platform.abbreviation ?? platform.name);
+  const gamePlatforms = platforms.filter((platform) => game.platformIds.includes(platform.id));
+  const platformNames = gamePlatforms.map((platform) => platform.abbreviation ?? platform.name);
 
   const add = async (): Promise<void> => {
     setSaving(true);
@@ -69,7 +69,11 @@ const GameScreen = () => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.page}>
+    <ScrollView
+      contentContainerStyle={styles.page}
+      automaticallyAdjustKeyboardInsets
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.top}>
         <Cover imageId={game.coverImageId} gameId={game.id} size="cover_big" width={120} />
         <View style={styles.heading}>
@@ -117,12 +121,15 @@ const GameScreen = () => {
             <PrimaryButton label="Restore to library" onPress={() => void add()} busy={saving} />
           </>
         ) : (
-          <View style={styles.inLibrary}>
-            <View style={[styles.dot, { backgroundColor: statusColors[entry.status] }]} />
-            <Text style={[type.headline, { color: statusColors[entry.status] }]}>
-              In your library · {STATUS_LABEL[entry.status]}
-            </Text>
-          </View>
+          <>
+            <View style={styles.inLibrary}>
+              <View style={[styles.dot, { backgroundColor: statusColors[entry.status] }]} />
+              <Text style={[type.headline, { color: statusColors[entry.status] }]}>
+                In your library · {STATUS_LABEL[entry.status]}
+              </Text>
+            </View>
+            <EntryEditor entry={entry} platforms={gamePlatforms} />
+          </>
         )}
       </View>
 
