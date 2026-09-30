@@ -32,6 +32,12 @@ export type SeedOptions = {
   entries?: number;
   /** Any string; the same one always produces the same library. */
   seed?: string;
+  /**
+   * How a tag's id is made. The app passes `sync`'s `tagId`, which this
+   * package can't import, so a seeded tag removed and added back in the app
+   * revives the same row instead of hitting the `(entry_id, tag)` index.
+   */
+  tagId?: (entryId: string, tag: string) => string;
 };
 
 export type SeedResult = { games: number; entries: number; tags: number; notes: number };
@@ -73,7 +79,12 @@ const pick = <T>(random: () => number, values: readonly T[]): T =>
 const CYCLE_OFFSET = 10_000_000;
 
 export const seed = async (adapter: StorageAdapter, options: SeedOptions): Promise<SeedResult> => {
-  const { catalog, entries: wanted = 5_000, seed: seedValue = 'gameplan' } = options;
+  const {
+    catalog,
+    entries: wanted = 5_000,
+    seed: seedValue = 'gameplan',
+    tagId = tagIdentityKey,
+  } = options;
   const { games: real } = catalog;
   if (real.length === 0) throw new Error('The seed needs at least one game to cycle.');
 
@@ -123,7 +134,7 @@ export const seed = async (adapter: StorageAdapter, options: SeedOptions): Promi
 
     for (const tag of TAGS) {
       if (random() < 0.15) {
-        tags.push(createEntryTag({ id: tagIdentityKey(entry.id, tag), entryId: entry.id, tag }));
+        tags.push(createEntryTag({ id: tagId(entry.id, tag), entryId: entry.id, tag }));
       }
     }
 

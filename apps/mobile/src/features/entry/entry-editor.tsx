@@ -18,6 +18,7 @@ import { useToast } from '@/ui/components/toast';
 import { minTouchTarget, radius, space, tabularNumbers, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 import { editEntry } from './edit-entry';
+import { TagEditor } from './tag-editor';
 
 type ProgressKind = Progress['type'] | 'none';
 
@@ -152,6 +153,10 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
             }
           }}
         />
+      </Section>
+
+      <Section label="TAGS">
+        <TagEditor entryId={entry.id} />
       </Section>
 
       <View style={styles.switchRow}>

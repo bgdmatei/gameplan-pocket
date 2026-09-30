@@ -7,6 +7,7 @@ import {
   listLibraryGrid,
 } from '@gameplan/storage';
 import { seed } from '@gameplan/storage/testing';
+import { tagId } from '@gameplan/sync';
 import catalog from '@gameplan/storage/testing/catalog.json';
 import { Link } from 'expo-router';
 import { useState } from 'react';
@@ -44,7 +45,7 @@ const DebugScreen = () => {
     setBusy('Seeding 5,000 games…');
     try {
       // Rows only, no ops: a fake library for measuring, never for syncing.
-      await seed(adapter, { catalog, entries: 5_000 });
+      await seed(adapter, { catalog, entries: 5_000, tagId });
     } finally {
       setBusy(null);
     }
