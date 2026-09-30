@@ -160,7 +160,7 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
         <TagEditor entryId={entry.id} />
       </Section>
 
-      <View style={styles.switchRow}>
+      <View style={[styles.switchRow, styles.rule, { borderTopColor: colors.line }]}>
         <Text style={[type.body, { color: colors.text }]}>Favourite</Text>
         <Switch
           value={shown.favourite}
@@ -184,7 +184,7 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
 const Section = ({ label, children }: { label: string; children: ReactNode }) => {
   const { colors } = useTheme();
   return (
-    <View style={styles.section}>
+    <View style={[styles.section, styles.rule, { borderTopColor: colors.line }]}>
       <Text style={[type.label, { color: colors.muted }]}>{label}</Text>
       {children}
     </View>
@@ -365,6 +365,8 @@ const Playtime = ({
 const styles = StyleSheet.create({
   editor: { gap: space.lg },
   section: { gap: space.sm },
+  /** Sections sit on the screen's ground, divided by hairlines rather than boxed. */
+  rule: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: space.lg },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   fields: { flexDirection: 'row', gap: space.md },
   field: { width: 128, gap: space.xs },

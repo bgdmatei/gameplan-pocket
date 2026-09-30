@@ -1,8 +1,9 @@
 import { DomainValidationError, ENTRY_STATUSES } from '@gameplan/domain';
 import type { EntryStatus } from '@gameplan/domain';
-import { useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase } from '@/data/database';
 import { syncEnv, today } from '@/data/env';
 import { EntryEditor } from '@/features/entry/entry-editor';
@@ -15,8 +16,8 @@ import { PrimaryButton } from '@/ui/components/primary-button';
 import { SkeletonBlock } from '@/ui/components/skeleton';
 import { StatusChips } from '@/ui/components/status-chips';
 import { useToast } from '@/ui/components/toast';
-import { STATUS_LABEL, releaseYear } from '@/ui/labels';
-import { radius, space, statusDot, tabularNumbers, type } from '@/ui/theme';
+import { releaseYear } from '@/ui/labels';
+import { radius, space, tabularNumbers, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 const UNAVAILABLE = {
@@ -25,14 +26,21 @@ const UNAVAILABLE = {
   failed: 'The catalog couldn’t be reached. Try again in a moment.',
 } as const;
 
+/** Cover width on this screen; at 3:4 the heading has scrolled away once past its height. */
+const COVER_WIDTH = 120;
+const TITLE_GONE_AT = (COVER_WIDTH * 4) / 3;
+
 const GameScreen = () => {
-  const { colors, status: statusColors } = useTheme();
+  const { colors } = useTheme();
   const adapter = useDatabase();
+  const insets = useSafeAreaInsets();
   const toast = useToast();
   const { id } = useLocalSearchParams<{ id: string }>();
   const detail = useGameDetail(Number(id));
   const [startAs, setStartAs] = useState<EntryStatus>('backlog');
   const [saving, setSaving] = useState(false);
+  // Only flips at the threshold, so scrolling doesn't re-render per frame.
+  const [titleInHeader, setTitleInHeader] = useState(false);
 
   if (detail.kind === 'loading') {
     return (
@@ -91,12 +99,18 @@ const GameScreen = () => {
 
   return (
     <ScrollView
-      contentContainerStyle={styles.page}
+      contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}
       automaticallyAdjustKeyboardInsets
       keyboardShouldPersistTaps="handled"
+      scrollEventThrottle={100}
+      onScroll={(event) => {
+        const gone = event.nativeEvent.contentOffset.y > TITLE_GONE_AT;
+        if (gone !== titleInHeader) setTitleInHeader(gone);
+      }}
     >
+      <Stack.Screen options={{ title: titleInHeader ? game.name : '' }} />
       <View style={styles.top}>
-        <Cover imageId={game.coverImageId} gameId={game.id} size="cover_big" width={120} />
+        <Cover imageId={game.coverImageId} gameId={game.id} size="cover_big" width={COVER_WIDTH} />
         <View style={styles.heading}>
           <Text style={[type.title, { color: colors.text }]} accessibilityRole="header">
             {game.name}
@@ -116,45 +130,42 @@ const GameScreen = () => {
         <Text style={[type.subhead, { color: colors.text }]}>{genreNames.join(', ')}</Text>
       )}
 
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
-        {entry === null ? (
-          cached ? (
-            <>
-              <Text style={[type.label, { color: colors.muted }]}>ADD TO YOUR LIBRARY AS</Text>
-              <StatusChips
-                options={ENTRY_STATUSES}
-                selected={startAs}
-                onSelect={setStartAs}
-                disabled={saving}
-              />
-              <PrimaryButton label="Add to library" onPress={() => void add()} busy={saving} />
-            </>
-          ) : (
-            <Text style={[type.body, { color: colors.muted }]}>
-              This game can be added once the catalog is reachable.
-            </Text>
-          )
-        ) : entry.archived ? (
-          <>
-            <Text style={[type.body, { color: colors.text }]}>
-              In your archive, with its rating and notes.
-            </Text>
-            <PrimaryButton label="Restore to library" onPress={() => void add()} busy={saving} />
-          </>
-        ) : (
-          <>
-            <View style={styles.inLibrary}>
-              <View style={[styles.dot, { backgroundColor: statusColors[entry.status] }]} />
-              <Text style={[type.headline, { color: statusColors[entry.status] }]}>
-                In your library · {STATUS_LABEL[entry.status]}
-              </Text>
-            </View>
-            <EntryEditor entry={entry} platforms={gamePlatforms} />
-          </>
-        )}
-      </View>
+      {entry === null || entry.archived ? null : (
+        <>
+          <NotesLink gameId={game.id} entryId={entry.id} />
+          <EntryEditor entry={entry} platforms={gamePlatforms} />
+        </>
+      )}
 
-      {entry === null ? null : <NotesLink gameId={game.id} entryId={entry.id} />}
+      {entry !== null && !entry.archived ? null : (
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+          {entry === null ? (
+            cached ? (
+              <>
+                <Text style={[type.label, { color: colors.muted }]}>ADD TO YOUR LIBRARY AS</Text>
+                <StatusChips
+                  options={ENTRY_STATUSES}
+                  selected={startAs}
+                  onSelect={setStartAs}
+                  disabled={saving}
+                />
+                <PrimaryButton label="Add to library" onPress={() => void add()} busy={saving} />
+              </>
+            ) : (
+              <Text style={[type.body, { color: colors.muted }]}>
+                This game can be added once the catalog is reachable.
+              </Text>
+            )
+          ) : (
+            <>
+              <Text style={[type.body, { color: colors.text }]}>
+                In your archive, with its rating and notes.
+              </Text>
+              <PrimaryButton label="Restore to library" onPress={() => void add()} busy={saving} />
+            </>
+          )}
+        </View>
+      )}
 
       {game.summary === null ? null : (
         <Text style={[type.body, { color: colors.text }]}>{game.summary}</Text>
@@ -168,8 +179,6 @@ const styles = StyleSheet.create({
   top: { flexDirection: 'row', gap: space.lg },
   heading: { flex: 1, gap: space.xs },
   card: { borderWidth: 1, borderRadius: radius.card, padding: space.lg, gap: space.md },
-  inLibrary: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  dot: { width: statusDot, height: statusDot, borderRadius: statusDot / 2 },
 });
 
 export default GameScreen;
