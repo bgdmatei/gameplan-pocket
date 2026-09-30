@@ -10,7 +10,7 @@ type Props = {
   accessibilityLabel?: string;
 };
 
-/** A filter chip: amber fill when on, outlined when off. */
+/** A filter chip: accent fill when on, outlined when off. */
 export const Chip = ({ label, selected, onPress, accessibilityLabel }: Props) => {
   const { colors } = useTheme();
 

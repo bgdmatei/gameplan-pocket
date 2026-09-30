@@ -4,7 +4,7 @@ import { useTheme } from '../use-theme';
 
 type Props = { label: string; onPress: () => void; busy?: boolean };
 
-/** The screen's one main action, in the amber fill. Disabled while it runs, so a double tap can't repeat it. */
+/** The screen's one main action, in the accent fill. Disabled while it runs, so a double tap can't repeat it. */
 export const PrimaryButton = ({ label, onPress, busy = false }: Props) => {
   const { colors } = useTheme();
 
