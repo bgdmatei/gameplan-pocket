@@ -105,7 +105,7 @@ export const TagEditor = ({ entryId }: { entryId: string }) => {
         style={[
           type.body,
           styles.input,
-          { color: colors.text, borderColor: colors.line, backgroundColor: colors.background },
+          { color: colors.text, borderColor: colors.line, backgroundColor: colors.raised },
         ]}
       />
 

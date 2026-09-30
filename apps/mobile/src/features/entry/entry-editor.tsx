@@ -236,7 +236,7 @@ const Field = ({ label, value, onSave, numeric = false, wide = false }: FieldPro
           type.body,
           numeric && tabularNumbers,
           styles.input,
-          { color: colors.text, borderColor: colors.line, backgroundColor: colors.background },
+          { color: colors.text, borderColor: colors.line, backgroundColor: colors.raised },
         ]}
       />
     </View>
