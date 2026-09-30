@@ -7,6 +7,7 @@ import { useDatabase } from '@/data/database';
 import { syncEnv, today } from '@/data/env';
 import { EntryEditor } from '@/features/entry/entry-editor';
 import { addGame } from '@/features/library/add-game';
+import { NotesLink } from '@/features/notes/notes-link';
 import { useGameDetail } from '@/features/library/use-game-detail';
 import { Cover } from '@/ui/components/cover';
 import { PrimaryButton } from '@/ui/components/primary-button';
@@ -132,6 +133,8 @@ const GameScreen = () => {
           </>
         )}
       </View>
+
+      {entry === null ? null : <NotesLink gameId={game.id} entryId={entry.id} />}
 
       {game.summary === null ? null : (
         <Text style={[type.body, { color: colors.text }]}>{game.summary}</Text>

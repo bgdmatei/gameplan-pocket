@@ -17,6 +17,7 @@ export { DELETE_CLOCK, EMPTY_ROW, isDeleted, mergeOp } from './merge/merge';
 export type { RowState } from './merge/merge';
 export { commitLocalCreate, commitLocalDelete, commitLocalEdit } from './store/commit';
 export type { LocalChange, LocalEdit } from './store/commit';
+export { readFieldClock } from './store/read';
 export type { DeletableEntity, EntityValues, StoredEntity, SyncEnv } from './store/entities';
 export { applyRemoteOps } from './store/apply';
 export { createSingleFlight } from './single-flight';
