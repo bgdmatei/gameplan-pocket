@@ -8,10 +8,11 @@ import {
 import type { EntryPatch, LibraryEntry, Platform, Progress } from '@gameplan/domain';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useDatabase } from '@/data/database';
 import { syncEnv, today } from '@/data/env';
 import { Chip } from '@/ui/components/chip';
+import { PressableScale } from '@/ui/components/pressable-scale';
 import { StarRating } from '@/ui/components/star-rating';
 import { StatusChips } from '@/ui/components/status-chips';
 import { useToast } from '@/ui/components/toast';
@@ -169,13 +170,13 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
         />
       </View>
 
-      <Pressable
+      <PressableScale
         onPress={() => void archive()}
         accessibilityRole="button"
         style={styles.textButton}
       >
         <Text style={[type.callout, { color: colors.muted }]}>Archive this game</Text>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 };

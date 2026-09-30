@@ -1,10 +1,11 @@
 import type { LibraryGridRow } from '@gameplan/storage';
 import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { STATUS_LABEL } from '../labels';
 import { radius, space, statusDot, tabularNumbers, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { Cover } from './cover';
+import { PressableScale } from './pressable-scale';
 
 type Props = { row: LibraryGridRow; onPress: (gameId: number) => void };
 
@@ -25,7 +26,7 @@ export const CoverCell = memo(({ row, onPress }: Props) => {
     .join(', ');
 
   return (
-    <Pressable
+    <PressableScale
       onPress={() => onPress(row.gameId)}
       accessibilityRole="button"
       accessibilityLabel={label}
@@ -51,7 +52,7 @@ export const CoverCell = memo(({ row, onPress }: Props) => {
           {row.favourite ? ' · ★' : ''}
         </Text>
       </View>
-    </Pressable>
+    </PressableScale>
   );
 });
 

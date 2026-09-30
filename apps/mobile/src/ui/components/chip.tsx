@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { minTouchTarget, radius, space, type } from '../theme';
 import { useTheme } from '../use-theme';
+import { PressableScale } from './pressable-scale';
 
 type Props = {
   label: string;
@@ -15,7 +16,7 @@ export const Chip = ({ label, selected, onPress, accessibilityLabel }: Props) =>
   const { colors } = useTheme();
 
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
@@ -37,7 +38,7 @@ export const Chip = ({ label, selected, onPress, accessibilityLabel }: Props) =>
       >
         {label}
       </Text>
-    </Pressable>
+    </PressableScale>
   );
 };
 

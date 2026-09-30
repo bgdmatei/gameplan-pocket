@@ -157,6 +157,15 @@ export const tabularNumbers: TextStyle = {
   fontVariant: ['tabular-nums'],
 };
 
+/**
+ * Press feedback: a tappable sinks a little under the finger and springs back.
+ * Collapsed to nothing when the phone asks for reduced motion.
+ */
+export const press = {
+  scale: 0.96,
+  spring: { damping: 18, stiffness: 420, mass: 0.6 },
+} as const;
+
 /** A status dot, wherever a status is shown with its label. */
 export const statusDot = 8;
 

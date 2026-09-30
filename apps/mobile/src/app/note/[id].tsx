@@ -3,7 +3,7 @@ import type { NoteItem, NoteItemPatch } from '@gameplan/domain';
 import { NOTE_ITEM_TABLES, getNoteItem } from '@gameplan/storage';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useDatabase } from '@/data/database';
 import { syncEnv } from '@/data/env';
 import { useQuery } from '@/data/use-query';
@@ -12,6 +12,7 @@ import type { NoteDraft } from '@/features/notes/note-form';
 import { deleteNote, openNoteSession } from '@/features/notes/note-session';
 import type { NoteSession } from '@/features/notes/note-session';
 import { LoadFailed } from '@/ui/components/load-failed';
+import { PressableScale } from '@/ui/components/pressable-scale';
 import { useToast } from '@/ui/components/toast';
 import { minTouchTarget, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
@@ -145,9 +146,9 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
         />
       </View>
 
-      <Pressable onPress={confirmDelete} accessibilityRole="button" style={styles.textButton}>
+      <PressableScale onPress={confirmDelete} accessibilityRole="button" style={styles.textButton}>
         <Text style={[type.callout, { color: colors.danger }]}>Delete note</Text>
-      </Pressable>
+      </PressableScale>
     </ScrollView>
   );
 };

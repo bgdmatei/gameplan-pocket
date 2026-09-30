@@ -8,11 +8,12 @@ import {
 } from '@gameplan/storage';
 import { commitLocalCreate, commitLocalDelete, tagId } from '@gameplan/sync';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useDatabase } from '@/data/database';
 import { syncEnv } from '@/data/env';
 import { useQuery } from '@/data/use-query';
 import { Chip } from '@/ui/components/chip';
+import { PressableScale } from '@/ui/components/pressable-scale';
 import { useToast } from '@/ui/components/toast';
 import { minTouchTarget, radius, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
@@ -72,7 +73,7 @@ export const TagEditor = ({ entryId }: { entryId: string }) => {
       {tags.length === 0 ? null : (
         <View style={styles.wrap}>
           {tags.map((tag) => (
-            <Pressable
+            <PressableScale
               key={tag.id}
               onPress={() => void remove(tag.id)}
               accessibilityRole="button"
@@ -84,7 +85,7 @@ export const TagEditor = ({ entryId }: { entryId: string }) => {
                 #{displayTag(tag.tag)}
               </Text>
               <Ionicons name="close" size={14} color={colors.onAccent} />
-            </Pressable>
+            </PressableScale>
           ))}
         </View>
       )}

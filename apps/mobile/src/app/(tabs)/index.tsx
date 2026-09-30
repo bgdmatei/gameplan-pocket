@@ -8,6 +8,7 @@ import { useQuery } from '@/data/use-query';
 import { FilterBar } from '@/ui/components/filter-bar';
 import type { LibraryFilters } from '@/ui/components/filter-bar';
 import { LibraryGrid } from '@/ui/components/library-grid';
+import { PressableScale } from '@/ui/components/pressable-scale';
 import { minTouchTarget, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
@@ -29,21 +30,23 @@ const LibraryScreen = () => {
           Library
         </Text>
         <View style={styles.actions}>
-          <Link
-            href="/archive"
-            accessibilityRole="button"
-            accessibilityLabel="Archive"
-            style={styles.icon}
-          >
-            <Ionicons name="archive-outline" size={24} color={colors.accent} />
+          <Link href="/archive" asChild>
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel="Archive"
+              style={styles.icon}
+            >
+              <Ionicons name="archive-outline" size={24} color={colors.accent} />
+            </PressableScale>
           </Link>
-          <Link
-            href="/debug"
-            accessibilityRole="button"
-            accessibilityLabel="Debug"
-            style={styles.icon}
-          >
-            <Ionicons name="construct-outline" size={22} color={colors.muted} />
+          <Link href="/debug" asChild>
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel="Debug"
+              style={styles.icon}
+            >
+              <Ionicons name="construct-outline" size={22} color={colors.muted} />
+            </PressableScale>
           </Link>
         </View>
       </View>
@@ -82,8 +85,8 @@ const styles = StyleSheet.create({
   icon: {
     minWidth: minTouchTarget,
     minHeight: minTouchTarget,
-    textAlign: 'center',
-    lineHeight: minTouchTarget,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   empty: { padding: space.lg },
 });

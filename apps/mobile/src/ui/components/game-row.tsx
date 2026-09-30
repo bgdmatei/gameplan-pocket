@@ -27,7 +27,7 @@ export const GameRow = memo(
         onPress={() => onPress(gameId)}
         accessibilityRole="button"
         accessibilityLabel={[name, releaseYear, inLibrary].filter(Boolean).join(', ')}
-        style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.surface }]}
+        style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.raised }]}
       >
         <Cover imageId={coverImageId} gameId={gameId} size="cover_small" width={48} />
         <View style={styles.text}>

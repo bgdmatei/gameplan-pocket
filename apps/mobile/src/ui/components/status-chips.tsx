@@ -1,8 +1,9 @@
 import type { EntryStatus } from '@gameplan/domain';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { STATUS_LABEL } from '../labels';
 import { minTouchTarget, radius, space, statusDot, type } from '../theme';
 import { useTheme } from '../use-theme';
+import { PressableScale } from './pressable-scale';
 
 type Props = {
   options: readonly EntryStatus[];
@@ -23,7 +24,7 @@ export const StatusChips = ({ options, selected, onSelect, disabled = false }: P
       {options.map((status) => {
         const on = status === selected;
         return (
-          <Pressable
+          <PressableScale
             key={status}
             onPress={() => onSelect(status)}
             disabled={disabled}
@@ -47,7 +48,7 @@ export const StatusChips = ({ options, selected, onSelect, disabled = false }: P
             >
               {STATUS_LABEL[status]}
             </Text>
-          </Pressable>
+          </PressableScale>
         );
       })}
     </View>

@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { minTouchTarget, space, type } from '../theme';
 import { useTheme } from '../use-theme';
+import { PressableScale } from './pressable-scale';
 
 type Props = { message: string; onRetry: () => void };
 
@@ -15,14 +16,14 @@ export const LoadFailed = ({ message, onRetry }: Props) => {
   return (
     <View style={styles.box} accessibilityLiveRegion="polite">
       <Text style={[type.body, { color: colors.muted }]}>{message}</Text>
-      <Pressable
+      <PressableScale
         onPress={onRetry}
         accessibilityRole="button"
         hitSlop={{ left: space.sm, right: space.sm }}
-        style={({ pressed }) => [styles.retry, pressed && styles.pressed]}
+        style={styles.retry}
       >
         <Text style={[type.headline, { color: colors.accent }]}>Try again</Text>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 };
@@ -30,5 +31,4 @@ export const LoadFailed = ({ message, onRetry }: Props) => {
 const styles = StyleSheet.create({
   box: { padding: space.lg, gap: space.sm, alignItems: 'flex-start' },
   retry: { minHeight: minTouchTarget, justifyContent: 'center' },
-  pressed: { opacity: 0.6 },
 });

@@ -9,10 +9,11 @@ import {
 } from '@gameplan/storage';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@/data/use-query';
 import { Chip } from '@/ui/components/chip';
 import { LoadFailed } from '@/ui/components/load-failed';
+import { PressableScale } from '@/ui/components/pressable-scale';
 import { PrimaryButton } from '@/ui/components/primary-button';
 import { SkeletonBlock } from '@/ui/components/skeleton';
 import { NOTE_TYPE_LABEL } from '@/ui/labels';
@@ -140,7 +141,7 @@ const NoteRow = ({ note }: { note: NoteItem }) => {
   const label = `${NOTE_TYPE_LABEL[note.type]} · ${note.resolved ? 'resolved' : 'open'}`;
 
   return (
-    <Pressable
+    <PressableScale
       onPress={() => router.push({ pathname: '/note/[id]', params: { id: note.id } })}
       accessibilityRole="button"
       accessibilityHint="Opens the note"
@@ -160,7 +161,7 @@ const NoteRow = ({ note }: { note: NoteItem }) => {
       {note.location === null ? null : (
         <Text style={[type.subhead, { color: colors.muted }]}>{note.location}</Text>
       )}
-    </Pressable>
+    </PressableScale>
   );
 };
 
