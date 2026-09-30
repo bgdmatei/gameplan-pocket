@@ -1,4 +1,5 @@
 import { DomainValidationError } from '@gameplan/domain';
+import { useSegments } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
@@ -21,12 +22,13 @@ type ToastApi = {
 const ToastContext = createContext<ToastApi | null>(null);
 
 const VISIBLE_MS = 4_000;
-/** Clears the tab bar, which sits below every screen that shows a toast. */
+/** Clears the tab bar on a tab screen; pushed screens and modals have none. */
 const ABOVE_TABS = 64;
 
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const onTabs = useSegments()[0] === '(tabs)';
   const [toast, setToast] = useState<Toast | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -63,7 +65,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
           style={[
             styles.toast,
             {
-              bottom: insets.bottom + ABOVE_TABS,
+              bottom: insets.bottom + (onTabs ? ABOVE_TABS : space.lg),
               backgroundColor: colors.text,
               borderLeftColor: toast.tone === 'problem' ? colors.danger : colors.accentFill,
             },
