@@ -8,14 +8,19 @@ import { useTheme } from '../use-theme';
 import { Cover } from './cover';
 import { PressableScale } from './pressable-scale';
 
-type Props = { row: LibraryGridRow; onPress: (gameId: number) => void };
+type Props = {
+  row: LibraryGridRow;
+  onPress: (gameId: number) => void;
+  /** False when the grid is filtered to one status: every cell would say the same. */
+  showStatus: boolean;
+};
 
 /**
  * One cell of the library grid. Memoised and given only primitives and a
  * stable callback (plan §12.3), so scrolling 5,000 covers re-renders only the
  * cells that change.
  */
-export const CoverCell = memo(({ row, onPress }: Props) => {
+export const CoverCell = memo(({ row, onPress, showStatus }: Props) => {
   const { colors, status } = useTheme();
   const label = [
     row.name,
@@ -46,13 +51,19 @@ export const CoverCell = memo(({ row, onPress }: Props) => {
       <Text style={[type.caption, { color: colors.text }]} numberOfLines={2}>
         {row.name}
       </Text>
-      <View style={styles.status}>
-        <View style={[styles.dot, { backgroundColor: status[row.status] }]} />
-        <Text style={[type.caption, styles.label, { color: colors.muted }]} numberOfLines={1}>
-          {STATUS_LABEL[row.status]}
-        </Text>
-        {row.favourite ? <Ionicons name="star" size={12} color={colors.accent} /> : null}
-      </View>
+      {showStatus || row.favourite ? (
+        <View style={styles.status}>
+          {showStatus ? (
+            <>
+              <View style={[styles.dot, { backgroundColor: status[row.status] }]} />
+              <Text style={[type.caption, styles.label, { color: colors.muted }]} numberOfLines={1}>
+                {STATUS_LABEL[row.status]}
+              </Text>
+            </>
+          ) : null}
+          {row.favourite ? <Ionicons name="star" size={12} color={colors.accent} /> : null}
+        </View>
+      ) : null}
     </PressableScale>
   );
 });

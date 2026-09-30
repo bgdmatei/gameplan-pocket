@@ -13,6 +13,10 @@ export type LibraryFilters = {
   sort: LibrarySort;
 };
 
+/** Whether anything narrows the library; sorting alone doesn't. */
+export const isFiltered = (filters: LibraryFilters): boolean =>
+  filters.status !== undefined || filters.favourite !== undefined || filters.tag !== undefined;
+
 const SORTS: readonly LibrarySort[] = ['recent', 'name', 'rating', 'playtime'];
 const SORT_LABEL: Record<LibrarySort, string> = {
   recent: 'Recent',
@@ -29,7 +33,9 @@ type Props = {
 
 /**
  * One row of chips: sort, favourites, status, then tags. A second tap on a
- * status or tag clears it, so "All" needs no chip of its own. Filtering and
+ * status or tag clears it, so "All" needs no chip of its own. While anything
+ * is filtered a Clear chip leads the row, so a filter scrolled out of view
+ * still shows it is on. Filtering and
  * sorting happen in SQL (plan §12.2); this only says what to ask for.
  */
 export const FilterBar = ({ filters, tags, onChange }: Props) => {
@@ -50,6 +56,15 @@ export const FilterBar = ({ filters, tags, onChange }: Props) => {
       contentContainerStyle={styles.row}
       accessibilityLabel="Filters"
     >
+      {isFiltered(filters) ? (
+        <Chip
+          label="Clear"
+          icon="close"
+          accessibilityLabel="Clear filters"
+          selected
+          onPress={() => onChange({ sort: filters.sort })}
+        />
+      ) : null}
       <Chip
         label={`Sort: ${SORT_LABEL[filters.sort]}`}
         accessibilityLabel={`Sorted by ${SORT_LABEL[filters.sort]}. Changes to ${SORT_LABEL[nextSort]}`}

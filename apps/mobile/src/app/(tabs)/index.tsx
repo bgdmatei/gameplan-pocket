@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@/data/use-query';
-import { FilterBar } from '@/ui/components/filter-bar';
+import { FilterBar, isFiltered } from '@/ui/components/filter-bar';
 import type { LibraryFilters } from '@/ui/components/filter-bar';
 import { LibraryGrid } from '@/ui/components/library-grid';
 import { PressableScale } from '@/ui/components/pressable-scale';
@@ -20,8 +20,6 @@ const LibraryScreen = () => {
     [...ENTRY_TAG_TABLES, ...LIBRARY_ENTRY_TABLES],
     [],
   );
-  const filtered =
-    filters.status !== undefined || filters.favourite !== undefined || filters.tag !== undefined;
 
   return (
     <SafeAreaView edges={['top']} style={styles.page}>
@@ -62,7 +60,7 @@ const LibraryScreen = () => {
         empty={
           <View style={styles.empty}>
             <Text style={[type.body, { color: colors.muted }]}>
-              {filtered
+              {isFiltered(filters)
                 ? 'No games match these filters.'
                 : 'Your library is empty. Find a game in Search and add it.'}
             </Text>

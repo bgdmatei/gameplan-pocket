@@ -45,7 +45,9 @@ export const LibraryGrid = ({ filters, header, empty, bottomInset = 0 }: Props) 
       data={state.data.rows}
       numColumns={3}
       keyExtractor={(row) => row.id}
-      renderItem={({ item }) => <CoverCell row={item} onPress={open} />}
+      renderItem={({ item }) => (
+        <CoverCell row={item} onPress={open} showStatus={filters.status === undefined} />
+      )}
       onEndReached={loadMore}
       onEndReachedThreshold={1}
       ListHeaderComponent={header}
