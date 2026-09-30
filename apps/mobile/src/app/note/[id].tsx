@@ -1,7 +1,7 @@
 import { DomainValidationError } from '@gameplan/domain';
 import type { NoteItem, NoteItemPatch } from '@gameplan/domain';
 import { NOTE_ITEM_TABLES, getNoteItem } from '@gameplan/storage';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useDatabase } from '@/data/database';
@@ -11,6 +11,7 @@ import { NoteForm } from '@/features/notes/note-form';
 import type { NoteDraft } from '@/features/notes/note-form';
 import { deleteNote, openNoteSession } from '@/features/notes/note-session';
 import type { NoteSession } from '@/features/notes/note-session';
+import { HeaderButton } from '@/ui/components/header-button';
 import { LoadFailed } from '@/ui/components/load-failed';
 import { PressableScale } from '@/ui/components/pressable-scale';
 import { useToast } from '@/ui/components/toast';
@@ -24,20 +25,39 @@ const NoteScreen = () => {
   const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const note = useQuery((db) => getNoteItem(db, id), NOTE_ITEM_TABLES, [id]);
+  // Edits save as they're typed, and closing saves the rest: Done only closes.
+  const done = (
+    <Stack.Screen
+      options={{
+        headerRight: () => <HeaderButton label="Done" emphasis onPress={() => router.back()} />,
+      }}
+    />
+  );
 
   // One local row: it arrives within a frame, before a placeholder could be read.
-  if (note.status === 'loading') return null;
+  if (note.status === 'loading') return done;
   if (note.status === 'failed') {
-    return <LoadFailed message="This note couldn’t be read." onRetry={note.retry} />;
+    return (
+      <>
+        {done}
+        <LoadFailed message="This note couldn’t be read." onRetry={note.retry} />
+      </>
+    );
   }
   if (note.data === null) {
     return (
       <View style={styles.page}>
+        {done}
         <Text style={[type.body, { color: colors.muted }]}>This note was deleted.</Text>
       </View>
     );
   }
-  return <NoteEditor note={note.data} />;
+  return (
+    <>
+      {done}
+      <NoteEditor note={note.data} />
+    </>
+  );
 };
 
 /**
