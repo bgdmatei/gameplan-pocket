@@ -4,6 +4,12 @@ import { DatabaseProvider } from '@/data/database';
 import { ToastProvider } from '@/ui/components/toast';
 import { useTheme } from '@/ui/use-theme';
 
+/**
+ * A deep link opens its screen on top of the tabs, so a game or note opened
+ * cold from a link still has somewhere to go back to.
+ */
+export const unstable_settings = { initialRouteName: '(tabs)' };
+
 const RootLayout = () => {
   const { colors, scheme } = useTheme();
 
