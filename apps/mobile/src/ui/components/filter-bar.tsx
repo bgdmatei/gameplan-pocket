@@ -57,7 +57,8 @@ export const FilterBar = ({ filters, tags, onChange }: Props) => {
         onPress={() => onChange({ ...filters, sort: nextSort })}
       />
       <Chip
-        label="★ Favourites"
+        label="Favourites"
+        icon="star"
         selected={filters.favourite === true}
         onPress={() => {
           const next = { ...filters };

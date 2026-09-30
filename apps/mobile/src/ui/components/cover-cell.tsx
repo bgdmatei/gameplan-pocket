@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { LibraryGridRow } from '@gameplan/storage';
 import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -47,10 +48,10 @@ export const CoverCell = memo(({ row, onPress }: Props) => {
       </Text>
       <View style={styles.status}>
         <View style={[styles.dot, { backgroundColor: status[row.status] }]} />
-        <Text style={[type.caption, { color: colors.muted }]} numberOfLines={1}>
+        <Text style={[type.caption, styles.label, { color: colors.muted }]} numberOfLines={1}>
           {STATUS_LABEL[row.status]}
-          {row.favourite ? ' · ★' : ''}
         </Text>
+        {row.favourite ? <Ionicons name="star" size={12} color={colors.accent} /> : null}
       </View>
     </PressableScale>
   );
@@ -70,5 +71,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   status: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  label: { flexShrink: 1 },
   dot: { width: statusDot, height: statusDot, borderRadius: statusDot / 2 },
 });
