@@ -8,6 +8,7 @@ import {
   listNoteItems,
 } from '@gameplan/storage';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@/data/use-query';
@@ -37,6 +38,7 @@ const RESOLVED: Record<Shown, boolean | undefined> = {
 /** A game's notes in reading order (by location, then oldest first), open ones by default. */
 const NotesScreen = () => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const gameId = Number(id);
   const [shown, setShown] = useState<Shown>('open');
@@ -90,7 +92,7 @@ const NotesScreen = () => {
     <FlatList
       data={notes}
       keyExtractor={(note) => note.id}
-      contentContainerStyle={styles.page}
+      contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}
       ListHeaderComponent={
         <View style={styles.header}>
           <Text style={[type.headline, { color: colors.text }]} accessibilityRole="header">

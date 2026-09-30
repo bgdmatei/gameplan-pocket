@@ -15,10 +15,12 @@ type Props = {
   header?: ReactElement;
   /** Shown when nothing matches. */
   empty: ReactElement;
+  /** Extra room at the end, for a grid pushed over the tab bar down to the home indicator. */
+  bottomInset?: number;
 };
 
 /** The library as a cover grid, paged as the user scrolls. Shared by Library and Archive. */
-export const LibraryGrid = ({ filters, header, empty }: Props) => {
+export const LibraryGrid = ({ filters, header, empty, bottomInset = 0 }: Props) => {
   const { state, loadMore } = useLibraryPages(filters);
 
   const open = useCallback((gameId: number) => {
@@ -48,12 +50,12 @@ export const LibraryGrid = ({ filters, header, empty }: Props) => {
       onEndReachedThreshold={1}
       ListHeaderComponent={header}
       ListEmptyComponent={empty}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={{ ...styles.content, paddingBottom: space.xl + bottomInset }}
     />
   );
 };
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: space.md, paddingBottom: space.xl },
+  content: { paddingHorizontal: space.md },
   placeholder: { flex: 1 },
 });
