@@ -37,18 +37,21 @@ export const NoteForm = ({ draft, onChange, onBlur, autoFocus = false }: Props) 
         ))}
       </View>
 
-      <TextInput
-        value={draft.text}
-        onChangeText={(text) => onChange({ ...draft, text })}
-        onBlur={onBlur}
-        placeholder="What do you want to remember?"
-        placeholderTextColor={colors.muted}
-        multiline
-        autoFocus={autoFocus}
-        maxLength={NOTE_TEXT_MAX_LENGTH}
-        accessibilityLabel="Note"
-        style={[type.body, ...input, styles.text]}
-      />
+      <View style={styles.field}>
+        <Text style={[type.caption, { color: colors.muted }]}>Note</Text>
+        <TextInput
+          value={draft.text}
+          onChangeText={(text) => onChange({ ...draft, text })}
+          onBlur={onBlur}
+          placeholder="What do you want to remember?"
+          placeholderTextColor={colors.muted}
+          multiline
+          autoFocus={autoFocus}
+          maxLength={NOTE_TEXT_MAX_LENGTH}
+          accessibilityLabel="Note"
+          style={[type.body, ...input, styles.text]}
+        />
+      </View>
 
       <View style={styles.field}>
         <Text style={[type.caption, { color: colors.muted }]}>Where (optional)</Text>
