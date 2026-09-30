@@ -11,6 +11,7 @@ import { NoteForm } from '@/features/notes/note-form';
 import type { NoteDraft } from '@/features/notes/note-form';
 import { deleteNote, openNoteSession } from '@/features/notes/note-session';
 import type { NoteSession } from '@/features/notes/note-session';
+import { LoadFailed } from '@/ui/components/load-failed';
 import { useToast } from '@/ui/components/toast';
 import { minTouchTarget, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
@@ -23,7 +24,11 @@ const NoteScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const note = useQuery((db) => getNoteItem(db, id), NOTE_ITEM_TABLES, [id]);
 
-  if (note.status !== 'ready') return null;
+  // One local row: it arrives within a frame, before a placeholder could be read.
+  if (note.status === 'loading') return null;
+  if (note.status === 'failed') {
+    return <LoadFailed message="This note couldn’t be read." onRetry={note.retry} />;
+  }
   if (note.data === null) {
     return (
       <View style={styles.page}>

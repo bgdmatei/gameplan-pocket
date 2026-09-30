@@ -12,7 +12,9 @@ import { useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@/data/use-query';
 import { Chip } from '@/ui/components/chip';
+import { LoadFailed } from '@/ui/components/load-failed';
 import { PrimaryButton } from '@/ui/components/primary-button';
+import { SkeletonBlock } from '@/ui/components/skeleton';
 import { NOTE_TYPE_LABEL } from '@/ui/labels';
 import { radius, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
@@ -57,7 +59,23 @@ const NotesScreen = () => {
     [gameId, shown, noteType],
   );
 
-  if (state.status !== 'ready') return null;
+  if (state.status === 'loading') {
+    return (
+      <View
+        style={styles.page}
+        accessible
+        accessibilityLabel="Loading notes"
+        accessibilityState={{ busy: true }}
+      >
+        <SkeletonBlock width="30%" height={20} />
+        <SkeletonBlock width="100%" height={72} round={radius.card} />
+        <SkeletonBlock width="100%" height={72} round={radius.card} />
+      </View>
+    );
+  }
+  if (state.status === 'failed') {
+    return <LoadFailed message="These notes couldn’t be read." onRetry={state.retry} />;
+  }
   if (state.data === null) {
     return (
       <View style={styles.page}>

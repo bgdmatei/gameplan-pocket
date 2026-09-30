@@ -14,6 +14,7 @@ import { mergeSearch } from '@/features/search/merge';
 import type { SearchNotice } from '@/features/search/merge';
 import { useRemoteSearch } from '@/features/search/use-remote-search';
 import { GameRow } from '@/ui/components/game-row';
+import { LoadFailed } from '@/ui/components/load-failed';
 import type { GameRowProps } from '@/ui/components/game-row';
 import { releaseYear } from '@/ui/labels';
 import { minTouchTarget, radius, space, type } from '@/ui/theme';
@@ -68,6 +69,15 @@ const SearchScreen = () => {
     router.push({ pathname: '/game/[id]', params: { id: String(gameId) } });
   }, []);
 
+  // Remote results can still arrive; only a failed local read is shown as a failure.
+  const failed = searching
+    ? local.status === 'failed'
+      ? local
+      : null
+    : recent.status === 'failed'
+      ? recent
+      : null;
+
   const empty = searching
     ? remote.kind === 'waiting'
       ? 'Searching the catalog…'
@@ -114,7 +124,11 @@ const SearchScreen = () => {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         ListEmptyComponent={
-          <Text style={[type.body, styles.empty, { color: colors.muted }]}>{empty}</Text>
+          failed === null ? (
+            <Text style={[type.body, styles.empty, { color: colors.muted }]}>{empty}</Text>
+          ) : (
+            <LoadFailed message="Games on this phone couldn’t be read." onRetry={failed.retry} />
+          )
         }
       />
     </SafeAreaView>

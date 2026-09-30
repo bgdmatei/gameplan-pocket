@@ -2,7 +2,7 @@ import { DomainValidationError, ENTRY_STATUSES } from '@gameplan/domain';
 import type { EntryStatus } from '@gameplan/domain';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useDatabase } from '@/data/database';
 import { syncEnv, today } from '@/data/env';
 import { EntryEditor } from '@/features/entry/entry-editor';
@@ -10,7 +10,9 @@ import { addGame } from '@/features/library/add-game';
 import { NotesLink } from '@/features/notes/notes-link';
 import { useGameDetail } from '@/features/library/use-game-detail';
 import { Cover } from '@/ui/components/cover';
+import { LoadFailed } from '@/ui/components/load-failed';
 import { PrimaryButton } from '@/ui/components/primary-button';
+import { SkeletonBlock } from '@/ui/components/skeleton';
 import { StatusChips } from '@/ui/components/status-chips';
 import { useToast } from '@/ui/components/toast';
 import { STATUS_LABEL, releaseYear } from '@/ui/labels';
@@ -34,16 +36,34 @@ const GameScreen = () => {
 
   if (detail.kind === 'loading') {
     return (
-      <View style={styles.centred}>
-        <ActivityIndicator color={colors.accent} accessibilityLabel="Loading the game" />
+      <View
+        style={styles.page}
+        accessible
+        accessibilityLabel="Loading the game"
+        accessibilityState={{ busy: true }}
+      >
+        <View style={styles.top}>
+          <SkeletonBlock width={120} aspectRatio={3 / 4} round={radius.cover} />
+          <View style={styles.heading}>
+            <SkeletonBlock width="80%" height={22} />
+            <SkeletonBlock width="30%" height={14} />
+          </View>
+        </View>
+        <SkeletonBlock width="100%" height={180} round={radius.card} />
       </View>
     );
   }
+  if (detail.kind === 'failed') {
+    return <LoadFailed message="This game couldn’t be read." onRetry={detail.retry} />;
+  }
   if (detail.kind === 'unavailable') {
-    return (
-      <View style={styles.centred}>
-        <Text style={[type.body, { color: colors.muted }]}>{UNAVAILABLE[detail.reason]}</Text>
+    // Asking again can't help a game the catalog doesn't have.
+    return detail.reason === 'not_found' ? (
+      <View style={styles.page}>
+        <Text style={[type.body, { color: colors.muted }]}>{UNAVAILABLE.not_found}</Text>
       </View>
+    ) : (
+      <LoadFailed message={UNAVAILABLE[detail.reason]} onRetry={detail.retry} />
     );
   }
 
@@ -145,7 +165,6 @@ const GameScreen = () => {
 
 const styles = StyleSheet.create({
   page: { padding: space.lg, gap: space.lg },
-  centred: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.xl },
   top: { flexDirection: 'row', gap: space.lg },
   heading: { flex: 1, gap: space.xs },
   card: { borderWidth: 1, borderRadius: radius.card, padding: space.lg, gap: space.md },

@@ -23,8 +23,10 @@ export type GameDetail =
       /** False when the game came from the server but could not be kept on this phone. */
       cached: boolean;
     }
+  /** This phone's database could not be read. */
+  | { kind: 'failed'; retry: () => void }
   /** Not on this phone, and the server could not be asked or does not know it. */
-  | { kind: 'unavailable'; reason: 'offline' | 'not_found' | 'failed' };
+  | { kind: 'unavailable'; reason: 'offline' | 'not_found' | 'failed'; retry: () => void };
 
 /**
  * A game as the detail screen shows it: this phone's copy at once, and a
@@ -47,6 +49,7 @@ export const useGameDetail = (gameId: number): GameDetail => {
     | { kind: 'game'; game: Game }
     | { kind: 'unavailable'; reason: 'offline' | 'not_found' | 'failed' }
   >({ kind: 'waiting' });
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let current = true;
@@ -63,8 +66,9 @@ export const useGameDetail = (gameId: number): GameDetail => {
     return () => {
       current = false;
     };
-  }, [adapter, gameId]);
+  }, [adapter, gameId, attempt]);
 
+  if (local.status === 'failed') return { kind: 'failed', retry: local.retry };
   if (local.status !== 'ready') return { kind: 'loading' };
   const { game, entry, reference } = local.data;
 
@@ -74,6 +78,12 @@ export const useGameDetail = (gameId: number): GameDetail => {
   if (fetched.kind === 'game') {
     return { kind: 'ready', game: fetched.game, entry, cached: false, ...reference };
   }
-  if (fetched.kind === 'unavailable') return { kind: 'unavailable', reason: fetched.reason };
+  if (fetched.kind === 'unavailable') {
+    return {
+      kind: 'unavailable',
+      reason: fetched.reason,
+      retry: () => setAttempt((current) => current + 1),
+    };
+  }
   return { kind: 'loading' };
 };

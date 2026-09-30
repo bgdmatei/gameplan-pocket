@@ -1,8 +1,8 @@
 import { LIBRARY_ENTRY_TABLES, listLibraryGrid } from '@gameplan/storage';
 import type { LibraryPage, ListLibraryOptions } from '@gameplan/storage';
 import { useState } from 'react';
-import type { QueryState } from './query-runner';
 import { useQuery } from './use-query';
+import type { LiveQueryState } from './use-query';
 
 const PAGE_SIZE = 60;
 
@@ -19,7 +19,7 @@ type Filters = Omit<ListLibraryOptions, 'limit' | 'cursor'>;
  */
 export const useLibraryPages = (
   filters: Filters,
-): { state: QueryState<LibraryPage>; loadMore: () => void } => {
+): { state: LiveQueryState<LibraryPage>; loadMore: () => void } => {
   const key = JSON.stringify(filters);
   const [paging, setPaging] = useState({ key, pages: 1 });
   const pages = paging.key === key ? paging.pages : 1;
