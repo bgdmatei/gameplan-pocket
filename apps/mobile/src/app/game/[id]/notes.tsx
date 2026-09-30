@@ -115,6 +115,8 @@ const NotesScreen = () => {
                 onPress={() => setShown(value)}
               />
             ))}
+            {/* Two filters in one row: which notes, then what kind. */}
+            <View style={[styles.divider, { backgroundColor: colors.line }]} />
             {NOTE_ITEM_TYPES.map((value) => (
               <Chip
                 key={value}
@@ -171,6 +173,7 @@ const styles = StyleSheet.create({
   page: { padding: space.lg, gap: space.md },
   header: { gap: space.md, marginBottom: space.sm },
   row: { gap: space.sm },
+  divider: { width: 1, marginVertical: space.xs },
   note: { padding: space.md, gap: space.xs, borderRadius: radius.card, borderWidth: 1 },
 });
 
