@@ -2,7 +2,7 @@ import type { EntryStatus } from '@gameplan/domain';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { STATUS_LABEL } from '../labels';
-import { minTouchTarget, space, type } from '../theme';
+import { minTouchTarget, space, statusDot, tabularNumbers, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { Cover } from './cover';
 
@@ -36,7 +36,9 @@ export const GameRow = memo(
           </Text>
           <View style={styles.meta}>
             {releaseYear === null ? null : (
-              <Text style={[type.subhead, { color: colors.muted }]}>{releaseYear}</Text>
+              <Text style={[type.subhead, tabularNumbers, { color: colors.muted }]}>
+                {releaseYear}
+              </Text>
             )}
             {status === null ? null : (
               <View style={styles.status}>
@@ -65,5 +67,5 @@ const styles = StyleSheet.create({
   text: { flex: 1, gap: 2 },
   meta: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   status: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
-  dot: { width: 7, height: 7, borderRadius: 4 },
+  dot: { width: statusDot, height: statusDot, borderRadius: statusDot / 2 },
 });

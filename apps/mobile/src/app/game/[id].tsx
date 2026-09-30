@@ -14,7 +14,7 @@ import { PrimaryButton } from '@/ui/components/primary-button';
 import { StatusChips } from '@/ui/components/status-chips';
 import { useToast } from '@/ui/components/toast';
 import { STATUS_LABEL, releaseYear } from '@/ui/labels';
-import { radius, space, type } from '@/ui/theme';
+import { radius, space, statusDot, tabularNumbers, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 const UNAVAILABLE = {
@@ -82,7 +82,7 @@ const GameScreen = () => {
             {game.name}
           </Text>
           {game.firstReleaseDate === null ? null : (
-            <Text style={[type.subhead, { color: colors.muted }]}>
+            <Text style={[type.subhead, tabularNumbers, { color: colors.muted }]}>
               {releaseYear(game.firstReleaseDate)}
             </Text>
           )}
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   heading: { flex: 1, gap: space.xs },
   card: { borderWidth: 1, borderRadius: radius.card, padding: space.lg, gap: space.md },
   inLibrary: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  dot: { width: 10, height: 10, borderRadius: 5 },
+  dot: { width: statusDot, height: statusDot, borderRadius: statusDot / 2 },
 });
 
 export default GameScreen;

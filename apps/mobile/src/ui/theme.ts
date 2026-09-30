@@ -157,6 +157,9 @@ export const tabularNumbers: TextStyle = {
   fontVariant: ['tabular-nums'],
 };
 
+/** A status dot, wherever a status is shown with its label. */
+export const statusDot = 8;
+
 /** The smallest touch target on either platform. */
 export const minTouchTarget = 44;
 

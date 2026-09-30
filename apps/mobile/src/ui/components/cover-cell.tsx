@@ -2,7 +2,7 @@ import type { LibraryGridRow } from '@gameplan/storage';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { STATUS_LABEL } from '../labels';
-import { radius, space, type } from '../theme';
+import { radius, space, statusDot, tabularNumbers, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { Cover } from './cover';
 
@@ -35,7 +35,9 @@ export const CoverCell = memo(({ row, onPress }: Props) => {
         <Cover imageId={row.coverImageId} gameId={row.gameId} size="cover_small" width="100%" />
         {row.openNotes > 0 ? (
           <View style={[styles.badge, { backgroundColor: colors.accentFill }]}>
-            <Text style={[type.label, { color: colors.onAccent }]}>{row.openNotes}</Text>
+            <Text style={[type.label, tabularNumbers, { color: colors.onAccent }]}>
+              {row.openNotes}
+            </Text>
           </View>
         ) : null}
       </View>
@@ -67,5 +69,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   status: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
-  dot: { width: 7, height: 7, borderRadius: 4 },
+  dot: { width: statusDot, height: statusDot, borderRadius: statusDot / 2 },
 });

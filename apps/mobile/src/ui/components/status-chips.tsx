@@ -1,7 +1,7 @@
 import type { EntryStatus } from '@gameplan/domain';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { STATUS_LABEL } from '../labels';
-import { minTouchTarget, radius, space, type } from '../theme';
+import { minTouchTarget, radius, space, statusDot, type } from '../theme';
 import { useTheme } from '../use-theme';
 
 type Props = {
@@ -65,6 +65,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1.5,
   },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  dot: { width: statusDot, height: statusDot, borderRadius: statusDot / 2 },
   bold: { fontWeight: '700' },
 });
