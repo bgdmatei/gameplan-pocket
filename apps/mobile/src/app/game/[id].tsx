@@ -18,7 +18,7 @@ import { SkeletonBlock } from '@/ui/components/skeleton';
 import { StatusChips } from '@/ui/components/status-chips';
 import { useToast } from '@/ui/components/toast';
 import { releaseYear } from '@/ui/labels';
-import { orderPlatforms, platformLabel } from '@/ui/platforms';
+import { platformLabel, playablePlatforms } from '@/ui/platforms';
 import { radius, space, tabularNumbers, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
@@ -80,9 +80,7 @@ const GameScreen = () => {
 
   const { game, entry, genres, platforms, cached } = detail;
   const genreNames = genres.filter((genre) => game.genreIds.includes(genre.id)).map((g) => g.name);
-  const gamePlatforms = orderPlatforms(
-    platforms.filter((platform) => game.platformIds.includes(platform.id)),
-  );
+  const gamePlatforms = playablePlatforms(game.platformIds, platforms);
   const platformNames = gamePlatforms.map(platformLabel);
 
   const add = async (): Promise<void> => {

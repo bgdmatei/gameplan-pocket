@@ -8,8 +8,8 @@ import {
   listLibraryGrid,
   searchGames,
 } from '@gameplan/storage';
-import { router } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router, useNavigation } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@/data/use-query';
@@ -20,21 +20,19 @@ import { GameRow } from '@/ui/components/game-row';
 import { LoadFailed } from '@/ui/components/load-failed';
 import type { GameRowProps } from '@/ui/components/game-row';
 import { releaseYear } from '@/ui/labels';
-import { orderPlatforms, platformLabel } from '@/ui/platforms';
+import { platformLabel, playablePlatforms } from '@/ui/platforms';
 import { minTouchTarget, radius, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 type Row = Omit<GameRowProps, 'onPress'>;
 
 /**
- * A game's platforms as the row shows them, in the app's usual order. An id
- * this phone has no name for (a remote result naming a platform IGDB added
- * since) is left out rather than shown as a number.
+ * The platforms a game can be played on, as the row shows them, in the app's
+ * usual order. An id this phone has no name for (a remote result naming a
+ * platform IGDB added since) is left out rather than shown as a number.
  */
 const platformLine = (ids: readonly number[], known: readonly Platform[]): string | null => {
-  const names = orderPlatforms(known.filter((platform) => ids.includes(platform.id))).map(
-    platformLabel,
-  );
+  const names = playablePlatforms(ids, known).map(platformLabel);
   return names.length === 0 ? null : names.join(' · ');
 };
 
@@ -45,7 +43,20 @@ const NOTICE: Record<Exclude<SearchNotice, null>, string> = {
 
 const SearchScreen = () => {
   const { colors } = useTheme();
+  const navigation = useNavigation();
   const [text, setText] = useState('');
+
+  // Leaving for another tab starts the next visit empty. Opening a game from
+  // the results also blurs this screen, but the tab stays selected: back
+  // returns to the same results.
+  useEffect(
+    () =>
+      navigation.addListener('blur', () => {
+        const tabs = navigation.getState();
+        if (tabs !== undefined && tabs.routes[tabs.index]?.name !== 'search') setText('');
+      }),
+    [navigation],
+  );
   const query = text.trim().replace(/\s+/g, ' ');
   const searching = query.length >= CATALOG_LIMITS.queryMinLength;
 

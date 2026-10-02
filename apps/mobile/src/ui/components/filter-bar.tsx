@@ -26,6 +26,9 @@ export const isFiltered = (filters: LibraryFilters): boolean =>
 
 type Props = { filters: LibraryFilters; onChange: (filters: LibraryFilters) => void };
 
+/** Playing games live on the Now Playing shelf, not in the grid (spec decision 20). */
+const GRID_STATUSES = ENTRY_STATUSES.filter((status) => status !== 'playing');
+
 /**
  * One row of small status chips, All first, scrolling sideways when it runs
  * past the screen. Filtering happens in SQL (plan §12.2); this only says what
@@ -53,7 +56,7 @@ export const FilterBar = ({ filters, onChange }: Props) => {
         selected={filters.status === undefined}
         onPress={() => choose(undefined)}
       />
-      {ENTRY_STATUSES.map((status) => (
+      {GRID_STATUSES.map((status) => (
         <Chip
           key={status}
           label={STATUS_LABEL[status]}

@@ -1,4 +1,9 @@
-import { DomainValidationError, applyEntryChange, createEntry } from '@gameplan/domain';
+import {
+  DomainValidationError,
+  applyEntryChange,
+  createEntry,
+  playablePlatformIds,
+} from '@gameplan/domain';
 import type { EntryStatus, Game } from '@gameplan/domain';
 import { getGame, getLibraryEntryByGame, getReference, upsertGames } from '@gameplan/storage';
 import type { StorageAdapter } from '@gameplan/storage';
@@ -95,7 +100,8 @@ export const addGame = async (
     return 'restored';
   }
 
-  const gamePlatformIds = (await getGame(adapter, gameId))?.platformIds ?? [];
+  // Mac and Linux are never offered; Steam Deck is, for PC and Linux games (spec decision 20).
+  const gamePlatformIds = playablePlatformIds((await getGame(adapter, gameId))?.platformIds ?? []);
   if (platformId === null && gamePlatformIds.length > 0) {
     throw new DomainValidationError([
       { code: 'invalid_field', field: 'platform', message: 'Pick the platform you play it on.' },

@@ -1,3 +1,4 @@
+import { CATALOG_TABLES, getReference } from '@gameplan/storage';
 import type { ListLibraryOptions } from '@gameplan/storage';
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
@@ -5,6 +6,8 @@ import { useCallback } from 'react';
 import type { ReactElement } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useLibraryPages } from '@/data/use-library-pages';
+import { useQuery } from '@/data/use-query';
+import { platformLabelById } from '../platforms';
 import { space } from '../theme';
 import { CoverCell } from './cover-cell';
 import { LoadFailed } from './load-failed';
@@ -22,6 +25,8 @@ type Props = {
 /** The library as a cover grid, paged as the user scrolls. Shared by Library and Archive. */
 export const LibraryGrid = ({ filters, header, empty, bottomInset = 0 }: Props) => {
   const { state, loadMore } = useLibraryPages(filters);
+  const reference = useQuery(getReference, CATALOG_TABLES, []);
+  const known = reference.status === 'ready' ? reference.data.platforms : [];
 
   const open = useCallback((gameId: number) => {
     router.push({ pathname: '/game/[id]', params: { id: String(gameId) } });
@@ -46,7 +51,12 @@ export const LibraryGrid = ({ filters, header, empty, bottomInset = 0 }: Props) 
       numColumns={3}
       keyExtractor={(row) => row.id}
       renderItem={({ item }) => (
-        <CoverCell row={item} onPress={open} showStatus={filters.status === undefined} />
+        <CoverCell
+          row={item}
+          onPress={open}
+          showStatus={filters.status === undefined}
+          platform={platformLabelById(item.platformId, known)}
+        />
       )}
       onEndReached={loadMore}
       onEndReachedThreshold={1}

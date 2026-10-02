@@ -23,6 +23,8 @@ const EXPECTED_EXPORTS = [
   'genreSchema',
   'platformSchema',
   'isInLibrary',
+  'STEAM_DECK_PLATFORM_ID',
+  'playablePlatformIds',
   // library entry
   'ENTRY_STATUSES',
   'TRANSITIONS',

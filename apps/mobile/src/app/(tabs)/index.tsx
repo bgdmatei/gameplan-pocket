@@ -51,7 +51,12 @@ const LibraryScreen = () => {
       <FilterBar filters={filters} onChange={setFilters} />
 
       <LibraryGrid
-        filters={{ ...filters, releasedBy: endOfThisYear() }}
+        // All leaves out Playing: those games are on the shelf above.
+        filters={{
+          ...filters,
+          ...(filters.status === undefined ? { excludeStatus: 'playing' } : {}),
+          releasedBy: endOfThisYear(),
+        }}
         empty={
           <View style={styles.empty}>
             <Text style={[type.body, { color: colors.muted }]}>
