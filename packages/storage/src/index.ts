@@ -12,12 +12,17 @@ export {
   LIBRARY_ENTRY_TABLES,
   getLibraryEntry,
   getLibraryEntryByGame,
+  SHELF_SIZE,
+  listGenresInLibrary,
   listLibraryGrid,
+  listShelf,
 } from './repositories/library-entries';
 export type {
   LibraryGridRow,
   LibraryPage,
   LibrarySort,
+  ShelfGame,
+  SortDirection,
   ListLibraryOptions,
 } from './repositories/library-entries';
 export { writeRows } from './repositories/write';

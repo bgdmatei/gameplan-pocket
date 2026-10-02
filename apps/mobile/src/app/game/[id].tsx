@@ -10,6 +10,7 @@ import { EntryEditor } from '@/features/entry/entry-editor';
 import { addGame } from '@/features/library/add-game';
 import { NotesLink } from '@/features/notes/notes-link';
 import { useGameDetail } from '@/features/library/use-game-detail';
+import { Chip } from '@/ui/components/chip';
 import { Cover } from '@/ui/components/cover';
 import { LoadFailed } from '@/ui/components/load-failed';
 import { PrimaryButton } from '@/ui/components/primary-button';
@@ -17,6 +18,7 @@ import { SkeletonBlock } from '@/ui/components/skeleton';
 import { StatusChips } from '@/ui/components/status-chips';
 import { useToast } from '@/ui/components/toast';
 import { releaseYear } from '@/ui/labels';
+import { orderPlatforms, platformLabel } from '@/ui/platforms';
 import { radius, space, tabularNumbers, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
@@ -38,6 +40,7 @@ const GameScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const detail = useGameDetail(Number(id));
   const [startAs, setStartAs] = useState<EntryStatus>('backlog');
+  const [platformId, setPlatformId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   // Only flips at the threshold, so scrolling doesn't re-render per frame.
   const [titleInHeader, setTitleInHeader] = useState(false);
@@ -77,8 +80,10 @@ const GameScreen = () => {
 
   const { game, entry, genres, platforms, cached } = detail;
   const genreNames = genres.filter((genre) => game.genreIds.includes(genre.id)).map((g) => g.name);
-  const gamePlatforms = platforms.filter((platform) => game.platformIds.includes(platform.id));
-  const platformNames = gamePlatforms.map((platform) => platform.abbreviation ?? platform.name);
+  const gamePlatforms = orderPlatforms(
+    platforms.filter((platform) => game.platformIds.includes(platform.id)),
+  );
+  const platformNames = gamePlatforms.map(platformLabel);
 
   const add = async (): Promise<void> => {
     setSaving(true);
@@ -86,6 +91,7 @@ const GameScreen = () => {
       const result = await addGame(adapter, syncEnv, {
         gameId: game.id,
         status: startAs,
+        platformId,
         today: today(),
       });
       toast.show(result === 'restored' ? 'Back in your library.' : 'Added to your library.');
@@ -142,6 +148,22 @@ const GameScreen = () => {
           {entry === null ? (
             cached ? (
               <>
+                {gamePlatforms.length === 0 ? null : (
+                  <>
+                    <Text style={[type.label, { color: colors.muted }]}>YOU PLAY IT ON</Text>
+                    <View style={styles.wrap}>
+                      {gamePlatforms.map((platform) => (
+                        <Chip
+                          key={platform.id}
+                          label={platformLabel(platform)}
+                          accessibilityLabel={platform.name}
+                          selected={platformId === platform.id}
+                          onPress={() => setPlatformId(platform.id)}
+                        />
+                      ))}
+                    </View>
+                  </>
+                )}
                 <Text style={[type.label, { color: colors.muted }]}>ADD TO YOUR LIBRARY AS</Text>
                 <StatusChips
                   options={ENTRY_STATUSES}
@@ -149,7 +171,16 @@ const GameScreen = () => {
                   onSelect={setStartAs}
                   disabled={saving}
                 />
-                <PrimaryButton label="Add to library" onPress={() => void add()} busy={saving} />
+                <PrimaryButton
+                  label={
+                    gamePlatforms.length > 0 && platformId === null
+                      ? 'Pick a platform to add'
+                      : 'Add to library'
+                  }
+                  onPress={() => void add()}
+                  busy={saving}
+                  disabled={gamePlatforms.length > 0 && platformId === null}
+                />
               </>
             ) : (
               <Text style={[type.body, { color: colors.muted }]}>
@@ -179,6 +210,7 @@ const styles = StyleSheet.create({
   top: { flexDirection: 'row', gap: space.lg },
   heading: { flex: 1, gap: space.xs },
   card: { borderWidth: 1, borderRadius: radius.card, padding: space.lg, gap: space.md },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
 });
 
 export default GameScreen;

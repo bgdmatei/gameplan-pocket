@@ -24,6 +24,9 @@ export const libraryEntrySchema = z
     startedOn: isoDateSchema.nullable(),
     finishedOn: isoDateSchema.nullable(),
     favourite: z.boolean(),
+    // On the library's Now Playing shelf. Only a game being played can be
+    // shelved; leaving Playing clears it (local writes only, see changes.ts).
+    shelved: z.boolean(),
     // Hides the game from the library without losing its history. Games are
     // archived, never deleted (SPEC-domain-model.md decision 12).
     archived: z.boolean(),

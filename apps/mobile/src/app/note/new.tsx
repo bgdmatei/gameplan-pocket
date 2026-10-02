@@ -3,18 +3,19 @@ import { Stack, router, useLocalSearchParams, useNavigation } from 'expo-router'
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase } from '@/data/database';
 import { syncEnv } from '@/data/env';
 import { NoteForm } from '@/features/notes/note-form';
 import type { NoteDraft } from '@/features/notes/note-form';
 import { createNote } from '@/features/notes/note-session';
 import { HeaderButton } from '@/ui/components/header-button';
-import { PrimaryButton } from '@/ui/components/primary-button';
 import { useToast } from '@/ui/components/toast';
 import { space } from '@/ui/theme';
 
-/** Adding a note. Nothing is written until "Add note": an empty note can't exist. */
+/** Adding a note. Nothing is written until Add: an empty note can't exist. */
 const NewNoteScreen = () => {
+  const insets = useSafeAreaInsets();
   const adapter = useDatabase();
   const toast = useToast();
   const { entryId } = useLocalSearchParams<{ entryId: string }>();
@@ -23,8 +24,8 @@ const NewNoteScreen = () => {
   const navigation = useNavigation();
   const dirty = draft.text.trim() !== '' || draft.location.trim() !== '';
 
-  // Cancel, a swipe down and Android back all land here: typed text is
-  // never dropped without asking. Saving closes the modal on purpose.
+  // Back, a swipe back and Android back all land here: typed text is
+  // never dropped without asking. Saving leaves the page on purpose.
   usePreventRemove(dirty && !saving, ({ data }) => {
     Alert.alert('Discard this note?', 'What you typed isn’t saved.', [
       { text: 'Keep editing', style: 'cancel' },
@@ -33,6 +34,7 @@ const NewNoteScreen = () => {
   });
 
   const add = async (): Promise<void> => {
+    if (saving) return;
     setSaving(true);
     try {
       await createNote(adapter, syncEnv, {
@@ -52,17 +54,16 @@ const NewNoteScreen = () => {
 
   return (
     <ScrollView
-      contentContainerStyle={styles.page}
+      contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}
       automaticallyAdjustKeyboardInsets
       keyboardShouldPersistTaps="handled"
     >
       <Stack.Screen
         options={{
-          headerLeft: () => <HeaderButton label="Cancel" onPress={() => router.back()} />,
+          headerRight: () => <HeaderButton label="Add" emphasis onPress={() => void add()} />,
         }}
       />
       <NoteForm draft={draft} onChange={setDraft} autoFocus />
-      <PrimaryButton label="Add note" onPress={() => void add()} busy={saving} />
     </ScrollView>
   );
 };

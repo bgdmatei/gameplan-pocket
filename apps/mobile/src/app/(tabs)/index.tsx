@@ -1,10 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { ENTRY_TAG_TABLES, LIBRARY_ENTRY_TABLES, listTagsInUse } from '@gameplan/storage';
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQuery } from '@/data/use-query';
+import { NowPlayingShelf } from '@/features/library/now-playing-shelf';
 import { FilterBar, isFiltered } from '@/ui/components/filter-bar';
 import type { LibraryFilters } from '@/ui/components/filter-bar';
 import { LibraryGrid } from '@/ui/components/library-grid';
@@ -12,14 +11,12 @@ import { PressableScale } from '@/ui/components/pressable-scale';
 import { minTouchTarget, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
+/** Newest release counts from this year: a game due next year isn't "newest" yet. */
+const endOfThisYear = (): string => `${String(new Date().getFullYear())}-12-31`;
+
 const LibraryScreen = () => {
   const { colors } = useTheme();
-  const [filters, setFilters] = useState<LibraryFilters>({ sort: 'recent' });
-  const tags = useQuery(
-    async (db) => (await listTagsInUse(db)).map((row) => row.tag),
-    [...ENTRY_TAG_TABLES, ...LIBRARY_ENTRY_TABLES],
-    [],
-  );
+  const [filters, setFilters] = useState<LibraryFilters>({ sort: 'released' });
 
   return (
     <SafeAreaView edges={['top']} style={styles.page}>
@@ -49,14 +46,12 @@ const LibraryScreen = () => {
         </View>
       </View>
 
-      <FilterBar
-        filters={filters}
-        tags={tags.status === 'ready' ? tags.data : []}
-        onChange={setFilters}
-      />
+      <NowPlayingShelf />
+
+      <FilterBar filters={filters} onChange={setFilters} />
 
       <LibraryGrid
-        filters={filters}
+        filters={{ ...filters, releasedBy: endOfThisYear() }}
         empty={
           <View style={styles.empty}>
             <Text style={[type.body, { color: colors.muted }]}>

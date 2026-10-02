@@ -1,6 +1,6 @@
 import { webcrypto } from 'node:crypto';
-import { applyEntryChange, createNoteItem } from '@gameplan/domain';
 import type { Game } from '@gameplan/domain';
+import { DomainValidationError, applyEntryChange, createNoteItem } from '@gameplan/domain';
 import { countPendingOps, getGame, getLibraryEntryByGame, listNoteItems } from '@gameplan/storage';
 import type { StorageAdapter } from '@gameplan/storage';
 import { createMigratedNodeAdapter } from '@gameplan/storage/node';
@@ -66,26 +66,40 @@ describe('adding a game', () => {
     expect(await getGame(adapter, 1942)).toEqual(WITCHER);
   });
 
-  it('creates the entry with the chosen status and one op to sync', async () => {
+  it('creates the entry with the chosen status and platform, and one op to sync', async () => {
     await cacheGame(adapter, reference().source, WITCHER, '2026-09-24T18:00:00Z');
 
-    expect(await addGame(adapter, env, { gameId: 1942, status: 'playing', today: TODAY })).toBe(
-      'added',
-    );
+    expect(
+      await addGame(adapter, env, { gameId: 1942, status: 'playing', platformId: 6, today: TODAY }),
+    ).toBe('added');
 
     expect(await getLibraryEntryByGame(adapter, 1942)).toMatchObject({
       id: entryId(1942),
       status: 'playing',
+      platformId: 6,
       startedOn: TODAY,
     });
     expect(await countPendingOps(adapter)).toBe(1);
+  });
+
+  // Review round 3 (SPEC-mobile-library.md decision 18): a game is added on
+  // the platform it's played on, whenever the catalog lists any.
+  it('refuses to add a game without a platform, writing nothing', async () => {
+    await cacheGame(adapter, reference().source, WITCHER, '2026-09-24T18:00:00Z');
+
+    await expect(
+      addGame(adapter, env, { gameId: 1942, status: 'playing', today: TODAY }),
+    ).rejects.toBeInstanceOf(DomainValidationError);
+
+    expect(await getLibraryEntryByGame(adapter, 1942)).toBeNull();
+    expect(await countPendingOps(adapter)).toBe(0);
   });
 
   // Games are archived, never deleted (SPEC-domain-model.md decision 12), so
   // adding one again must bring back the same row with its history.
   it('brings an archived game back with its rating and notes', async () => {
     await cacheGame(adapter, reference().source, WITCHER, '2026-09-24T18:00:00Z');
-    await addGame(adapter, env, { gameId: 1942, status: 'completed', today: TODAY });
+    await addGame(adapter, env, { gameId: 1942, status: 'completed', platformId: 6, today: TODAY });
     await commitLocalEdit(adapter, env, {
       entity: 'library_entry',
       id: entryId(1942),

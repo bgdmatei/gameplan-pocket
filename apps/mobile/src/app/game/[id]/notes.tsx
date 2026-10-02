@@ -7,7 +7,7 @@ import {
   getLibraryEntryByGame,
   listNoteItems,
 } from '@gameplan/storage';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -15,7 +15,7 @@ import { useQuery } from '@/data/use-query';
 import { Chip } from '@/ui/components/chip';
 import { LoadFailed } from '@/ui/components/load-failed';
 import { PressableScale } from '@/ui/components/pressable-scale';
-import { PrimaryButton } from '@/ui/components/primary-button';
+import { HeaderIconButton } from '@/ui/components/header-button';
 import { SkeletonBlock } from '@/ui/components/skeleton';
 import { NOTE_TYPE_LABEL } from '@/ui/labels';
 import { radius, space, type } from '@/ui/theme';
@@ -89,54 +89,63 @@ const NotesScreen = () => {
   const { entryId, open, notes } = state.data;
 
   return (
-    <FlatList
-      data={notes}
-      keyExtractor={(note) => note.id}
-      contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}
-      ListHeaderComponent={
-        <View style={styles.header}>
-          <Text style={[type.headline, { color: colors.text }]} accessibilityRole="header">
-            {open === 0 ? 'Nothing open' : `${String(open)} open`}
+    <>
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <HeaderIconButton
+              icon="add"
+              label="Add note"
+              onPress={() => router.push({ pathname: '/note/new', params: { entryId } })}
+            />
+          ),
+        }}
+      />
+      <FlatList
+        data={notes}
+        keyExtractor={(note) => note.id}
+        contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Text style={[type.headline, { color: colors.text }]} accessibilityRole="header">
+              {open === 0 ? 'Nothing open' : `${String(open)} open`}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.row}
+            >
+              {SHOWN.map(({ value, label }) => (
+                <Chip
+                  key={value}
+                  label={label}
+                  selected={shown === value}
+                  onPress={() => setShown(value)}
+                />
+              ))}
+              {/* Two filters in one row: which notes, then what kind. */}
+              <View style={[styles.divider, { backgroundColor: colors.line }]} />
+              {NOTE_ITEM_TYPES.map((value) => (
+                <Chip
+                  key={value}
+                  label={NOTE_TYPE_LABEL[value]}
+                  selected={noteType === value}
+                  onPress={() => setNoteType(noteType === value ? undefined : value)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        }
+        ListEmptyComponent={
+          <Text style={[type.body, { color: colors.muted }]}>
+            {shown === 'open' && noteType === undefined
+              ? 'No open notes. Add a puzzle, a secret or a hint you want to remember.'
+              : 'No notes match.'}
           </Text>
-          <PrimaryButton
-            label="Add note"
-            onPress={() => router.push({ pathname: '/note/new', params: { entryId } })}
-          />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.row}
-          >
-            {SHOWN.map(({ value, label }) => (
-              <Chip
-                key={value}
-                label={label}
-                selected={shown === value}
-                onPress={() => setShown(value)}
-              />
-            ))}
-            {/* Two filters in one row: which notes, then what kind. */}
-            <View style={[styles.divider, { backgroundColor: colors.line }]} />
-            {NOTE_ITEM_TYPES.map((value) => (
-              <Chip
-                key={value}
-                label={NOTE_TYPE_LABEL[value]}
-                selected={noteType === value}
-                onPress={() => setNoteType(noteType === value ? undefined : value)}
-              />
-            ))}
-          </ScrollView>
-        </View>
-      }
-      ListEmptyComponent={
-        <Text style={[type.body, { color: colors.muted }]}>
-          {shown === 'open' && noteType === undefined
-            ? 'No open notes. Add a puzzle, a secret or a hint you want to remember.'
-            : 'No notes match.'}
-        </Text>
-      }
-      renderItem={({ item }) => <NoteRow note={item} />}
-    />
+        }
+        renderItem={({ item }) => <NoteRow note={item} />}
+      />
+    </>
   );
 };
 

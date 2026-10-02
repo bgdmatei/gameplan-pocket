@@ -1,5 +1,6 @@
 import { PENDING_OP_TABLES, listPendingOps } from '@gameplan/storage';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@/data/use-query';
 import { space, tabularNumbers, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
@@ -27,6 +28,7 @@ const summarise = (payload: string, id: string, at: string): OpSummary => {
 };
 
 const OutboxScreen = () => {
+  const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const state = useQuery(
     async (db) =>
@@ -43,7 +45,7 @@ const OutboxScreen = () => {
     <FlatList
       data={state.data}
       keyExtractor={(op) => op.id}
-      contentContainerStyle={styles.list}
+      contentContainerStyle={[styles.list, { paddingBottom: space.xl + insets.bottom }]}
       ListEmptyComponent={
         <Text style={[type.body, { color: colors.muted }]}>Nothing waiting to sync.</Text>
       }

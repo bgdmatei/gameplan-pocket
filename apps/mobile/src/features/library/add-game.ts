@@ -1,6 +1,6 @@
-import { applyEntryChange, createEntry } from '@gameplan/domain';
+import { DomainValidationError, applyEntryChange, createEntry } from '@gameplan/domain';
 import type { EntryStatus, Game } from '@gameplan/domain';
-import { getLibraryEntryByGame, getReference, upsertGames } from '@gameplan/storage';
+import { getGame, getLibraryEntryByGame, getReference, upsertGames } from '@gameplan/storage';
 import type { StorageAdapter } from '@gameplan/storage';
 import { commitLocalCreate, commitLocalEdit, entryId } from '@gameplan/sync';
 import type { SyncEnv } from '@gameplan/sync';
@@ -64,12 +64,24 @@ export type AddResult = 'added' | 'restored' | 'already';
  * so the same game added on two offline devices becomes one row (ADR-006).
  *
  * Games are archived, never deleted: adding an archived game brings the same
- * row back with its rating, dates and notes, and ignores the chosen status.
+ * row back with its rating, dates and notes, and ignores the chosen status
+ * and platform.
+ *
+ * A new entry needs the platform it's played on, one of the game's own,
+ * whenever the catalog lists any (SPEC-mobile-library.md decision 18).
+ *
+ * @throws {DomainValidationError} when the platform is missing or not one of
+ * the game's, writing nothing.
  */
 export const addGame = async (
   adapter: StorageAdapter,
   env: SyncEnv,
-  { gameId, status, today }: { gameId: number; status: EntryStatus; today: string },
+  {
+    gameId,
+    status,
+    today,
+    platformId = null,
+  }: { gameId: number; status: EntryStatus; today: string; platformId?: number | null },
 ): Promise<AddResult> => {
   const existing = await getLibraryEntryByGame(adapter, gameId);
 
@@ -83,9 +95,22 @@ export const addGame = async (
     return 'restored';
   }
 
+  const gamePlatformIds = (await getGame(adapter, gameId))?.platformIds ?? [];
+  if (platformId === null && gamePlatformIds.length > 0) {
+    throw new DomainValidationError([
+      { code: 'invalid_field', field: 'platform', message: 'Pick the platform you play it on.' },
+    ]);
+  }
+
   const next = createEntry(
-    { id: entryId(gameId), gameId, status, createdAt: new Date(env.now()).toISOString() },
-    { today },
+    {
+      id: entryId(gameId),
+      gameId,
+      status,
+      platformId,
+      createdAt: new Date(env.now()).toISOString(),
+    },
+    { today, gamePlatformIds },
   );
   await commitLocalCreate(adapter, env, { entity: 'library_entry', next });
   return 'added';

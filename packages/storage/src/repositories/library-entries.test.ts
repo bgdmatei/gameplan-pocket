@@ -6,19 +6,22 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { StorageAdapter } from '../adapter';
 import { createNodeAdapter } from '../node/adapter';
 import { putRows } from '../testing/rows';
-import { getLibraryEntry, listLibraryGrid } from './library-entries';
+import { getLibraryEntry, listGenresInLibrary, listLibraryGrid } from './library-entries';
 import { SYNCED_ROWS } from './synced-rows';
 
 const TODAY = '2026-09-18';
 const NOW = '2026-09-18T10:00:00Z';
 
-const cacheGame = async (adapter: StorageAdapter, id: number, name: string): Promise<void> => {
-  await adapter.execute('INSERT INTO games (id, name, slug, fetched_at) VALUES (?, ?, ?, ?)', [
-    id,
-    name,
-    `game-${String(id)}`,
-    NOW,
-  ]);
+const cacheGame = async (
+  adapter: StorageAdapter,
+  id: number,
+  name: string,
+  released: string | null = null,
+): Promise<void> => {
+  await adapter.execute(
+    'INSERT INTO games (id, name, slug, first_release_date, fetched_at) VALUES (?, ?, ?, ?, ?)',
+    [id, name, `game-${String(id)}`, released, NOW],
+  );
 };
 
 const putEntries = (adapter: StorageAdapter, entries: LibraryEntry[], now = NOW) =>
@@ -50,6 +53,7 @@ describe('library entries', () => {
       playtimeMinutes: 1_234,
       startedOn: '2026-09-01',
       favourite: true,
+      shelved: true,
     });
 
     await putEntries(adapter, [entry]);
@@ -80,9 +84,9 @@ describe('library entries', () => {
 
   describe('listing', () => {
     beforeEach(async () => {
-      await cacheGame(adapter, 1, 'Alpha Protocol');
-      await cacheGame(adapter, 2, "Baldur's Gate 3");
-      await cacheGame(adapter, 3, 'Celeste');
+      await cacheGame(adapter, 1, 'Alpha Protocol', '2010-05-27');
+      await cacheGame(adapter, 2, "Baldur's Gate 3", '2027-08-03');
+      await cacheGame(adapter, 3, 'Celeste', '2026-01-25');
 
       await putEntries(
         adapter,
@@ -113,8 +117,32 @@ describe('library entries', () => {
         'Celeste',
         'Alpha Protocol',
       ]);
-      // Unrated games sort last rather than dropping out.
-      expect((await listLibraryGrid(adapter, { sort: 'rating' })).rows.at(-1)?.rating).toBeNull();
+      // Newest release first from the cutoff; a game due after it goes last.
+      expect(await names({ sort: 'released', releasedBy: '2026-12-31' })).toEqual([
+        'Celeste',
+        'Alpha Protocol',
+        "Baldur's Gate 3",
+      ]);
+      // Reversed, a game due after the cutoff still goes last.
+      expect(await names({ sort: 'released', direction: 'asc', releasedBy: '2026-12-31' })).toEqual(
+        ['Alpha Protocol', 'Celeste', "Baldur's Gate 3"],
+      );
+      expect(await names({ sort: 'name', direction: 'desc' })).toEqual([
+        'Celeste',
+        "Baldur's Gate 3",
+        'Alpha Protocol',
+      ]);
+      // Unrated games sort last in both directions rather than dropping out.
+      expect(await names({ sort: 'rating' })).toEqual([
+        "Baldur's Gate 3",
+        'Alpha Protocol',
+        'Celeste',
+      ]);
+      expect(await names({ sort: 'rating', direction: 'asc' })).toEqual([
+        'Alpha Protocol',
+        "Baldur's Gate 3",
+        'Celeste',
+      ]);
     });
 
     it('filters by tag, ignoring tags that were removed', async () => {
@@ -129,6 +157,29 @@ describe('library entries', () => {
 
       expect(await names({ tag: 'co-op' })).toEqual(["Baldur's Gate 3"]);
       expect(await names({ tag: 'rpg' })).toEqual([]);
+    });
+
+    it('filters by genre, and lists the genres in the library', async () => {
+      await adapter.execute('INSERT INTO genres (id, name, slug) VALUES (?, ?, ?), (?, ?, ?)', [
+        12,
+        'RPG',
+        'rpg',
+        31,
+        'Adventure',
+        'adventure',
+      ]);
+      await adapter.execute(
+        'INSERT INTO game_genres (game_id, genre_id) VALUES (1, 12), (2, 12), (3, 31)',
+      );
+
+      expect(await names({ genreId: 12, sort: 'name' })).toEqual([
+        'Alpha Protocol',
+        "Baldur's Gate 3",
+      ]);
+      expect(await listGenresInLibrary(adapter)).toEqual([
+        { id: 31, name: 'Adventure', count: 1 },
+        { id: 12, name: 'RPG', count: 2 },
+      ]);
     });
 
     it('badges only notes still open: resolved and deleted ones do not count', async () => {
@@ -171,19 +222,28 @@ describe('library entries', () => {
  * column drops out of cursor comparisons entirely.
  */
 describe('paging', () => {
-  it('walks every entry exactly once, whatever the page size or sort', async () => {
+  it('walks every entry exactly once, whatever the page size, sort or direction', async () => {
     await fc.assert(
       fc.asyncProperty(
         fc.integer({ min: 1, max: 7 }),
-        fc.constantFrom('recent' as const, 'name' as const, 'rating' as const, 'playtime' as const),
-        async (pageSize, sort) => {
+        fc.constantFrom(
+          'recent' as const,
+          'released' as const,
+          'name' as const,
+          'rating' as const,
+          'playtime' as const,
+        ),
+        fc.constantFrom('asc' as const, 'desc' as const),
+        async (pageSize, sort, direction) => {
           const adapter = createNodeAdapter();
           try {
             await migrate(adapter);
 
             const total = 20;
             for (let index = 0; index < total; index += 1) {
-              await cacheGame(adapter, index + 1, `Game ${String(index % 5)}`);
+              // Shared dates, undated games and ones due after the cutoff.
+              const released = [null, '2020-01-01', '2026-06-01', '2031-01-01'][index % 4] ?? null;
+              await cacheGame(adapter, index + 1, `Game ${String(index % 5)}`, released);
               await putEntries(
                 adapter,
                 [
@@ -200,10 +260,17 @@ describe('paging', () => {
             const seen: string[] = [];
             let cursor: string | undefined;
             do {
-              const page = await listLibraryGrid(adapter, { sort, limit: pageSize, cursor });
+              const page = await listLibraryGrid(adapter, {
+                sort,
+                direction,
+                releasedBy: '2026-12-31',
+                limit: pageSize,
+                cursor,
+              });
               seen.push(...page.rows.map((row) => row.id));
               cursor = page.nextCursor;
-            } while (cursor !== undefined);
+              // A cursor that never advances would loop forever: fail instead.
+            } while (cursor !== undefined && seen.length <= total);
 
             expect(new Set(seen).size).toBe(total);
             expect(seen).toHaveLength(total);
@@ -212,7 +279,7 @@ describe('paging', () => {
           }
         },
       ),
-      { numRuns: 15 },
+      { numRuns: 30 },
     );
   });
 });

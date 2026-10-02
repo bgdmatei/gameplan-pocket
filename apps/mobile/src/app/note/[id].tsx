@@ -4,6 +4,7 @@ import { NOTE_ITEM_TABLES, getNoteItem } from '@gameplan/storage';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase } from '@/data/database';
 import { syncEnv } from '@/data/env';
 import { useQuery } from '@/data/use-query';
@@ -11,9 +12,8 @@ import { NoteForm } from '@/features/notes/note-form';
 import type { NoteDraft } from '@/features/notes/note-form';
 import { deleteNote, openNoteSession } from '@/features/notes/note-session';
 import type { NoteSession } from '@/features/notes/note-session';
-import { HeaderButton } from '@/ui/components/header-button';
+import { HeaderIconButton } from '@/ui/components/header-button';
 import { LoadFailed } from '@/ui/components/load-failed';
-import { PressableScale } from '@/ui/components/pressable-scale';
 import { useToast } from '@/ui/components/toast';
 import { minTouchTarget, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
@@ -25,39 +25,20 @@ const NoteScreen = () => {
   const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const note = useQuery((db) => getNoteItem(db, id), NOTE_ITEM_TABLES, [id]);
-  // Edits save as they're typed, and closing saves the rest: Done only closes.
-  const done = (
-    <Stack.Screen
-      options={{
-        headerRight: () => <HeaderButton label="Done" emphasis onPress={() => router.back()} />,
-      }}
-    />
-  );
-
   // One local row: it arrives within a frame, before a placeholder could be read.
-  if (note.status === 'loading') return done;
+  if (note.status === 'loading') return null;
   if (note.status === 'failed') {
-    return (
-      <>
-        {done}
-        <LoadFailed message="This note couldn’t be read." onRetry={note.retry} />
-      </>
-    );
+    return <LoadFailed message="This note couldn’t be read." onRetry={note.retry} />;
   }
   if (note.data === null) {
     return (
       <View style={styles.page}>
-        {done}
         <Text style={[type.body, { color: colors.muted }]}>This note was deleted.</Text>
       </View>
     );
   }
-  return (
-    <>
-      {done}
-      <NoteEditor note={note.data} />
-    </>
-  );
+  // Edits save as they're typed, and leaving saves the rest: back is all it needs.
+  return <NoteEditor note={note.data} />;
 };
 
 /**
@@ -66,6 +47,7 @@ const NoteScreen = () => {
  * database never overwrites what they are typing.
  */
 const NoteEditor = ({ note }: { note: NoteItem }) => {
+  const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const adapter = useDatabase();
   const toast = useToast();
@@ -147,10 +129,22 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
 
   return (
     <ScrollView
-      contentContainerStyle={styles.page}
+      contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}
       automaticallyAdjustKeyboardInsets
       keyboardShouldPersistTaps="handled"
     >
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <HeaderIconButton
+              icon="trash-outline"
+              label="Delete note"
+              danger
+              onPress={confirmDelete}
+            />
+          ),
+        }}
+      />
       <NoteForm draft={draft} onChange={change} onBlur={flush} />
 
       <View style={styles.switchRow}>
@@ -165,10 +159,6 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
           accessibilityLabel="Resolved"
         />
       </View>
-
-      <PressableScale onPress={confirmDelete} accessibilityRole="button" style={styles.textButton}>
-        <Text style={[type.callout, { color: colors.danger }]}>Delete note</Text>
-      </PressableScale>
     </ScrollView>
   );
 };
@@ -181,7 +171,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     minHeight: minTouchTarget,
   },
-  textButton: { minHeight: minTouchTarget, justifyContent: 'center', alignSelf: 'flex-start' },
 });
 
 export default NoteScreen;

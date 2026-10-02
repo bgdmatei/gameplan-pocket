@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { DatabaseProvider } from '@/data/database';
+import { KeyboardDismiss } from '@/ui/components/keyboard-dismiss';
 import { ToastProvider } from '@/ui/components/toast';
 import { useTheme } from '@/ui/use-theme';
 
@@ -27,32 +28,28 @@ const RootLayout = () => {
     <DatabaseProvider>
       <ToastProvider>
         <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.background },
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.accent,
-            headerTitleStyle: { color: colors.text },
-          }}
-        >
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="game/[id]" options={withHeader('')} />
-          <Stack.Screen name="game/[id]/notes" options={withHeader('Notes')} />
-          <Stack.Screen
-            name="note/new"
-            options={{ ...withHeader('New note'), presentation: 'modal' }}
-          />
-          <Stack.Screen
-            name="note/[id]"
-            options={{ ...withHeader('Note'), presentation: 'modal' }}
-          />
-          <Stack.Screen name="archive" options={withHeader('Archive')} />
-          <Stack.Screen name="debug/index" options={withHeader('Debug')} />
-          <Stack.Screen name="debug/outbox" options={withHeader('Outbox')} />
-          <Stack.Screen name="debug/storage-check" options={withHeader('Storage contract')} />
-          <Stack.Screen name="debug/sync-check" options={withHeader('Sync check')} />
-        </Stack>
+        <KeyboardDismiss>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.background },
+              headerStyle: { backgroundColor: colors.background },
+              headerTintColor: colors.accent,
+              headerTitleStyle: { color: colors.text },
+            }}
+          >
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="game/[id]" options={withHeader('')} />
+            <Stack.Screen name="game/[id]/notes" options={withHeader('Notes')} />
+            <Stack.Screen name="note/new" options={withHeader('New note')} />
+            <Stack.Screen name="note/[id]" options={withHeader('Note')} />
+            <Stack.Screen name="archive" options={withHeader('Archive')} />
+            <Stack.Screen name="debug/index" options={withHeader('Debug')} />
+            <Stack.Screen name="debug/outbox" options={withHeader('Outbox')} />
+            <Stack.Screen name="debug/storage-check" options={withHeader('Storage contract')} />
+            <Stack.Screen name="debug/sync-check" options={withHeader('Sync check')} />
+          </Stack>
+        </KeyboardDismiss>
       </ToastProvider>
     </DatabaseProvider>
   );

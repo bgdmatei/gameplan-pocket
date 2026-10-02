@@ -10,28 +10,38 @@ type Props = {
   selected: EntryStatus;
   onSelect: (status: EntryStatus) => void;
   disabled?: boolean;
+  /**
+   * The statuses that can be chosen now; the rest stay in place but dimmed
+   * and untappable. Omitted, every option can be chosen.
+   */
+  allowed?: readonly EntryStatus[];
 };
 
 /**
- * One chip per status that can be chosen here. The editor passes only the
- * transitions the domain allows, so an impossible change is never offered.
+ * One chip per status, always in the same order. The editor passes every
+ * status and marks only the transitions the domain allows as `allowed`, so an
+ * impossible change is never offered and the chips never reflow as it changes.
  */
-export const StatusChips = ({ options, selected, onSelect, disabled = false }: Props) => {
+export const StatusChips = ({ options, selected, onSelect, disabled = false, allowed }: Props) => {
   const { colors, status: statusColors } = useTheme();
 
   return (
     <View style={styles.row} accessibilityRole="radiogroup">
       {options.map((status) => {
         const on = status === selected;
+        const off = disabled || (allowed !== undefined && !allowed.includes(status));
         return (
           <PressableScale
             key={status}
-            onPress={() => onSelect(status)}
-            disabled={disabled}
+            onPress={() => {
+              if (!on) onSelect(status);
+            }}
+            disabled={off}
             accessibilityRole="radio"
-            accessibilityState={{ selected: on, disabled }}
+            accessibilityState={{ selected: on, disabled: off }}
             style={[
               styles.chip,
+              off && !on && styles.unavailable,
               {
                 borderColor: on ? statusColors[status] : colors.line,
                 backgroundColor: colors.surface,
@@ -68,4 +78,5 @@ const styles = StyleSheet.create({
   },
   dot: { width: statusDot, height: statusDot, borderRadius: statusDot / 2 },
   bold: { fontWeight: '700' },
+  unavailable: { opacity: 0.4 },
 });

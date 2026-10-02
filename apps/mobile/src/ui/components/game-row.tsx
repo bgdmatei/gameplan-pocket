@@ -1,8 +1,6 @@
-import type { EntryStatus } from '@gameplan/domain';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { STATUS_LABEL } from '../labels';
-import { minTouchTarget, space, statusDot, tabularNumbers, type } from '../theme';
+import { minTouchTarget, space, tabularNumbers, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { Cover } from './cover';
 
@@ -11,22 +9,21 @@ export type GameRowProps = {
   name: string;
   coverImageId: string | null;
   releaseYear: string | null;
-  /** `null`: not in the library. */
-  status: EntryStatus | null;
+  /** The platforms it runs on, already ordered and joined: "Switch · PC · PS4". */
+  platforms: string | null;
   onPress: (gameId: number) => void;
 };
 
 /** A game in a list: search results and recent games. */
 export const GameRow = memo(
-  ({ gameId, name, coverImageId, releaseYear, status, onPress }: GameRowProps) => {
-    const { colors, status: statusColors } = useTheme();
-    const inLibrary = status === null ? null : `In library, ${STATUS_LABEL[status]}`;
+  ({ gameId, name, coverImageId, releaseYear, platforms, onPress }: GameRowProps) => {
+    const { colors } = useTheme();
 
     return (
       <Pressable
         onPress={() => onPress(gameId)}
         accessibilityRole="button"
-        accessibilityLabel={[name, releaseYear, inLibrary].filter(Boolean).join(', ')}
+        accessibilityLabel={[name, releaseYear, platforms].filter(Boolean).join(', ')}
         style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.raised }]}
       >
         <Cover imageId={coverImageId} gameId={gameId} size="cover_small" width={48} />
@@ -40,13 +37,13 @@ export const GameRow = memo(
                 {releaseYear}
               </Text>
             )}
-            {status === null ? null : (
-              <View style={styles.status}>
-                <View style={[styles.dot, { backgroundColor: statusColors[status] }]} />
-                <Text style={[type.subhead, { color: statusColors[status] }]}>
-                  {STATUS_LABEL[status]}
-                </Text>
-              </View>
+            {platforms === null ? null : (
+              <Text
+                style={[type.subhead, styles.platforms, { color: colors.muted }]}
+                numberOfLines={1}
+              >
+                {platforms}
+              </Text>
             )}
           </View>
         </View>
@@ -66,6 +63,5 @@ const styles = StyleSheet.create({
   },
   text: { flex: 1, gap: 2 },
   meta: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  status: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
-  dot: { width: statusDot, height: statusDot, borderRadius: statusDot / 2 },
+  platforms: { flexShrink: 1 },
 });

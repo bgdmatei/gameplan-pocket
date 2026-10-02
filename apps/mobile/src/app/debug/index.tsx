@@ -12,6 +12,7 @@ import catalog from '@gameplan/storage/testing/catalog.json';
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase, useEraseDatabase } from '@/data/database';
 import { useQuery } from '@/data/use-query';
 import { minTouchTarget, radius, space, tabularNumbers, type } from '@/ui/theme';
@@ -25,6 +26,7 @@ const TABLES = [...SYNC_STATE_TABLES, ...PENDING_OP_TABLES, ...LIBRARY_ENTRY_TAB
  * the outbox lists field names, not values.
  */
 const DebugScreen = () => {
+  const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const adapter = useDatabase();
   const erase = useEraseDatabase();
@@ -94,7 +96,7 @@ const DebugScreen = () => {
   );
 
   return (
-    <ScrollView contentContainerStyle={styles.page}>
+    <ScrollView contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
         {row('Node id', info?.sync.nodeId ?? 'not yet (created at the first edit)')}
         {row('Last clock', info?.sync.hlcLast ?? 'none')}

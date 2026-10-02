@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { migrate } from '@gameplan/db-schema';
 import { createOpSqliteAdapter } from '@gameplan/storage/op-sqlite';
 import { runAdapterCases } from '@gameplan/storage/testing';
@@ -38,6 +39,7 @@ const runCheck = async (): Promise<Check> => {
 };
 
 const StorageCheckScreen = () => {
+  const insets = useSafeAreaInsets();
   const { colors, status } = useTheme();
   const ok = { color: status.completed };
   const bad = { color: colors.danger };
@@ -75,7 +77,7 @@ const StorageCheckScreen = () => {
   const allPassed = passed === check.results.length;
 
   return (
-    <ScrollView contentContainerStyle={styles.page}>
+    <ScrollView contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}>
       <Text style={[type.title, { color: colors.text }]}>Storage contract on op-sqlite</Text>
       <Text style={[type.callout, styles.summary, allPassed ? ok : bad]}>
         {passed} of {check.results.length} passed · schema v{check.migratedTo} · {check.elapsedMs}{' '}

@@ -1,7 +1,10 @@
 import { CATALOG_LIMITS } from '@gameplan/contracts';
+import type { Platform } from '@gameplan/domain';
 import {
   CATALOG_TABLES,
   LIBRARY_ENTRY_TABLES,
+  getGamesByIds,
+  getReference,
   listLibraryGrid,
   searchGames,
 } from '@gameplan/storage';
@@ -17,10 +20,23 @@ import { GameRow } from '@/ui/components/game-row';
 import { LoadFailed } from '@/ui/components/load-failed';
 import type { GameRowProps } from '@/ui/components/game-row';
 import { releaseYear } from '@/ui/labels';
+import { orderPlatforms, platformLabel } from '@/ui/platforms';
 import { minTouchTarget, radius, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 type Row = Omit<GameRowProps, 'onPress'>;
+
+/**
+ * A game's platforms as the row shows them, in the app's usual order. An id
+ * this phone has no name for (a remote result naming a platform IGDB added
+ * since) is left out rather than shown as a number.
+ */
+const platformLine = (ids: readonly number[], known: readonly Platform[]): string | null => {
+  const names = orderPlatforms(known.filter((platform) => ids.includes(platform.id))).map(
+    platformLabel,
+  );
+  return names.length === 0 ? null : names.join(' · ');
+};
 
 const NOTICE: Record<Exclude<SearchNotice, null>, string> = {
   offline: 'Offline: showing games on this phone only.',
@@ -40,28 +56,36 @@ const SearchScreen = () => {
     [query],
   );
   const recent = useQuery(
-    (db) => listLibraryGrid(db, { sort: 'recent', limit: 20 }),
+    async (db) => {
+      const page = await listLibraryGrid(db, { sort: 'recent', limit: 20 });
+      // The grid's slim rows carry no platforms; these few come from the games.
+      const games = await getGamesByIds(db, [...new Set(page.rows.map((row) => row.gameId))]);
+      const platformIds = new Map(games.map((game) => [game.id, game.platformIds]));
+      return page.rows.map((row) => ({ ...row, platformIds: platformIds.get(row.gameId) ?? [] }));
+    },
     LIBRARY_ENTRY_TABLES,
     [],
   );
+  const reference = useQuery(getReference, CATALOG_TABLES, []);
+  const known = reference.status === 'ready' ? reference.data.platforms : [];
   const remote = useRemoteSearch(searching ? query : null);
 
   const merged = mergeSearch(local.status === 'ready' ? local.data : [], remote);
   const rows: Row[] = searching
-    ? merged.rows.map(({ game, entry }) => ({
+    ? merged.rows.map(({ game }) => ({
         gameId: game.id,
         name: game.name,
         coverImageId: game.coverImageId,
         releaseYear: releaseYear(game.firstReleaseDate),
-        status: entry?.status ?? null,
+        platforms: platformLine(game.platformIds, known),
       }))
     : recent.status === 'ready'
-      ? recent.data.rows.map((row) => ({
+      ? recent.data.map((row) => ({
           gameId: row.gameId,
           name: row.name,
           coverImageId: row.coverImageId,
           releaseYear: null,
-          status: row.status,
+          platforms: platformLine(row.platformIds, known),
         }))
       : [];
 
