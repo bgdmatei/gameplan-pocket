@@ -91,8 +91,8 @@ const styles = StyleSheet.create({
   },
   platform: {
     position: 'absolute',
-    top: space.lg,
-    left: space.lg,
+    top: space.md,
+    left: space.md,
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: radius.small,
