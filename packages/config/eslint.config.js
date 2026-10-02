@@ -31,6 +31,7 @@ export default tseslint.config(
         { type: 'db-schema', pattern: 'packages/db-schema' },
         { type: 'storage', pattern: 'packages/storage' },
         { type: 'sync', pattern: 'packages/sync' },
+        { type: 'contracts', pattern: 'packages/contracts' },
         { type: 'pkg', pattern: 'packages/*' },
       ],
       'boundaries/include': ['apps/**/*.{js,jsx,ts,tsx}', 'packages/**/*.{js,jsx,ts,tsx}'],
@@ -53,6 +54,7 @@ export default tseslint.config(
                 { to: { element: { type: 'db-schema' } } },
                 { to: { element: { type: 'storage' } } },
                 { to: { element: { type: 'sync' } } },
+                { to: { element: { type: 'contracts' } } },
               ],
             },
             {
@@ -90,6 +92,15 @@ export default tseslint.config(
                 { to: { element: { type: 'sync' } } },
                 { to: { element: { type: 'domain' } } },
                 { to: { element: { type: 'storage' } } },
+              ],
+            },
+            // contracts are the API's wire shapes, built on domain schemas and
+            // nothing else, so the phone and the server can both import them.
+            {
+              from: [{ element: { type: 'contracts' } }],
+              allow: [
+                { to: { element: { type: 'contracts' } } },
+                { to: { element: { type: 'domain' } } },
               ],
             },
           ],

@@ -33,6 +33,7 @@ export const SYNCED_FIELDS = {
     startedOn: true,
     finishedOn: true,
     favourite: true,
+    shelved: true,
     archived: true,
     createdAt: true,
   },

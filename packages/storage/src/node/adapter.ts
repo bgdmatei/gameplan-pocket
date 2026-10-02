@@ -8,6 +8,7 @@ import type {
   Transaction,
   Unsubscribe,
 } from '../adapter';
+import { createSerialQueue } from '../serial-queue';
 import { tablesWritten } from '../sql-tables';
 
 type Subscription = { tables: ReadonlySet<string>; listener: () => void };
@@ -44,6 +45,9 @@ const toPlainObject = <T>(row: unknown): T => ({ ...(row as object) }) as T;
 export const createNodeAdapter = (options: NodeAdapterOptions = {}): StorageAdapter => {
   const database = new DatabaseSync(options.path ?? ':memory:');
   const subscriptions = new Set<Subscription>();
+
+  // One transaction at a time; a query outside one waits for it to commit.
+  const queue = createSerialQueue();
 
   let closed = false;
   let inTransaction = false;
@@ -122,34 +126,30 @@ export const createNodeAdapter = (options: NodeAdapterOptions = {}): StorageAdap
     return rows.map((row) => toPlainObject<T>(row));
   };
 
-  const transaction = async <T>(fn: (tx: Transaction) => Promise<T>): Promise<T> => {
-    assertOpen();
-    if (inTransaction) {
-      throw new Error(
-        'Nested transactions are not supported: SQLite has no inner commit, so the inner one would appear to succeed while the outer one could still roll everything back.',
-      );
-    }
+  const transaction = async <T>(fn: (tx: Transaction) => Promise<T>): Promise<T> =>
+    queue.run(async () => {
+      assertOpen();
+      inTransaction = true;
+      pendingTables = new Set();
+      database.exec('BEGIN');
 
-    inTransaction = true;
-    pendingTables = new Set();
-    database.exec('BEGIN');
-
-    try {
-      const result = await fn({ execute: run });
-      database.exec('COMMIT');
-      const changed = pendingTables;
-      inTransaction = false;
-      notify(changed);
-      return result;
-    } catch (error) {
-      database.exec('ROLLBACK');
-      inTransaction = false;
-      throw error;
-    }
-  };
+      try {
+        const result = await fn({ execute: run });
+        database.exec('COMMIT');
+        const changed = pendingTables;
+        inTransaction = false;
+        notify(changed);
+        return result;
+      } catch (error) {
+        database.exec('ROLLBACK');
+        inTransaction = false;
+        throw error;
+      }
+    });
 
   return {
-    execute: run,
+    execute: async <T>(sql: string, params?: SqlParams): Promise<T[]> =>
+      queue.run(() => run<T>(sql, params)),
     transaction,
     subscribe: (tables: readonly string[], listener: () => void): Unsubscribe => {
       const subscription: Subscription = { tables: new Set(tables), listener };

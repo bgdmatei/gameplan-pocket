@@ -1,4 +1,4 @@
-import type { SqlParams, StorageAdapter } from '../adapter';
+import type { SqlParams, StorageAdapter, Transaction } from '../adapter';
 import { assertEqual, assertRejects, assertTrue } from './assert';
 
 /**
@@ -32,6 +32,11 @@ const setup = async (adapter: StorageAdapter): Promise<void> => {
  */
 const settle = async (): Promise<void> => {
   await new Promise((resolve) => setTimeout(resolve, 80));
+};
+
+/** Yields to the event loop, so another caller gets the chance to interleave. */
+const pause = async (): Promise<void> => {
+  await new Promise((resolve) => setTimeout(resolve, 20));
 };
 
 /** Counts calls without pulling in a mocking library. */
@@ -186,15 +191,57 @@ export const adapterCases: readonly AdapterCase[] = [
     },
   },
   {
-    name: 'refuses a nested transaction',
+    // A double tap, or a sync pull landing mid-edit: the second transaction
+    // waits its turn instead of failing, and never sees the first half-done.
+    name: 'runs overlapping transactions one at a time, in call order',
+    run: async (adapter) => {
+      await setup(adapter);
+      const seen: string[][] = [];
+      const ids = async (tx: Transaction): Promise<string[]> =>
+        (await tx.execute<{ id: string }>('SELECT id FROM things ORDER BY id')).map((r) => r.id);
+
+      await Promise.all([
+        adapter.transaction(async (tx) => {
+          await tx.execute('INSERT INTO things (id) VALUES (?)', ['a']);
+          await pause();
+          seen.push(await ids(tx));
+        }),
+        adapter
+          .transaction(async (tx) => {
+            await tx.execute('INSERT INTO things (id) VALUES (?)', ['b']);
+            throw new Error('second rolls back');
+          })
+          .catch(() => undefined),
+        adapter.transaction(async (tx) => {
+          await tx.execute('INSERT INTO things (id) VALUES (?)', ['c']);
+          seen.push(await ids(tx));
+        }),
+      ]);
+
+      assertEqual(seen, [['a'], ['a', 'c']], 'what each transaction saw');
+      assertEqual(
+        await adapter.execute('SELECT id FROM things ORDER BY id'),
+        [{ id: 'a' }, { id: 'c' }],
+        'rows after all three',
+      );
+    },
+  },
+  {
+    name: 'makes a query outside a transaction wait until it commits',
     run: async (adapter) => {
       await setup(adapter);
 
-      await assertRejects(
-        () => adapter.transaction(async () => adapter.transaction(async () => undefined)),
-        /nested/i,
-        'nested transaction',
-      );
+      const writing = adapter.transaction(async (tx) => {
+        await tx.execute('INSERT INTO things (id) VALUES (?)', ['a']);
+        await pause();
+        await tx.execute('INSERT INTO things (id) VALUES (?)', ['b']);
+      });
+      // Issued while the transaction is open: it must see both rows or none,
+      // never 'a' alone.
+      const reading = adapter.execute('SELECT id FROM things ORDER BY id');
+
+      await writing;
+      assertEqual(await reading, [{ id: 'a' }, { id: 'b' }], 'rows seen by the waiting query');
     },
   },
   {

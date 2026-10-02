@@ -1,5 +1,4 @@
 export type {
-  NodeAdapterOptions,
   NotifyScheduler,
   SqlParams,
   SqlValue,
@@ -7,61 +6,43 @@ export type {
   Transaction,
   Unsubscribe,
 } from './adapter';
-export { createNodeAdapter } from './node/adapter';
-export { createMigratedNodeAdapter } from './node/migrated';
 export { tablesWritten } from './sql-tables';
 
 export {
   LIBRARY_ENTRY_TABLES,
   getLibraryEntry,
   getLibraryEntryByGame,
-  listLibraryEntries,
-  saveLibraryEntry,
+  SHELF_SIZE,
+  listGenresInLibrary,
+  listLibraryGrid,
+  listShelf,
 } from './repositories/library-entries';
 export type {
-  LibraryEntryWithGame,
+  LibraryGridRow,
   LibraryPage,
   LibrarySort,
+  ShelfGame,
+  SortDirection,
   ListLibraryOptions,
-  SaveOptions,
 } from './repositories/library-entries';
-export { writeAtomically, writeRows } from './repositories/write';
+export { writeRows } from './repositories/write';
 export type { AtomicWrite, PendingOp, Row, RowWrite } from './repositories/write';
 
-export {
-  ENTRY_TAG_TABLES,
-  addEntryTag,
-  listEntryTags,
-  listTagsInUse,
-  removeEntryTag,
-} from './repositories/entry-tags';
-export type { TagSaveOptions } from './repositories/entry-tags';
+export { ENTRY_TAG_TABLES, listEntryTags, listTagsInUse } from './repositories/entry-tags';
 export {
   NOTE_ITEM_TABLES,
   countOpenNotes,
   getNoteItem,
   listNoteItems,
-  saveNoteItem,
-  softDeleteNoteItem,
 } from './repositories/note-items';
-export type { ListNoteOptions, NoteSaveOptions } from './repositories/note-items';
-export {
-  LIST_TABLES,
-  addGameToList,
-  getList,
-  listGamesOf,
-  listItemsOf,
-  listLists,
-  removeGameFromList,
-  saveList,
-  softDeleteList,
-} from './repositories/lists';
-export type { ListSaveOptions } from './repositories/lists';
+export type { ListNoteOptions } from './repositories/note-items';
+export { LIST_TABLES, getList, listGamesOf, listItemsOf, listLists } from './repositories/lists';
 
 export {
   CATALOG_TABLES,
   getGame,
   getGamesByIds,
+  getReference,
   pruneCatalog,
   searchGames,
   upsertGames,

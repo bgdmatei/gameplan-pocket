@@ -1,23 +1,31 @@
 import { migrate } from '@gameplan/db-schema';
-import { createEntry } from '@gameplan/domain';
+import { createEntry, createNoteItem } from '@gameplan/domain';
 import type { LibraryEntry } from '@gameplan/domain';
 import fc from 'fast-check';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StorageAdapter } from '../adapter';
 import { createNodeAdapter } from '../node/adapter';
-import { getLibraryEntry, listLibraryEntries, saveLibraryEntry } from './library-entries';
+import { putRows } from '../testing/rows';
+import { getLibraryEntry, listGenresInLibrary, listLibraryGrid } from './library-entries';
+import { SYNCED_ROWS } from './synced-rows';
 
 const TODAY = '2026-09-18';
 const NOW = '2026-09-18T10:00:00Z';
 
-const cacheGame = async (adapter: StorageAdapter, id: number, name: string): Promise<void> => {
-  await adapter.execute('INSERT INTO games (id, name, slug, fetched_at) VALUES (?, ?, ?, ?)', [
-    id,
-    name,
-    `game-${String(id)}`,
-    NOW,
-  ]);
+const cacheGame = async (
+  adapter: StorageAdapter,
+  id: number,
+  name: string,
+  released: string | null = null,
+): Promise<void> => {
+  await adapter.execute(
+    'INSERT INTO games (id, name, slug, first_release_date, fetched_at) VALUES (?, ?, ?, ?, ?)',
+    [id, name, `game-${String(id)}`, released, NOW],
+  );
 };
+
+const putEntries = (adapter: StorageAdapter, entries: LibraryEntry[], now = NOW) =>
+  putRows(adapter, SYNCED_ROWS.library_entries, entries, { now });
 
 const entryFor = (gameId: number, patch: Partial<LibraryEntry> = {}): LibraryEntry => ({
   ...createEntry(
@@ -45,39 +53,21 @@ describe('library entries', () => {
       playtimeMinutes: 1_234,
       startedOn: '2026-09-01',
       favourite: true,
+      shelved: true,
     });
 
-    await saveLibraryEntry(adapter, entry, { updatedAt: NOW });
+    await putEntries(adapter, [entry]);
 
     expect(await getLibraryEntry(adapter, entry.id)).toEqual(entry);
   });
 
-  /**
-   * The guarantee the whole write path exists for: a row saved without its
-   * sync operation would never reach another device. Removing the transaction
-   * from writeAtomically fails this test and nothing else.
-   */
-  it('keeps neither the row nor the operation when the write fails halfway', async () => {
-    await cacheGame(adapter, 1942, 'The Witcher 3');
-    const op = { id: 'op-1', payload: '{}', createdAt: NOW };
-    await saveLibraryEntry(adapter, entryFor(7), { updatedAt: NOW, op });
-
-    // The same op id again: the outbox insert fails after the row upsert.
-    await expect(
-      saveLibraryEntry(adapter, entryFor(1942), { updatedAt: NOW, op }),
-    ).rejects.toThrow();
-
-    expect(await getLibraryEntry(adapter, 'entry-1942')).toBeNull();
-    expect(await adapter.execute('SELECT id FROM pending_ops')).toEqual([{ id: 'op-1' }]);
-  });
-
   it('moves an archived game out of the library and into the archive', async () => {
     await cacheGame(adapter, 1942, 'The Witcher 3');
-    await saveLibraryEntry(adapter, entryFor(1942, { archived: true }), { updatedAt: NOW });
+    await putEntries(adapter, [entryFor(1942, { archived: true })]);
 
-    expect((await listLibraryEntries(adapter)).rows).toEqual([]);
+    expect((await listLibraryGrid(adapter)).rows).toEqual([]);
     expect(
-      (await listLibraryEntries(adapter, { archived: true })).rows.map((row) => row.game.name),
+      (await listLibraryGrid(adapter, { archived: true })).rows.map((row) => row.name),
     ).toEqual(['The Witcher 3']);
   });
 
@@ -94,25 +84,25 @@ describe('library entries', () => {
 
   describe('listing', () => {
     beforeEach(async () => {
-      await cacheGame(adapter, 1, 'Alpha Protocol');
-      await cacheGame(adapter, 2, "Baldur's Gate 3");
-      await cacheGame(adapter, 3, 'Celeste');
+      await cacheGame(adapter, 1, 'Alpha Protocol', '2010-05-27');
+      await cacheGame(adapter, 2, "Baldur's Gate 3", '2027-08-03');
+      await cacheGame(adapter, 3, 'Celeste', '2026-01-25');
 
-      await saveLibraryEntry(
+      await putEntries(
         adapter,
-        entryFor(1, { status: 'playing', rating: 5, playtimeMinutes: 100, favourite: true }),
-        { updatedAt: '2026-09-01T10:00:00Z' },
+        [entryFor(1, { status: 'playing', rating: 5, playtimeMinutes: 100, favourite: true })],
+        '2026-09-01T10:00:00Z',
       );
-      await saveLibraryEntry(
+      await putEntries(
         adapter,
-        entryFor(2, { status: 'completed', rating: 10, playtimeMinutes: 6_000 }),
-        { updatedAt: '2026-09-03T10:00:00Z' },
+        [entryFor(2, { status: 'completed', rating: 10, playtimeMinutes: 6_000 })],
+        '2026-09-03T10:00:00Z',
       );
-      await saveLibraryEntry(adapter, entryFor(3), { updatedAt: '2026-09-02T10:00:00Z' });
+      await putEntries(adapter, [entryFor(3)], '2026-09-02T10:00:00Z');
     });
 
     const names = async (options = {}): Promise<string[]> =>
-      (await listLibraryEntries(adapter, options)).rows.map((row) => row.game.name);
+      (await listLibraryGrid(adapter, options)).rows.map((row) => row.name);
 
     it('filters and sorts in SQL', async () => {
       expect(await names({ status: 'playing' })).toEqual(['Alpha Protocol']);
@@ -127,10 +117,32 @@ describe('library entries', () => {
         'Celeste',
         'Alpha Protocol',
       ]);
-      // Unrated games sort last rather than dropping out.
-      expect(
-        (await listLibraryEntries(adapter, { sort: 'rating' })).rows.at(-1)?.entry.rating,
-      ).toBeNull();
+      // Newest release first from the cutoff; a game due after it goes last.
+      expect(await names({ sort: 'released', releasedBy: '2026-12-31' })).toEqual([
+        'Celeste',
+        'Alpha Protocol',
+        "Baldur's Gate 3",
+      ]);
+      // Reversed, a game due after the cutoff still goes last.
+      expect(await names({ sort: 'released', direction: 'asc', releasedBy: '2026-12-31' })).toEqual(
+        ['Alpha Protocol', 'Celeste', "Baldur's Gate 3"],
+      );
+      expect(await names({ sort: 'name', direction: 'desc' })).toEqual([
+        'Celeste',
+        "Baldur's Gate 3",
+        'Alpha Protocol',
+      ]);
+      // Unrated games sort last in both directions rather than dropping out.
+      expect(await names({ sort: 'rating' })).toEqual([
+        "Baldur's Gate 3",
+        'Alpha Protocol',
+        'Celeste',
+      ]);
+      expect(await names({ sort: 'rating', direction: 'asc' })).toEqual([
+        'Alpha Protocol',
+        "Baldur's Gate 3",
+        'Celeste',
+      ]);
     });
 
     it('filters by tag, ignoring tags that were removed', async () => {
@@ -147,14 +159,59 @@ describe('library entries', () => {
       expect(await names({ tag: 'rpg' })).toEqual([]);
     });
 
-    it('leaves out an entry whose game is not cached, since a row needs a name', async () => {
-      await saveLibraryEntry(adapter, entryFor(404), { updatedAt: NOW });
+    it('filters by genre, and lists the genres in the library', async () => {
+      await adapter.execute('INSERT INTO genres (id, name, slug) VALUES (?, ?, ?), (?, ?, ?)', [
+        12,
+        'RPG',
+        'rpg',
+        31,
+        'Adventure',
+        'adventure',
+      ]);
+      await adapter.execute(
+        'INSERT INTO game_genres (game_id, genre_id) VALUES (1, 12), (2, 12), (3, 31)',
+      );
 
-      expect((await listLibraryEntries(adapter)).rows).toHaveLength(3);
+      expect(await names({ genreId: 12, sort: 'name' })).toEqual([
+        'Alpha Protocol',
+        "Baldur's Gate 3",
+      ]);
+      expect(await listGenresInLibrary(adapter)).toEqual([
+        { id: 31, name: 'Adventure', count: 1 },
+        { id: 12, name: 'RPG', count: 2 },
+      ]);
+    });
+
+    it('badges only notes still open: resolved and deleted ones do not count', async () => {
+      const note = (id: string, resolved: boolean) =>
+        createNoteItem({
+          id,
+          entryId: 'entry-3',
+          createdAt: NOW,
+          type: 'puzzle',
+          text: id,
+          resolved,
+        });
+      await putRows(adapter, SYNCED_ROWS.note_items, [note('open', false), note('done', true)], {
+        now: NOW,
+      });
+      await putRows(adapter, SYNCED_ROWS.note_items, [note('gone', false)], {
+        now: NOW,
+        deleted: true,
+      });
+
+      const rows = (await listLibraryGrid(adapter, { sort: 'name' })).rows;
+      expect(rows.map((row) => row.openNotes)).toEqual([0, 0, 1]);
+    });
+
+    it('leaves out an entry whose game is not cached, since a row needs a name', async () => {
+      await putEntries(adapter, [entryFor(404)]);
+
+      expect((await listLibraryGrid(adapter)).rows).toHaveLength(3);
     });
 
     it('rejects a cursor it did not produce', async () => {
-      await expect(listLibraryEntries(adapter, { cursor: 'nonsense' })).rejects.toThrow(/cursor/i);
+      await expect(listLibraryGrid(adapter, { cursor: 'nonsense' })).rejects.toThrow(/cursor/i);
     });
   });
 });
@@ -165,37 +222,55 @@ describe('library entries', () => {
  * column drops out of cursor comparisons entirely.
  */
 describe('paging', () => {
-  it('walks every entry exactly once, whatever the page size or sort', async () => {
+  it('walks every entry exactly once, whatever the page size, sort or direction', async () => {
     await fc.assert(
       fc.asyncProperty(
         fc.integer({ min: 1, max: 7 }),
-        fc.constantFrom('recent' as const, 'name' as const, 'rating' as const, 'playtime' as const),
-        async (pageSize, sort) => {
+        fc.constantFrom(
+          'recent' as const,
+          'released' as const,
+          'name' as const,
+          'rating' as const,
+          'playtime' as const,
+        ),
+        fc.constantFrom('asc' as const, 'desc' as const),
+        async (pageSize, sort, direction) => {
           const adapter = createNodeAdapter();
           try {
             await migrate(adapter);
 
             const total = 20;
             for (let index = 0; index < total; index += 1) {
-              await cacheGame(adapter, index + 1, `Game ${String(index % 5)}`);
-              await saveLibraryEntry(
+              // Shared dates, undated games and ones due after the cutoff.
+              const released = [null, '2020-01-01', '2026-06-01', '2031-01-01'][index % 4] ?? null;
+              await cacheGame(adapter, index + 1, `Game ${String(index % 5)}`, released);
+              await putEntries(
                 adapter,
-                entryFor(index + 1, {
-                  // Deliberate ties and unrated games: where paging breaks.
-                  rating: index % 3 === 0 ? null : index % 4,
-                  playtimeMinutes: (index % 3) * 60,
-                }),
-                { updatedAt: `2026-09-${String(10 + (index % 3)).padStart(2, '0')}T10:00:00Z` },
+                [
+                  entryFor(index + 1, {
+                    // Deliberate ties and unrated games: where paging breaks.
+                    rating: index % 3 === 0 ? null : index % 4,
+                    playtimeMinutes: (index % 3) * 60,
+                  }),
+                ],
+                `2026-09-${String(10 + (index % 3)).padStart(2, '0')}T10:00:00Z`,
               );
             }
 
             const seen: string[] = [];
             let cursor: string | undefined;
             do {
-              const page = await listLibraryEntries(adapter, { sort, limit: pageSize, cursor });
-              seen.push(...page.rows.map((row) => row.entry.id));
+              const page = await listLibraryGrid(adapter, {
+                sort,
+                direction,
+                releasedBy: '2026-12-31',
+                limit: pageSize,
+                cursor,
+              });
+              seen.push(...page.rows.map((row) => row.id));
               cursor = page.nextCursor;
-            } while (cursor !== undefined);
+              // A cursor that never advances would loop forever: fail instead.
+            } while (cursor !== undefined && seen.length <= total);
 
             expect(new Set(seen).size).toBe(total);
             expect(seen).toHaveLength(total);
@@ -204,7 +279,7 @@ describe('paging', () => {
           }
         },
       ),
-      { numRuns: 15 },
+      { numRuns: 30 },
     );
   });
 });

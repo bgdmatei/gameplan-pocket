@@ -89,6 +89,37 @@ describe('applyEntryChange', () => {
     ]);
   });
 
+  // The Now Playing shelf holds only games being played: leaving Playing
+  // takes a game off it, like status changes fill in dates.
+  it.each([
+    ['shelves a game being played', 'playing', false, { shelved: true }, { shelved: true }],
+    [
+      'takes it off the shelf when play stops',
+      'playing',
+      true,
+      { status: 'paused' },
+      { status: 'paused', shelved: false },
+    ],
+    ['refuses to shelve a game not being played', 'backlog', false, { shelved: true }, 'shelved'],
+    [
+      'refuses to keep it shelved while leaving Playing',
+      'playing',
+      true,
+      { status: 'paused', shelved: true },
+      'shelved',
+    ],
+  ] as const)('%s', (_name, status, shelved, patch, expected) => {
+    const current = { ...base, status, shelved, startedOn: TODAY } as LibraryEntry;
+
+    if (typeof expected === 'string') {
+      expect(rejectionOf(() => applyEntryChange(current, patch, ctx))).toEqual([
+        expect.objectContaining({ code: 'invalid_field', field: expected }),
+      ]);
+    } else {
+      expect(applyEntryChange(current, patch, ctx).changed).toEqual(expected);
+    }
+  });
+
   it('refuses unknown and identity fields rather than ignoring them', () => {
     expect(() => applyEntryChange(base, { review: 'great' } as never, ctx)).toThrow();
     expect(() => applyEntryChange(base, { id: 'other' } as never, ctx)).toThrow();

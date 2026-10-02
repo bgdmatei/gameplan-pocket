@@ -25,8 +25,13 @@ export type Unsubscribe = () => void;
 export type StorageAdapter = Transaction & {
   /**
    * Runs `fn` inside one transaction: commits when it returns, rolls back when
-   * it throws. Nested calls are refused rather than silently flattened, since
-   * SQLite has no nested transactions and the inner "commit" would be a lie.
+   * it throws. Transactions run one at a time in call order: a second one
+   * waits for the first rather than failing, and a query outside a transaction
+   * waits for it to commit, so it never sees a half-written state.
+   *
+   * Inside `fn`, use `tx`, never the adapter: a call on the adapter would wait
+   * for the very transaction it is part of. That wait is bounded, and fails
+   * with a message saying so rather than hanging.
    */
   transaction<T>(fn: (tx: Transaction) => Promise<T>): Promise<T>;
 

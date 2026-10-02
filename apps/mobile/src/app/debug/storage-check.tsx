@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { migrate } from '@gameplan/db-schema';
 import { createOpSqliteAdapter } from '@gameplan/storage/op-sqlite';
 import { runAdapterCases } from '@gameplan/storage/testing';
+import { space, type } from '@/ui/theme';
+import { useTheme } from '@/ui/use-theme';
 
 type CaseResult = { name: string; passed: boolean; error?: string };
 
@@ -36,6 +39,11 @@ const runCheck = async (): Promise<Check> => {
 };
 
 const StorageCheckScreen = () => {
+  const insets = useSafeAreaInsets();
+  const { colors, status } = useTheme();
+  const ok = { color: status.completed };
+  const bad = { color: colors.danger };
+  const detail = [type.caption, { color: colors.muted }];
   const [check, setCheck] = useState<Check | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -50,8 +58,8 @@ const StorageCheckScreen = () => {
   if (failure !== null) {
     return (
       <View style={styles.centred}>
-        <Text style={styles.failed}>Could not run the check</Text>
-        <Text style={styles.detail}>{failure}</Text>
+        <Text style={[type.headline, bad]}>Could not run the check</Text>
+        <Text style={detail}>{failure}</Text>
       </View>
     );
   }
@@ -59,8 +67,8 @@ const StorageCheckScreen = () => {
   if (check === null) {
     return (
       <View style={styles.centred}>
-        <ActivityIndicator />
-        <Text style={styles.detail}>Running the storage contract…</Text>
+        <ActivityIndicator color={colors.accent} />
+        <Text style={detail}>Running the storage contract…</Text>
       </View>
     );
   }
@@ -69,19 +77,19 @@ const StorageCheckScreen = () => {
   const allPassed = passed === check.results.length;
 
   return (
-    <ScrollView contentContainerStyle={styles.page}>
-      <Text style={styles.title}>Storage contract on op-sqlite</Text>
-      <Text style={allPassed ? styles.summaryOk : styles.summaryBad}>
+    <ScrollView contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}>
+      <Text style={[type.title, { color: colors.text }]}>Storage contract on op-sqlite</Text>
+      <Text style={[type.callout, styles.summary, allPassed ? ok : bad]}>
         {passed} of {check.results.length} passed · schema v{check.migratedTo} · {check.elapsedMs}{' '}
         ms
       </Text>
 
       {check.results.map((result) => (
         <View key={result.name} style={styles.row}>
-          <Text style={result.passed ? styles.pass : styles.fail}>
+          <Text style={[type.subhead, result.passed ? ok : [bad, styles.bold]]}>
             {result.passed ? '✓' : '✗'} {result.name}
           </Text>
-          {result.error === undefined ? null : <Text style={styles.detail}>{result.error}</Text>}
+          {result.error === undefined ? null : <Text style={detail}>{result.error}</Text>}
         </View>
       ))}
     </ScrollView>
@@ -89,16 +97,17 @@ const StorageCheckScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  page: { padding: 20, gap: 8 },
-  centred: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
-  title: { fontSize: 20, fontWeight: '600' },
-  summaryOk: { fontSize: 15, color: '#1a7f37', marginBottom: 8 },
-  summaryBad: { fontSize: 15, color: '#c0392b', marginBottom: 8 },
+  page: { padding: space.lg, gap: space.sm },
+  centred: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.md,
+    padding: space.xl,
+  },
+  summary: { marginBottom: space.sm },
   row: { gap: 2 },
-  pass: { fontSize: 13, color: '#1a7f37' },
-  fail: { fontSize: 13, color: '#c0392b', fontWeight: '600' },
-  failed: { fontSize: 17, fontWeight: '600', color: '#c0392b' },
-  detail: { fontSize: 12, opacity: 0.7 },
+  bold: { fontWeight: '600' },
 });
 
 export default StorageCheckScreen;

@@ -2,25 +2,29 @@
 
 This module's slice of the budget in plan §12, measured against a seeded library of 5,000 entries.
 
-## Snapshot (2026-09-23, real titles)
+## Snapshot (2026-09-23, grid query)
 
-| Measurement                         | Budget     | Measured                     | Notes                                                     |
-| ----------------------------------- | ---------- | ---------------------------- | --------------------------------------------------------- |
-| Catalog search, two words           | < 50 ms    | **0.3 ms**                   | `searchGames('dark souls')`                               |
-| Catalog search, prefix              | < 50 ms    | **0.3 ms**                   | `searchGames('zel')` — what typing does                   |
-| Filter by status                    | < 100 ms   | **0.7 ms**                   | 50-row page                                               |
-| Filter by tag                       | < 100 ms   | **0.9 ms**                   | joins `entry_tags`                                        |
-| Sort by recent                      | < 100 ms   | **1.4 ms**                   |                                                           |
-| Sort by name                        | < 100 ms   | **2.7 ms**                   | joins `games`                                             |
-| Sort by rating                      | < 100 ms   | **2.4 ms**                   | nullable column                                           |
-| Sort by playtime                    | < 100 ms   | **2.6 ms**                   |                                                           |
-| Page 21 (1,000 rows deep)           | < 100 ms   | **2.9 ms**                   | keyset paging does not degrade                            |
-| Apply 1,000 rows in one transaction | responsive | **5.2 ms**, one notification | a sync pull's batch                                       |
-| Seed 5,000 entries + tags + notes   | —          | **756 ms**                   | 1,000 real games cycled to 5,000, 22 genres, 80 platforms |
+The library is now read through `listLibraryGrid`, which selects only what a grid cell shows plus the open-note count (plan §12.2). It replaced `listLibraryEntries`, which returned full entries with their genres and platforms and had no caller outside tests.
 
-Still two orders of magnitude inside budget, which says the queries use their indexes rather than scanning. That is what these numbers are for: a query that starts scanning shows up here immediately, wherever it runs.
+| Measurement                         | Budget     | Measured                     | Notes                                                    |
+| ----------------------------------- | ---------- | ---------------------------- | -------------------------------------------------------- |
+| Catalog search, two words           | < 50 ms    | **0.4 ms**                   | `searchGames('dark souls')`                              |
+| Catalog search, prefix              | < 50 ms    | **0.3 ms**                   | `searchGames('zel')`: what typing does                   |
+| Filter by status                    | < 100 ms   | **0.3 ms**                   | 50-row page                                              |
+| Filter by tag                       | < 100 ms   | **0.5 ms**                   | joins `entry_tags`                                       |
+| Sort by recent                      | < 100 ms   | **0.7 ms**                   |                                                          |
+| Sort by name                        | < 100 ms   | **1.6 ms**                   | joins `games`; sorts the live rows in a temporary B-tree |
+| Sort by rating                      | < 100 ms   | **1.5 ms**                   | nullable column; temporary B-tree                        |
+| Sort by playtime                    | < 100 ms   | **1.5 ms**                   |                                                          |
+| Page 21 (1,000 rows deep)           | < 100 ms   | **1.7 ms**                   | keyset paging does not degrade                           |
+| Apply 1,000 rows in one transaction | responsive | **4.8 ms**, one notification | a sync pull's batch                                      |
+| Seed 5,000 entries + tags + notes   | —          | **662 ms**                   | now a few batched transactions instead of one per row    |
 
-Against the first snapshot (2026-09-20, generated titles), sorts and deep paging are 0.4–0.7 ms slower and search is unchanged. Real titles are longer and less uniform, and every game now carries genres and platforms.
+Against the previous snapshot, list queries are 40–75 % faster: they no longer build genre and platform lists for every row, and the open-note count costs one index lookup per row (`idx_note_items_entry`). `EXPLAIN QUERY PLAN` shows an index search for every filter and sort; name and rating sorts use a temporary B-tree over the live rows, as before.
+
+### Previous snapshot (2026-09-23, real titles, full-row query)
+
+Filter by status 0.7 ms, by tag 0.9 ms; sort by recent 1.4 ms, name 2.7 ms, rating 2.4 ms, playtime 2.6 ms; page 21 2.9 ms; seed 756 ms.
 
 ## How to reproduce
 

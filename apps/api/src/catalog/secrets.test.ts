@@ -1,3 +1,4 @@
+import { HEADERS } from '@gameplan/contracts';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../app';
 import type { Logger } from '../logger';
@@ -9,6 +10,7 @@ import { createCatalogRepository } from './repository';
 import { createCatalogService } from './service';
 
 const SECRET = 'test-secret-3f9a2c1b';
+const API_KEY = 'test-api-key-7e4d2a9c';
 
 /**
  * Worst case: Twitch and IGDB both answer errors that echo the secret back.
@@ -29,7 +31,9 @@ const setup = async (answer: (url: string) => Response) => {
   });
   const db = await createTestDb();
   const catalog = createCatalogService({ repository: createCatalogRepository(db), igdb, logger });
-  return { app: createApp({ catalog, logger }), lines, db };
+  const app = createApp({ catalog, logger, apiKey: API_KEY });
+  const request = (path: string) => app.request(path, { headers: { [HEADERS.apiKey]: API_KEY } });
+  return { request, lines, db };
 };
 
 const echoSecret = (status: number) =>
@@ -46,23 +50,24 @@ describe('the Twitch secret', () => {
           : echoSecret(500),
     },
   ])('never reaches a log or a response when $case', async ({ answer }) => {
-    const { app, lines } = await setup(answer);
+    const { request, lines } = await setup(answer);
 
     const bodies = await Promise.all(
       ['/catalog/search?q=witcher', '/catalog/games/1942', '/catalog/reference'].map(async (path) =>
-        (await app.request(path)).text(),
+        (await request(path)).text(),
       ),
     );
 
     expect(lines.length).toBeGreaterThan(0);
     expect([...lines, ...bodies].join('\n')).not.toContain(SECRET);
+    expect(lines.join('\n')).not.toContain(API_KEY);
   });
 
   it('stays out of the answer to an unexpected error', async () => {
-    const { app, lines, db } = await setup(() => echoSecret(500));
+    const { request, lines, db } = await setup(() => echoSecret(500));
     await db.destroy();
 
-    const response = await app.request('/catalog/search?q=witcher');
+    const response = await request('/catalog/search?q=witcher');
 
     expect(response.status).toBe(500);
     expect([...lines, await response.text()].join('\n')).not.toContain(SECRET);

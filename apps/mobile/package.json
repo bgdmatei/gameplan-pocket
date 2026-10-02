@@ -11,24 +11,33 @@
     "ios": "expo run:ios",
     "prebuild": "expo prebuild",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "test": "vitest run --coverage"
   },
   "dependencies": {
+    "@expo/vector-icons": "^15.1.1",
+    "@gameplan/contracts": "workspace:*",
     "@gameplan/db-schema": "workspace:*",
+    "@gameplan/domain": "workspace:*",
     "@gameplan/storage": "workspace:*",
-    "@gameplan/test-utils": "workspace:*",
+    "@gameplan/sync": "workspace:*",
     "@op-engineering/op-sqlite": "18.2.5",
+    "@shopify/flash-list": "2.0.2",
     "expo": "~57.0.23",
     "expo-constants": "~57.0.18",
+    "expo-crypto": "~57.0.3",
     "expo-dev-client": "~57.0.19",
+    "expo-image": "~57.0.5",
     "expo-linking": "~57.0.10",
     "expo-router": "~57.0.21",
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "~4.26.0"
+    "react-native-screens": "~4.26.0",
+    "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
     "@gameplan/config": "workspace:*",

@@ -15,6 +15,7 @@ const entry = {
   startedOn: null,
   finishedOn: null,
   favourite: false,
+  shelved: false,
   archived: false,
   createdAt: '2026-09-18T10:00:00Z',
 };
@@ -44,6 +45,8 @@ describe('isWellFormed', () => {
    */
   it('accepts merge-produced states a local write would never allow', () => {
     expect(isWellFormed({ ...entry, status: 'dropped', finishedOn: '2026-03-04' })).toBe(true);
+    // Shelved on one device while dropped on another: a merge may keep both.
+    expect(isWellFormed({ ...entry, status: 'dropped', shelved: true })).toBe(true);
     expect(isWellFormed({ ...entry, startedOn: '2026-05-05', finishedOn: '2026-01-01' })).toBe(
       true,
     );

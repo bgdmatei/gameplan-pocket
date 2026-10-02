@@ -4,6 +4,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   TWITCH_CLIENT_ID: z.string().min(1),
   TWITCH_CLIENT_SECRET: z.string().min(1),
+  // Long enough that guessing it is not worth trying; see AppDependencies.apiKey.
+  CATALOG_API_KEY: z.string().min(16),
   PORT: z.coerce.number().int().positive().default(3000),
 });
 

@@ -1,4 +1,4 @@
-import type { SqlValue, StorageAdapter, Transaction } from '../adapter';
+import type { SqlValue, Transaction } from '../adapter';
 
 export type Row = Readonly<Record<string, SqlValue>>;
 
@@ -44,26 +44,13 @@ const buildUpsert = (table: string, row: Row): { sql: string; params: SqlValue[]
 };
 
 /**
- * Writes rows and their outbox entries in a single transaction.
+ * Writes rows and their outbox entries inside a transaction the caller holds.
  *
- * Every local edit goes through here, because the row and the operation that
- * tells other devices about it must not be separable: a row saved without its
- * operation would never sync, and an operation without its row would tell other
- * devices about a change this device does not have. If the app is killed
- * halfway, SQLite leaves neither behind.
- */
-export const writeAtomically = async (
-  adapter: StorageAdapter,
-  write: AtomicWrite,
-): Promise<void> => {
-  await adapter.transaction((tx) => writeRows(tx, write));
-};
-
-/**
- * The same writes, inside a transaction the caller already holds. For
- * `sync-core`, which must read a row's clocks and write the merged row back in
- * one transaction, or two edits committing at once could each overwrite the
- * other's clocks.
+ * The only write path for user data, and `sync-core` its only caller: it reads
+ * a row's clocks, applies the domain rule and writes the result back in one
+ * transaction, so the row, its clocks and the op that tells other devices about
+ * it land together or not at all. A row saved without its op would never sync;
+ * one saved without its clocks would lose to every other device.
  */
 export const writeRows = async (
   tx: Transaction,

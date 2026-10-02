@@ -53,6 +53,7 @@ const DEFAULTS = {
   startedOn: null,
   finishedOn: null,
   favourite: false,
+  shelved: false,
   archived: false,
 } as const;
 
@@ -75,8 +76,29 @@ const deriveDates = (status: EntryStatus, merged: LibraryEntry, today: IsoDate):
   return derived;
 };
 
+/**
+ * The shelf holds only games being played, so a status change away from
+ * Playing takes the game off it, the way a change to Playing fills in a start
+ * date. Asking to stay shelved in the same patch is refused, not overridden.
+ */
+const deriveShelf = (supplied: EntryPatch, merged: LibraryEntry): { shelved?: false } =>
+  supplied.status !== undefined &&
+  supplied.status !== 'playing' &&
+  supplied.shelved === undefined &&
+  merged.shelved
+    ? { shelved: false }
+    : {};
+
 const crossFieldErrors = (entry: LibraryEntry, ctx: EntryContext): DomainError[] => {
   const errors: DomainError[] = [];
+
+  if (entry.shelved && entry.status !== 'playing') {
+    errors.push({
+      code: 'invalid_field',
+      field: 'shelved',
+      message: 'Only a game you are playing can go on the shelf.',
+    });
+  }
 
   if (
     entry.platformId !== null &&
@@ -120,6 +142,7 @@ export const applyEntryChange = (
   const withDerived = {
     ...merged,
     ...(supplied.status === undefined ? {} : deriveDates(supplied.status, merged, ctx.today)),
+    ...deriveShelf(supplied, merged),
   };
 
   errors.push(...crossFieldErrors(withDerived, ctx));

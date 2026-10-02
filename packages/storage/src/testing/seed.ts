@@ -1,10 +1,17 @@
 import { createEntry, createEntryTag, createNoteItem, tagIdentityKey } from '@gameplan/domain';
-import type { EntryStatus, Game, Genre, Platform } from '@gameplan/domain';
+import type {
+  EntryStatus,
+  EntryTag,
+  Game,
+  Genre,
+  LibraryEntry,
+  NoteItem,
+  Platform,
+} from '@gameplan/domain';
 import type { StorageAdapter } from '../adapter';
-import { addEntryTag } from '../repositories/entry-tags';
 import { upsertGames } from '../repositories/games';
-import { saveLibraryEntry } from '../repositories/library-entries';
-import { saveNoteItem } from '../repositories/note-items';
+import { SYNCED_ROWS } from '../repositories/synced-rows';
+import { putRows } from './rows';
 
 /**
  * Fills a database with a library the size of a heavy user's, for performance
@@ -25,6 +32,12 @@ export type SeedOptions = {
   entries?: number;
   /** Any string; the same one always produces the same library. */
   seed?: string;
+  /**
+   * How a tag's id is made. The app passes `sync`'s `tagId`, which this
+   * package can't import, so a seeded tag removed and added back in the app
+   * revives the same row instead of hitting the `(entry_id, tag)` index.
+   */
+  tagId?: (entryId: string, tag: string) => string;
 };
 
 export type SeedResult = { games: number; entries: number; tags: number; notes: number };
@@ -66,7 +79,12 @@ const pick = <T>(random: () => number, values: readonly T[]): T =>
 const CYCLE_OFFSET = 10_000_000;
 
 export const seed = async (adapter: StorageAdapter, options: SeedOptions): Promise<SeedResult> => {
-  const { catalog, entries: wanted = 5_000, seed: seedValue = 'gameplan' } = options;
+  const {
+    catalog,
+    entries: wanted = 5_000,
+    seed: seedValue = 'gameplan',
+    tagId = tagIdentityKey,
+  } = options;
   const { games: real } = catalog;
   if (real.length === 0) throw new Error('The seed needs at least one game to cycle.');
 
@@ -91,8 +109,11 @@ export const seed = async (adapter: StorageAdapter, options: SeedOptions): Promi
     fetchedAt: now,
   });
 
-  let tags = 0;
-  let notes = 0;
+  // Grouped by edit time, so the library sorts by recency as a real one would,
+  // in a handful of transactions rather than one per row.
+  const entriesByMonth = new Map<string, LibraryEntry[]>();
+  const tags: EntryTag[] = [];
+  const notes: NoteItem[] = [];
 
   for (const game of games) {
     const status = pick(random, STATUSES);
@@ -101,32 +122,25 @@ export const seed = async (adapter: StorageAdapter, options: SeedOptions): Promi
       { today },
     );
 
-    await saveLibraryEntry(
-      adapter,
-      {
-        ...entry,
-        rating: random() < 0.6 ? Math.floor(random() * 11) : null,
-        playtimeMinutes: Math.floor(random() * 6_000),
-        favourite: random() < 0.12,
-      },
-      { updatedAt: `2026-0${String(1 + (game.id % 9))}-15T10:00:00Z` },
-    );
+    const updatedAt = `2026-0${String(1 + (game.id % 9))}-15T10:00:00Z`;
+    const month = entriesByMonth.get(updatedAt) ?? [];
+    month.push({
+      ...entry,
+      rating: random() < 0.6 ? Math.floor(random() * 11) : null,
+      playtimeMinutes: Math.floor(random() * 6_000),
+      favourite: random() < 0.12,
+    });
+    entriesByMonth.set(updatedAt, month);
 
     for (const tag of TAGS) {
       if (random() < 0.15) {
-        await addEntryTag(
-          adapter,
-          createEntryTag({ id: tagIdentityKey(entry.id, tag), entryId: entry.id, tag }),
-          { createdAt: now },
-        );
-        tags += 1;
+        tags.push(createEntryTag({ id: tagId(entry.id, tag), entryId: entry.id, tag }));
       }
     }
 
     const noteCount = random() < 0.3 ? 1 + Math.floor(random() * 3) : 0;
     for (let index = 0; index < noteCount; index += 1) {
-      await saveNoteItem(
-        adapter,
+      notes.push(
         createNoteItem({
           id: `note-${String(game.id)}-${String(index)}`,
           entryId: entry.id,
@@ -136,11 +150,15 @@ export const seed = async (adapter: StorageAdapter, options: SeedOptions): Promi
           location: random() < 0.6 ? `Chapter ${String(1 + Math.floor(random() * 12))}` : null,
           resolved: random() < 0.4,
         }),
-        { updatedAt: now },
       );
-      notes += 1;
     }
   }
 
-  return { games: games.length, entries: games.length, tags, notes };
+  for (const [updatedAt, month] of entriesByMonth) {
+    await putRows(adapter, SYNCED_ROWS.library_entries, month, { now: updatedAt });
+  }
+  await putRows(adapter, SYNCED_ROWS.entry_tags, tags, { now });
+  await putRows(adapter, SYNCED_ROWS.note_items, notes, { now });
+
+  return { games: games.length, entries: games.length, tags: tags.length, notes: notes.length };
 };

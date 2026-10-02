@@ -1,31 +1,59 @@
 import { gameSchema, libraryEntrySchema } from '@gameplan/domain';
 import type { EntryStatus, Game, LibraryEntry } from '@gameplan/domain';
 import type { SqlValue, StorageAdapter } from '../adapter';
-import { writeAtomically } from './write';
-import type { PendingOp, Row } from './write';
+import type { Row } from './write';
 
-/** Tables these queries read, so a change to either can refresh the screen. */
-export const LIBRARY_ENTRY_TABLES = ['library_entries', 'games', 'entry_tags'] as const;
+/** Tables these queries read, so a change to any of them can refresh the screen. */
+export const LIBRARY_ENTRY_TABLES = [
+  'library_entries',
+  'games',
+  'entry_tags',
+  'note_items',
+  'game_genres',
+] as const;
 
-/** A row of the library: the user's entry plus the game it refers to. */
-export type LibraryEntryWithGame = { entry: LibraryEntry; game: Game };
+/**
+ * One cell of the library grid: only what the cell shows, plus the open-note
+ * badge. The detail screen reads the full entry and game separately.
+ */
+export type LibraryGridRow = Pick<
+  LibraryEntry,
+  'id' | 'gameId' | 'status' | 'rating' | 'favourite'
+> &
+  Pick<Game, 'name' | 'coverImageId'> & { openNotes: number };
 
-export type LibrarySort = 'recent' | 'name' | 'rating' | 'playtime';
+/** `released` orders by release date; see `releasedBy` for what counts as released. */
+export type LibrarySort = 'recent' | 'released' | 'name' | 'rating' | 'playtime';
+
+export type SortDirection = 'asc' | 'desc';
 
 export type ListLibraryOptions = {
   status?: EntryStatus;
   favourite?: boolean;
+  shelved?: boolean;
   /** `true` lists the Archive; the library shows only games not archived. */
   archived?: boolean;
   tag?: string;
+  genreId?: number;
   sort?: LibrarySort;
+  /**
+   * Overrides the sort's natural order (newest, A to Z, highest first).
+   * Games with no release date, or no rating, go last either way.
+   */
+  direction?: SortDirection;
+  /**
+   * For the `released` sort: the last date that counts as released, such as
+   * the end of this year. Later and undated games go last. A parameter because
+   * storage reads no clock; without it every dated game counts.
+   */
+  releasedBy?: string;
   limit?: number;
   /** Opaque value from the previous page's `nextCursor`. */
   cursor?: string;
 };
 
 export type LibraryPage = {
-  rows: LibraryEntryWithGame[];
+  rows: LibraryGridRow[];
   /** Absent when this was the last page. */
   nextCursor?: string;
 };
@@ -34,8 +62,6 @@ export type SaveOptions = {
   updatedAt: string;
   /** Per-field clocks, written by `sync-core`. */
   fieldHlc?: string;
-  /** Present for a local edit, absent when applying a change from another device. */
-  op?: PendingOp;
 };
 
 export const toRow = (entry: LibraryEntry, { updatedAt, fieldHlc }: SaveOptions): Row => ({
@@ -50,6 +76,7 @@ export const toRow = (entry: LibraryEntry, { updatedAt, fieldHlc }: SaveOptions)
   started_on: entry.startedOn,
   finished_on: entry.finishedOn,
   favourite: entry.favourite,
+  shelved: entry.shelved,
   archived: entry.archived,
   created_at: entry.createdAt,
   updated_at: updatedAt,
@@ -67,6 +94,7 @@ export type EntryRow = {
   started_on: string | null;
   finished_on: string | null;
   favourite: number;
+  shelved: number;
   archived: number;
   created_at: string;
 };
@@ -87,61 +115,95 @@ export const toEntry = (row: EntryRow): LibraryEntry =>
     startedOn: row.started_on,
     finishedOn: row.finished_on,
     favourite: row.favourite === 1,
+    shelved: row.shelved === 1,
     archived: row.archived === 1,
     createdAt: row.created_at,
   });
 
-type GameRow = {
-  g_id: number;
-  g_name: string;
-  g_slug: string;
-  g_summary: string | null;
-  g_first_release_date: string | null;
-  g_cover_image_id: string | null;
-  genre_ids: string | null;
-  platform_ids: string | null;
+type GridRow = {
+  id: string;
+  game_id: number;
+  status: string;
+  rating: number | null;
+  favourite: number;
+  name: string;
+  cover_image_id: string | null;
+  open_notes: number;
+  // Read for the cursor only.
+  updated_at: string;
+  playtime_minutes: number;
+  first_release_date: string | null;
 };
 
-const idList = (value: string | null): number[] =>
-  value === null || value === '' ? [] : value.split(',').map(Number);
+const gridEntrySchema = libraryEntrySchema.pick({
+  id: true,
+  gameId: true,
+  status: true,
+  rating: true,
+  favourite: true,
+});
+const gridGameSchema = gameSchema.pick({ name: true, coverImageId: true });
 
-const toGame = (row: GameRow): Game =>
-  gameSchema.parse({
-    id: row.g_id,
-    name: row.g_name,
-    slug: row.g_slug,
-    summary: row.g_summary,
-    firstReleaseDate: row.g_first_release_date,
-    coverImageId: row.g_cover_image_id,
-    genreIds: idList(row.genre_ids),
-    platformIds: idList(row.platform_ids),
-  });
+/** Parsed like a full entry, so a corrupt row fails here rather than in a cell. */
+const toGridRow = (row: GridRow): LibraryGridRow => ({
+  ...gridEntrySchema.parse({
+    id: row.id,
+    gameId: row.game_id,
+    status: row.status,
+    rating: row.rating,
+    favourite: row.favourite === 1,
+  }),
+  ...gridGameSchema.parse({ name: row.name, coverImageId: row.cover_image_id }),
+  openNotes: row.open_notes,
+});
 
-const SELECT_ROW = `
-  SELECT e.id, e.game_id, e.status, e.rating, e.platform_id, e.progress,
-         e.playtime_minutes, e.started_on, e.finished_on, e.favourite, e.archived,
-         e.created_at, e.updated_at,
-         g.id AS g_id, g.name AS g_name, g.slug AS g_slug, g.summary AS g_summary,
-         g.first_release_date AS g_first_release_date, g.cover_image_id AS g_cover_image_id,
-         (SELECT group_concat(genre_id) FROM game_genres WHERE game_id = g.id) AS genre_ids,
-         (SELECT group_concat(platform_id) FROM game_platforms WHERE game_id = g.id) AS platform_ids
+/**
+ * Only the columns a cell renders (plan §12.2). The open-note count is a
+ * correlated count over `idx_note_items_entry (entry_id, resolved)`, one index
+ * lookup per row on the page.
+ */
+const SELECT_GRID = `
+  SELECT e.id, e.game_id, e.status, e.rating, e.favourite, e.updated_at, e.playtime_minutes,
+         g.name, g.cover_image_id, g.first_release_date,
+         (SELECT COUNT(*) FROM note_items n
+          WHERE n.entry_id = e.id AND n.resolved = 0 AND n.deleted = 0) AS open_notes
   FROM library_entries e
   JOIN games g ON g.id = e.game_id
 `;
 
 /**
- * Sort keys. Each ends in `id` so the order is total: without a tiebreaker,
- * rows sharing a value could repeat or vanish while paging.
+ * Sort keys and each one's natural order. Every sort ends in `id` so the
+ * order is total: without a tiebreaker, rows sharing a value could repeat or
+ * vanish while paging.
  *
- * `COALESCE` keeps nullable columns comparable, which keyset paging needs: a
- * NULL rating sorts as if it were -1 rather than dropping out of comparisons.
+ * Nullable keys go through `COALESCE` with a stand-in (see `missingValue`),
+ * which keyset paging needs: a NULL would drop out of the cursor comparison.
+ * The stand-in is a bound parameter, the same value the cursor is built from.
  */
-const SORTS: Record<LibrarySort, { column: string; direction: 'ASC' | 'DESC' }> = {
-  recent: { column: 'e.updated_at', direction: 'DESC' },
-  name: { column: 'g.name', direction: 'ASC' },
-  rating: { column: 'COALESCE(e.rating, -1)', direction: 'DESC' },
-  playtime: { column: 'e.playtime_minutes', direction: 'DESC' },
+const SORTS: Record<LibrarySort, { column: string; natural: SortDirection }> = {
+  recent: { column: 'e.updated_at', natural: 'desc' },
+  released: {
+    column: 'COALESCE(CASE WHEN g.first_release_date <= ? THEN g.first_release_date END, ?)',
+    natural: 'desc',
+  },
+  name: { column: 'g.name', natural: 'asc' },
+  rating: { column: 'COALESCE(e.rating, ?)', natural: 'desc' },
+  playtime: { column: 'e.playtime_minutes', natural: 'desc' },
 };
+
+/**
+ * What an undated or unrated game sorts as: past the end in whichever
+ * direction, so those games come last both ways. '' is below every date and
+ * '~' above; ratings run 0 to 10.
+ */
+const missingValue = (sort: LibrarySort, direction: SortDirection): SqlValue => {
+  if (sort === 'released') return direction === 'desc' ? '' : '~';
+  if (sort === 'rating') return direction === 'desc' ? -1 : 11;
+  return null;
+};
+
+/** Later than any real date, so every dated game counts as released. */
+const NO_CUTOFF = '9999-12-31';
 
 const encodeCursor = (value: SqlValue, id: string): string => JSON.stringify([value, id]);
 
@@ -168,12 +230,29 @@ const decodeCursor = (cursor: string): [SqlValue, string] => {
  * game's name and cover, and the add-to-library flow caches the game first, so
  * a missing game means an incomplete sync rather than something to display.
  */
-export const listLibraryEntries = async (
+export const listLibraryGrid = async (
   adapter: StorageAdapter,
   options: ListLibraryOptions = {},
 ): Promise<LibraryPage> => {
-  const { status, favourite, archived = false, tag, sort = 'recent', limit = 50, cursor } = options;
-  const { column, direction } = SORTS[sort];
+  const {
+    status,
+    favourite,
+    shelved,
+    archived = false,
+    tag,
+    genreId,
+    sort = 'recent',
+    releasedBy = NO_CUTOFF,
+    limit = 50,
+    cursor,
+  } = options;
+  const { column, natural } = SORTS[sort];
+  const direction = options.direction ?? natural;
+  const missing = missingValue(sort, direction);
+  // The sort expression's own parameters, bound wherever the expression appears.
+  const sortParams: SqlValue[] =
+    sort === 'released' ? [releasedBy, missing] : sort === 'rating' ? [missing] : [];
+  const order = direction === 'desc' ? 'DESC' : 'ASC';
   const conditions = ['e.deleted = 0', 'e.archived = ?'];
   const params: SqlValue[] = [archived];
 
@@ -185,55 +264,68 @@ export const listLibraryEntries = async (
     conditions.push('e.favourite = ?');
     params.push(favourite);
   }
+  if (shelved !== undefined) {
+    conditions.push('e.shelved = ?');
+    params.push(shelved);
+  }
   if (tag !== undefined) {
     conditions.push(
       'EXISTS (SELECT 1 FROM entry_tags t WHERE t.entry_id = e.id AND t.tag = ? AND t.deleted = 0)',
     );
     params.push(tag);
   }
+  if (genreId !== undefined) {
+    conditions.push(
+      'EXISTS (SELECT 1 FROM game_genres gg WHERE gg.game_id = e.game_id AND gg.genre_id = ?)',
+    );
+    params.push(genreId);
+  }
   if (cursor !== undefined) {
     const [value, id] = decodeCursor(cursor);
     // Continue after the last row: strictly past its sort value, or equal to it
     // with a later id.
-    const comparison = direction === 'DESC' ? '<' : '>';
+    const comparison = direction === 'desc' ? '<' : '>';
     conditions.push(`(${column} ${comparison} ? OR (${column} = ? AND e.id ${comparison} ?))`);
-    params.push(value, value, id);
+    params.push(...sortParams, value, ...sortParams, value, id);
   }
 
-  const sql = `${SELECT_ROW}
+  const sql = `${SELECT_GRID}
     WHERE ${conditions.join(' AND ')}
-    ORDER BY ${column} ${direction}, e.id ${direction}
+    ORDER BY ${column} ${order}, e.id ${order}
     LIMIT ?`;
 
-  const rows = await adapter.execute<EntryRow & GameRow & Record<string, SqlValue>>(sql, [
-    ...params,
-    limit + 1,
-  ]);
+  const rows = await adapter.execute<GridRow>(sql, [...params, ...sortParams, limit + 1]);
 
   const page = rows.slice(0, limit);
   const last = page[page.length - 1];
   const hasMore = rows.length > limit;
 
   return {
-    rows: page.map((row) => ({ entry: toEntry(row), game: toGame(row) })),
+    rows: page.map(toGridRow),
     ...(hasMore && last !== undefined
-      ? { nextCursor: encodeCursor(sortValueOf(last, sort), last.id) }
+      ? { nextCursor: encodeCursor(sortValueOf(last, sort, releasedBy, missing), last.id) }
       : {}),
   };
 };
 
 /** The value the cursor continues from, matching the SQL sort expression. */
 const sortValueOf = (
-  row: EntryRow & { updated_at?: string; g_name?: string },
+  row: GridRow,
   sort: LibrarySort,
-) => {
+  releasedBy: string,
+  missing: SqlValue,
+): SqlValue => {
   switch (sort) {
     case 'recent':
-      return row.updated_at ?? null;
+      return row.updated_at;
+    case 'released': {
+      const date = row.first_release_date;
+      return date !== null && date <= releasedBy ? date : missing;
+    }
     case 'name':
-      return row.g_name ?? null;
+      return row.name;
     case 'rating':
-      return row.rating ?? -1;
+      return row.rating ?? missing;
     case 'playtime':
       return row.playtime_minutes;
   }
@@ -264,16 +356,52 @@ export const getLibraryEntryByGame = async (
 };
 
 /**
- * Saves an entry produced by a domain rule, together with its outbox entry.
- * Used for both creating and updating: the row is upserted by id.
+ * The genres of games in the library, with how many games each, for the
+ * library's genre filter. Archived games are left out, as they are from the
+ * library itself.
  */
-export const saveLibraryEntry = async (
+export const listGenresInLibrary = async (
   adapter: StorageAdapter,
-  entry: LibraryEntry,
-  options: SaveOptions,
-): Promise<void> => {
-  await writeAtomically(adapter, {
-    rows: [{ table: 'library_entries', row: toRow(entry, options) }],
-    ...(options.op === undefined ? {} : { ops: [options.op] }),
-  });
+): Promise<{ id: number; name: string; count: number }[]> =>
+  adapter.execute<{ id: number; name: string; count: number }>(
+    `SELECT ge.id, ge.name, COUNT(*) AS count
+     FROM library_entries e
+     JOIN game_genres gg ON gg.game_id = e.game_id
+     JOIN genres ge ON ge.id = gg.genre_id
+     WHERE e.deleted = 0 AND e.archived = 0
+     GROUP BY ge.id, ge.name
+     ORDER BY ge.name`,
+  );
+
+/** How many games the Now Playing shelf shows. */
+export const SHELF_SIZE = 5;
+
+export type ShelfGame = Pick<LibraryEntry, 'id' | 'gameId'> & Pick<Game, 'name' | 'coverImageId'>;
+
+/**
+ * The Now Playing shelf: shelved games still being played, by name. A merge
+ * can leave more than five shelved (two devices each adding one); the shelf
+ * shows the first five and a local write refuses a sixth.
+ */
+export const listShelf = async (adapter: StorageAdapter): Promise<ShelfGame[]> => {
+  const rows = await adapter.execute<{
+    id: string;
+    game_id: number;
+    name: string;
+    cover_image_id: string | null;
+  }>(
+    `SELECT e.id, e.game_id, g.name, g.cover_image_id
+     FROM library_entries e
+     JOIN games g ON g.id = e.game_id
+     WHERE e.deleted = 0 AND e.archived = 0 AND e.shelved = 1 AND e.status = 'playing'
+     ORDER BY g.name, e.id
+     LIMIT ?`,
+    [SHELF_SIZE],
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    gameId: row.game_id,
+    name: row.name,
+    coverImageId: row.cover_image_id,
+  }));
 };

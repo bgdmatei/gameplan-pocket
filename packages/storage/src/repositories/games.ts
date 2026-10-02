@@ -7,6 +7,8 @@ export const CATALOG_TABLES = [
   'games',
   'game_genres',
   'game_platforms',
+  'genres',
+  'platforms',
   'library_entries',
 ] as const;
 
@@ -139,6 +141,24 @@ export const getGame = async (adapter: StorageAdapter, id: number): Promise<Game
 };
 
 /** Returns the games it has, in the order asked for; unknown ids are skipped. */
+/**
+ * Every cached genre and platform. Small tables (tens of rows), read whole:
+ * the detail screen names a game's genres and platforms from them, and a game
+ * can only be cached once the ones it refers to are.
+ */
+export const getReference = async (
+  adapter: StorageAdapter,
+): Promise<{ genres: Genre[]; platforms: Platform[] }> => {
+  const genres = await adapter.execute<Genre>('SELECT id, name, slug FROM genres ORDER BY name');
+  const platforms = await adapter.execute<Platform>(
+    'SELECT id, name, abbreviation FROM platforms ORDER BY name',
+  );
+  return {
+    genres: genres.map((genre) => genreSchema.parse(genre)),
+    platforms: platforms.map((platform) => platformSchema.parse(platform)),
+  };
+};
+
 export const getGamesByIds = async (
   adapter: StorageAdapter,
   ids: readonly number[],
@@ -189,6 +209,7 @@ type SearchRow = GameRow & {
   e_started_on: string | null;
   e_finished_on: string | null;
   e_favourite: number | null;
+  e_shelved: number | null;
   e_archived: number | null;
   e_created_at: string | null;
 };
@@ -207,6 +228,7 @@ const toEntry = (row: SearchRow): LibraryEntry | null => {
     startedOn: row.e_started_on,
     finishedOn: row.e_finished_on,
     favourite: row.e_favourite === 1,
+    shelved: row.e_shelved === 1,
     archived: row.e_archived === 1,
     createdAt: row.e_created_at,
   });
@@ -235,7 +257,7 @@ export const searchGames = async (
             e.id AS e_id, e.game_id AS e_game_id, e.status AS e_status, e.rating AS e_rating,
             e.platform_id AS e_platform_id, e.progress AS e_progress,
             e.playtime_minutes AS e_playtime_minutes, e.started_on AS e_started_on,
-            e.finished_on AS e_finished_on, e.favourite AS e_favourite,
+            e.finished_on AS e_finished_on, e.favourite AS e_favourite, e.shelved AS e_shelved,
             e.archived AS e_archived, e.created_at AS e_created_at
      FROM games_fts
      JOIN games g ON g.id = games_fts.rowid

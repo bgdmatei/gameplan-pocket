@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { StorageAdapter } from '../adapter';
 import { createNodeAdapter } from '../node/adapter';
 import { getGame, getGamesByIds, pruneCatalog, searchGames, upsertGames } from './games';
-import { saveLibraryEntry } from './library-entries';
+import { putRows } from '../testing/rows';
+import { SYNCED_ROWS } from './synced-rows';
 
 const NOW = '2026-09-20T10:00:00Z';
 
@@ -105,15 +106,16 @@ describe('catalog', () => {
     });
 
     it('says whether each result is already in the library', async () => {
-      await saveLibraryEntry(
+      await putRows(
         adapter,
-        createEntry(
-          { id: 'entry-4', gameId: 4, status: 'playing', createdAt: NOW },
-          {
-            today: '2026-09-20',
-          },
-        ),
-        { updatedAt: NOW },
+        SYNCED_ROWS.library_entries,
+        [
+          createEntry(
+            { id: 'entry-4', gameId: 4, status: 'playing', createdAt: NOW },
+            { today: '2026-09-20' },
+          ),
+        ],
+        { now: NOW },
       );
 
       expect((await searchGames(adapter, 'celeste'))[0]?.entry?.status).toBe('playing');
@@ -131,15 +133,16 @@ describe('catalog', () => {
 
   it('prunes only games nothing needs, and takes them out of search', async () => {
     await upsertGames(adapter, { games: CATALOG, fetchedAt: '2026-01-01T10:00:00Z' });
-    await saveLibraryEntry(
+    await putRows(
       adapter,
-      createEntry(
-        { id: 'entry-4', gameId: 4, status: 'backlog', createdAt: NOW },
-        {
-          today: '2026-09-20',
-        },
-      ),
-      { updatedAt: NOW },
+      SYNCED_ROWS.library_entries,
+      [
+        createEntry(
+          { id: 'entry-4', gameId: 4, status: 'backlog', createdAt: NOW },
+          { today: '2026-09-20' },
+        ),
+      ],
+      { now: NOW },
     );
 
     const removed = await pruneCatalog(adapter, { keepFetchedSince: NOW });
