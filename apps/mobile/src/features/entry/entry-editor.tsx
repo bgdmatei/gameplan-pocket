@@ -6,7 +6,7 @@ import {
   minutesToHoursMinutes,
 } from '@gameplan/domain';
 import type { EntryPatch, LibraryEntry, Platform } from '@gameplan/domain';
-import { Stack } from 'expo-router';
+import { Stack, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { StyleSheet, Switch, Text, TextInput, View } from 'react-native';
@@ -38,9 +38,14 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
   const { colors } = useTheme();
   const adapter = useDatabase();
   const toast = useToast();
+  const navigation = useNavigation();
   const [pending, setPending] = useState<EntryPatch>({});
 
   useEffect(() => setPending({}), [entry]);
+
+  // The header outlives this editor: once the game is archived (or the editor
+  // otherwise goes), take the archive button with it until it's restored.
+  useEffect(() => () => navigation.setOptions({ headerRight: undefined }), [navigation]);
 
   const shown = { ...entry, ...pending };
   const statuses = ENTRY_STATUSES.filter(

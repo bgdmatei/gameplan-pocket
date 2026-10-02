@@ -11,13 +11,11 @@ export type NoteDraft = { type: NoteItemType; text: string; location: string };
 type Props = {
   draft: NoteDraft;
   onChange: (draft: NoteDraft) => void;
-  /** Editing a field ended: the editor saves at once rather than waiting for the pause. */
-  onBlur?: () => void;
   autoFocus?: boolean;
 };
 
 /** Type, text and location: the fields shared by adding a note and editing one. */
-export const NoteForm = ({ draft, onChange, onBlur, autoFocus = false }: Props) => {
+export const NoteForm = ({ draft, onChange, autoFocus = false }: Props) => {
   const { colors } = useTheme();
   const input = [
     styles.input,
@@ -42,7 +40,6 @@ export const NoteForm = ({ draft, onChange, onBlur, autoFocus = false }: Props) 
         <TextInput
           value={draft.text}
           onChangeText={(text) => onChange({ ...draft, text })}
-          onBlur={onBlur}
           placeholder="What do you want to remember?"
           placeholderTextColor={colors.muted}
           multiline
@@ -58,7 +55,6 @@ export const NoteForm = ({ draft, onChange, onBlur, autoFocus = false }: Props) 
         <TextInput
           value={draft.location}
           onChangeText={(location) => onChange({ ...draft, location })}
-          onBlur={onBlur}
           placeholder="Chapter 3, the old mill"
           placeholderTextColor={colors.muted}
           maxLength={NOTE_LOCATION_MAX_LENGTH}

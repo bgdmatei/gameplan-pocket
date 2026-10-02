@@ -1,7 +1,8 @@
 import { DomainValidationError } from '@gameplan/domain';
 import type { NoteItem, NoteItemPatch } from '@gameplan/domain';
 import { NOTE_ITEM_TABLES, getNoteItem } from '@gameplan/storage';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { usePreventRemove } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,9 +18,6 @@ import { LoadFailed } from '@/ui/components/load-failed';
 import { useToast } from '@/ui/components/toast';
 import { minTouchTarget, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
-
-/** Typing pauses this long before the text is saved; leaving a field saves at once. */
-const PAUSE_MS = 1_500;
 
 const NoteScreen = () => {
   const { colors } = useTheme();
@@ -37,72 +35,71 @@ const NoteScreen = () => {
       </View>
     );
   }
-  // Edits save as they're typed, and leaving saves the rest: back is all it needs.
   return <NoteEditor note={note.data} />;
 };
 
 /**
- * Edits one note in a session (see `openNoteSession`). The fields are the
- * user's own draft from the moment the editor opens: a refresh from the
- * database never overwrites what they are typing.
+ * Edits one note in a session (see `openNoteSession`). Type, text and
+ * location are a draft until Save, which writes them as one op; leaving
+ * with unsaved changes asks first, as adding a note does. Resolved is a
+ * toggle and saves at once. A refresh from the database never overwrites
+ * the draft.
  */
 const NoteEditor = ({ note }: { note: NoteItem }) => {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const adapter = useDatabase();
   const toast = useToast();
+  const navigation = useNavigation();
   const [draft, setDraft] = useState<NoteDraft>({
     type: note.type,
     text: note.text,
     location: note.location ?? '',
   });
   const [resolved, setResolved] = useState(note.resolved);
+  // Saving or deleting leaves the page on purpose, without the discard question.
+  const [leaving, setLeaving] = useState(false);
   const session = useRef<Promise<NoteSession> | null>(null);
-  const latest = useRef(draft);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const deleted = useRef(false);
 
-  const save = async (patch: NoteItemPatch): Promise<void> => {
-    if (session.current === null || deleted.current) return;
+  useEffect(() => {
+    session.current = openNoteSession(adapter, syncEnv, note.id);
+  }, [adapter, note.id]);
+
+  const dirty =
+    draft.type !== note.type ||
+    draft.text !== note.text ||
+    draft.location !== (note.location ?? '');
+
+  usePreventRemove(dirty && !leaving, ({ data }) => {
+    Alert.alert('Discard your changes?', 'What you changed isn’t saved.', [
+      { text: 'Keep editing', style: 'cancel' },
+      { text: 'Discard', style: 'destructive', onPress: () => navigation.dispatch(data.action) },
+    ]);
+  });
+
+  /** Resolves `false` when the change was refused or failed, after saying so. */
+  const save = async (patch: NoteItemPatch): Promise<boolean> => {
+    if (session.current === null) return false;
     try {
       await (await session.current).save(patch);
+      return true;
     } catch (error) {
       // Reasons only, never the text (CLAUDE.md §Privacy).
       if (error instanceof DomainValidationError) toast.showRejected(error);
       else toast.show('The note couldn’t be saved. Try again.');
+      return false;
     }
   };
 
-  /** Saves the typed fields now. A blank note waits: clearing it to retype isn't an error. */
-  const flush = () => {
-    if (timer.current !== null) clearTimeout(timer.current);
-    timer.current = null;
-    const { text, location } = latest.current;
-    if (text.trim() !== '') void save({ text, location });
-  };
-
-  // The ref keeps the latest `flush` for the unmount cleanup below.
-  const flushRef = useRef(flush);
-  flushRef.current = flush;
-
-  useEffect(() => {
-    session.current = openNoteSession(adapter, syncEnv, note.id);
-    // Closing the editor mid-pause still saves what was typed.
-    return () => {
-      if (timer.current !== null) flushRef.current();
-    };
-  }, [adapter, note.id]);
-
-  const change = (next: NoteDraft) => {
-    const typeChanged = next.type !== latest.current.type;
-    setDraft(next);
-    latest.current = next;
-    if (typeChanged) {
-      void save({ type: next.type });
-      return;
+  const saveDraft = async (): Promise<void> => {
+    if (leaving) return;
+    setLeaving(true);
+    // An unchanged draft writes nothing: the session sends no op for it.
+    if (await save({ type: draft.type, text: draft.text, location: draft.location })) {
+      router.back();
+    } else {
+      setLeaving(false);
     }
-    if (timer.current !== null) clearTimeout(timer.current);
-    timer.current = setTimeout(flush, PAUSE_MS);
   };
 
   const confirmDelete = () =>
@@ -112,14 +109,11 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
         text: 'Delete',
         style: 'destructive',
         onPress: () => {
-          // A save after this would write to the deleted note.
-          deleted.current = true;
-          if (timer.current !== null) clearTimeout(timer.current);
-          timer.current = null;
+          setLeaving(true);
           deleteNote(adapter, syncEnv, note.id).then(
             () => router.back(),
             () => {
-              deleted.current = false;
+              setLeaving(false);
               toast.show('The note couldn’t be deleted. Try again.');
             },
           );
@@ -135,17 +129,45 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
     >
       <Stack.Screen
         options={{
+          // iOS 26 groups `headerRight` into one glass pill; as native bar
+          // items that don't share a background, delete and save get a pill each.
+          unstable_headerRightItems: () => [
+            {
+              type: 'button',
+              label: 'Delete note',
+              icon: { type: 'sfSymbol', name: 'trash' },
+              tintColor: colors.danger,
+              sharesBackground: false,
+              onPress: confirmDelete,
+            },
+            {
+              type: 'button',
+              label: 'Save note',
+              icon: { type: 'sfSymbol', name: 'checkmark' },
+              tintColor: colors.accent,
+              sharesBackground: false,
+              onPress: () => void saveDraft(),
+            },
+          ],
+          // Android and older iOS.
           headerRight: () => (
-            <HeaderIconButton
-              icon="trash-outline"
-              label="Delete note"
-              danger
-              onPress={confirmDelete}
-            />
+            <View style={styles.headerActions}>
+              <HeaderIconButton
+                icon="trash-outline"
+                label="Delete note"
+                danger
+                onPress={confirmDelete}
+              />
+              <HeaderIconButton
+                icon="checkmark"
+                label="Save note"
+                onPress={() => void saveDraft()}
+              />
+            </View>
           ),
         }}
       />
-      <NoteForm draft={draft} onChange={change} onBlur={flush} />
+      <NoteForm draft={draft} onChange={setDraft} />
 
       <View style={styles.switchRow}>
         <Text style={[type.body, { color: colors.text }]}>Resolved</Text>
@@ -165,6 +187,7 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
 
 const styles = StyleSheet.create({
   page: { padding: space.lg, gap: space.xl },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
