@@ -9,9 +9,10 @@ import {
   searchGames,
 } from '@gameplan/storage';
 import { router, useNavigation } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { startTimer } from '@/data/perf';
 import { useQuery } from '@/data/use-query';
 import { mergeSearch } from '@/features/search/merge';
 import type { SearchNotice } from '@/features/search/merge';
@@ -66,6 +67,18 @@ const SearchScreen = () => {
     CATALOG_TABLES,
     [query],
   );
+  // Times a keystroke until its local results are on screen (T19).
+  const searchTimer = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (local.status !== 'ready') return;
+    searchTimer.current?.();
+    searchTimer.current = null;
+  }, [local]);
+  const changeText = (next: string) => {
+    searchTimer.current = startTimer('search');
+    setText(next);
+  };
+
   const recent = useQuery(
     async (db) => {
       const page = await listLibraryGrid(db, { sort: 'recent', limit: 20 });
@@ -127,7 +140,7 @@ const SearchScreen = () => {
         </Text>
         <TextInput
           value={text}
-          onChangeText={setText}
+          onChangeText={changeText}
           placeholder="Game name"
           placeholderTextColor={colors.muted}
           accessibilityLabel="Search games"

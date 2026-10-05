@@ -1,8 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Link } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { startTimer } from '@/data/perf';
 import { NowPlayingShelf } from '@/features/library/now-playing-shelf';
 import { FilterBar, isFiltered } from '@/ui/components/filter-bar';
 import type { LibraryFilters } from '@/ui/components/filter-bar';
@@ -17,6 +18,16 @@ const endOfThisYear = (): string => `${String(new Date().getFullYear())}-12-31`;
 const LibraryScreen = () => {
   const { colors } = useTheme();
   const [filters, setFilters] = useState<LibraryFilters>({ sort: 'released' });
+  // Times a filter change until its first page is on screen (T19).
+  const filterTimer = useRef<(() => void) | null>(null);
+  const changeFilters = (next: LibraryFilters) => {
+    filterTimer.current = startTimer('filter');
+    setFilters(next);
+  };
+  const onShown = useCallback(() => {
+    filterTimer.current?.();
+    filterTimer.current = null;
+  }, []);
 
   return (
     <SafeAreaView edges={['top']} style={styles.page}>
@@ -48,9 +59,10 @@ const LibraryScreen = () => {
 
       <NowPlayingShelf />
 
-      <FilterBar filters={filters} onChange={setFilters} />
+      <FilterBar filters={filters} onChange={changeFilters} />
 
       <LibraryGrid
+        onShown={onShown}
         // All leaves out Playing: those games are on the shelf above.
         filters={{
           ...filters,
