@@ -32,10 +32,22 @@ type Row = Omit<GameRowProps, 'onPress'>;
  * usual order. An id this phone has no name for (a remote result naming a
  * platform IGDB added since) is left out rather than shown as a number.
  */
-const platformLine = (ids: readonly number[], known: readonly Platform[]): string | null => {
-  const names = playablePlatforms(ids, known).map(platformLabel);
-  return names.length === 0 ? null : names.join(' · ');
+const platformLine = (
+  ids: readonly number[],
+  known: readonly Platform[],
+): { shown: string | null; spoken: string | null } => {
+  const platforms = playablePlatforms(ids, known);
+  if (platforms.length === 0) return { shown: null, spoken: null };
+  return {
+    shown: platforms.map(platformLabel).join(' · '),
+    spoken: platforms.map((platform) => platform.name).join(', '),
+  };
 };
+
+const platformFields = ({ shown, spoken }: ReturnType<typeof platformLine>) => ({
+  platforms: shown,
+  platformsSpoken: spoken,
+});
 
 const NOTICE: Record<Exclude<SearchNotice, null>, string> = {
   offline: 'Offline: showing games on this phone only.',
@@ -101,7 +113,7 @@ const SearchScreen = () => {
         name: game.name,
         coverImageId: game.coverImageId,
         releaseYear: releaseYear(game.firstReleaseDate),
-        platforms: platformLine(game.platformIds, known),
+        ...platformFields(platformLine(game.platformIds, known)),
       }))
     : recent.status === 'ready'
       ? recent.data.map((row) => ({
@@ -109,7 +121,7 @@ const SearchScreen = () => {
           name: row.name,
           coverImageId: row.coverImageId,
           releaseYear: null,
-          platforms: platformLine(row.platformIds, known),
+          ...platformFields(platformLine(row.platformIds, known)),
         }))
       : [];
 

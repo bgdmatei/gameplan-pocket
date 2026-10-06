@@ -76,10 +76,13 @@ export const playablePlatforms = (
   );
 };
 
-/** The label for an entry's platform, or null when it has none or the phone can't name it. */
-export const platformLabelById = (id: number | null, known: readonly Platform[]): string | null => {
+/**
+ * An entry's platform, Steam Deck included, or null when it has none or the
+ * phone can't name it. Show `platformLabel` of it; let VoiceOver read its
+ * `name`, since short labels like "XSX" are spelled out letter by letter.
+ */
+export const platformById = (id: number | null, known: readonly Platform[]): Platform | null => {
   if (id === null) return null;
-  if (id === STEAM_DECK.id) return platformLabel(STEAM_DECK);
-  const platform = known.find((candidate) => candidate.id === id);
-  return platform === undefined ? null : platformLabel(platform);
+  if (id === STEAM_DECK.id) return STEAM_DECK;
+  return known.find((candidate) => candidate.id === id) ?? null;
 };

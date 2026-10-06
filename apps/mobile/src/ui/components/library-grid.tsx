@@ -8,7 +8,7 @@ import { StyleSheet, View } from 'react-native';
 import { useLibraryPages } from '@/data/use-library-pages';
 import { createScrollFpsMeter, markLibraryInteractive } from '@/data/perf';
 import { useQuery } from '@/data/use-query';
-import { platformLabelById } from '../platforms';
+import { platformById, platformLabel } from '../platforms';
 import { space } from '../theme';
 import { CoverCell } from './cover-cell';
 import { LoadFailed } from './load-failed';
@@ -60,14 +60,18 @@ export const LibraryGrid = ({ filters, header, empty, bottomInset = 0, onShown }
       data={state.data.rows}
       numColumns={3}
       keyExtractor={(row) => row.id}
-      renderItem={({ item }) => (
-        <CoverCell
-          row={item}
-          onPress={open}
-          showStatus={filters.status === undefined}
-          platform={platformLabelById(item.platformId, known)}
-        />
-      )}
+      renderItem={({ item }) => {
+        const platform = platformById(item.platformId, known);
+        return (
+          <CoverCell
+            row={item}
+            onPress={open}
+            showStatus={filters.status === undefined}
+            platform={platform === null ? null : platformLabel(platform)}
+            platformName={platform?.name ?? null}
+          />
+        );
+      }}
       onScroll={onScroll}
       onEndReached={loadMore}
       onEndReachedThreshold={1}

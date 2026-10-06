@@ -125,7 +125,12 @@ const GameScreen = () => {
             </Text>
           )}
           {platformNames.length === 0 ? null : (
-            <Text style={[type.subhead, { color: colors.muted }]}>{platformNames.join(' · ')}</Text>
+            <Text
+              style={[type.subhead, { color: colors.muted }]}
+              accessibilityLabel={gamePlatforms.map((platform) => platform.name).join(', ')}
+            >
+              {platformNames.join(' · ')}
+            </Text>
           )}
         </View>
       </View>

@@ -30,5 +30,5 @@ name: An added game survives a force-quit
 - stopApp
 - launchApp
 - extendedWaitUntil:
-    visible: 'Pentiment, PC, Backlog'
+    visible: 'Pentiment, PC \(Microsoft Windows\), Backlog'
     timeout: 10000
