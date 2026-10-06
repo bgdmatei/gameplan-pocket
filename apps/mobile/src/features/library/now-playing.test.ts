@@ -25,10 +25,9 @@ const game = (id: number): Game => ({
 });
 
 describe('Now Playing', () => {
-  // Every game being played lives on the shelf, most recently started first,
-  // and never in the grid's All; taking one off the shelf by status puts it
-  // back in the grid, as one op.
-  it('holds every Playing game, newest start first, and hands one back to the grid', async () => {
+  // Every game being played lives on the shelf, most recently started first;
+  // taking one off the shelf by status moves it to that status's grid, as one op.
+  it('holds every Playing game, newest start first, and hands one to a grid', async () => {
     const adapter = await createMigratedNodeAdapter();
     await upsertGames(adapter, {
       games: [1, 2, 3, 4].map(game),
@@ -40,12 +39,12 @@ describe('Now Playing', () => {
     await addGame(adapter, env, { gameId: 4, status: 'playing', today: '2026-09-10' });
 
     const shelf = async () => (await listNowPlaying(adapter)).map((row) => row.gameId);
-    const grid = async () =>
-      (await listLibraryGrid(adapter, { excludeStatus: 'playing', limit: 50 })).rows.map(
+    const paused = async () =>
+      (await listLibraryGrid(adapter, { status: 'paused', limit: 50 })).rows.map(
         (row) => row.gameId,
       );
     expect(await shelf()).toEqual([2, 4, 1]);
-    expect(await grid()).toEqual([3]);
+    expect(await paused()).toEqual([]);
 
     const opsBefore = await countPendingOps(adapter);
     await setStatusFromShelf(adapter, env, {
@@ -55,6 +54,6 @@ describe('Now Playing', () => {
     });
     expect(await countPendingOps(adapter)).toBe(opsBefore + 1);
     expect(await shelf()).toEqual([4, 1]);
-    expect((await grid()).sort()).toEqual([2, 3]);
+    expect(await paused()).toEqual([2]);
   });
 });

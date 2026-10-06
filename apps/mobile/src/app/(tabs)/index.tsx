@@ -5,9 +5,10 @@ import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { startTimer } from '@/data/perf';
 import { NowPlayingShelf } from '@/features/library/now-playing-shelf';
-import { FilterBar, isFiltered } from '@/ui/components/filter-bar';
+import { DEFAULT_GRID_STATUS, FilterBar } from '@/ui/components/filter-bar';
 import type { LibraryFilters } from '@/ui/components/filter-bar';
 import { LibraryGrid } from '@/ui/components/library-grid';
+import { STATUS_LABEL } from '@/ui/labels';
 import { PressableScale } from '@/ui/components/pressable-scale';
 import { minTouchTarget, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
@@ -17,7 +18,10 @@ const endOfThisYear = (): string => `${String(new Date().getFullYear())}-12-31`;
 
 const LibraryScreen = () => {
   const { colors } = useTheme();
-  const [filters, setFilters] = useState<LibraryFilters>({ sort: 'released' });
+  const [filters, setFilters] = useState<LibraryFilters>({
+    status: DEFAULT_GRID_STATUS,
+    sort: 'released',
+  });
   // Times a filter change until its first page is on screen (T19).
   const filterTimer = useRef<(() => void) | null>(null);
   const changeFilters = (next: LibraryFilters) => {
@@ -63,18 +67,11 @@ const LibraryScreen = () => {
 
       <LibraryGrid
         onShown={onShown}
-        // All leaves out Playing: those games are on the shelf above.
-        filters={{
-          ...filters,
-          ...(filters.status === undefined ? { excludeStatus: 'playing' } : {}),
-          releasedBy: endOfThisYear(),
-        }}
+        filters={{ ...filters, releasedBy: endOfThisYear() }}
         empty={
           <View style={styles.empty}>
             <Text style={[type.body, { color: colors.muted }]}>
-              {isFiltered(filters)
-                ? 'No games match these filters.'
-                : 'Your library is empty. Find a game in Search and add it.'}
+              {`Nothing in ${STATUS_LABEL[filters.status]} yet. Find a game in Search, or change a game’s status.`}
             </Text>
           </View>
         }

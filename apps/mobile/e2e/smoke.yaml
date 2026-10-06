@@ -12,6 +12,10 @@ name: An added game survives a force-quit
 ---
 - launchApp:
     clearState: true
+# The tab bar draws before the app is ready; the chips mean the library is.
+- extendedWaitUntil:
+    visible: 'Completed'
+    timeout: 10000
 - tapOn: 'Search, tab.*'
 - tapOn: 'Search games'
 - inputText: 'Pentiment'
@@ -29,6 +33,8 @@ name: An added game survives a force-quit
 # Force-quit and come back: the entry must have reached the database on disk.
 - stopApp
 - launchApp
+# The library opens on Completed; the game was added to the Backlog.
+- tapOn: 'Backlog'
 - extendedWaitUntil:
     visible: 'Pentiment, PC \(Microsoft Windows\), Backlog'
     timeout: 10000

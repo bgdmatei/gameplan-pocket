@@ -29,8 +29,6 @@ export type SortDirection = 'asc' | 'desc';
 
 export type ListLibraryOptions = {
   status?: EntryStatus;
-  /** Leaves one status out: the library's All hides Playing, which lives on the shelf. */
-  excludeStatus?: EntryStatus;
   favourite?: boolean;
   /** `true` lists the Archive; the library shows only games not archived. */
   archived?: boolean;
@@ -241,7 +239,6 @@ export const listLibraryGrid = async (
 ): Promise<LibraryPage> => {
   const {
     status,
-    excludeStatus,
     favourite,
     archived = false,
     tag,
@@ -264,10 +261,6 @@ export const listLibraryGrid = async (
   if (status !== undefined) {
     conditions.push('e.status = ?');
     params.push(status);
-  }
-  if (excludeStatus !== undefined) {
-    conditions.push('e.status <> ?');
-    params.push(excludeStatus);
   }
   if (favourite !== undefined) {
     conditions.push('e.favourite = ?');
