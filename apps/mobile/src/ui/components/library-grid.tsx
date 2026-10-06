@@ -57,6 +57,12 @@ export const LibraryGrid = ({ filters, header, empty, bottomInset = 0, onShown }
 
   return (
     <FlashList
+      // FlashList 2 keeps the visible content's position when its data changes
+      // (on by default, meant for chats). On a filter change it held a row's
+      // place and left blank rows above the grid. The grid only grows at the
+      // end, so it is off, and each filter gets a fresh list from the top.
+      key={JSON.stringify(filters)}
+      maintainVisibleContentPosition={{ disabled: true }}
       data={state.data.rows}
       numColumns={3}
       keyExtractor={(row) => row.id}
