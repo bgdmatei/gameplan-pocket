@@ -37,7 +37,8 @@
           }
         }
       ],
-      "expo-image"
+      "expo-image",
+      "./plugins/with-scene-lifecycle"
     ],
     "experiments": {
       "typedRoutes": true,
