@@ -1,0 +1,30 @@
+# Staging API: a Render free web service, Postgres on Neon (SPEC-mobile-library.md, decision 13).
+# Secrets are set in Render's dashboard (`sync: false`), never in this file.
+services:
+  - type: web
+    name: gameplan-api-staging
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: dev
+    # Only the API and the workspace packages it uses; the mobile app's
+    # dependencies are never installed on the server.
+    buildCommand: pnpm install --frozen-lockfile --filter "api..." && pnpm --filter api build
+    # Migrations run first: Render's pre-deploy hook is a paid feature. If one
+    # fails, the new instance never passes the health check and Render keeps
+    # the previous deploy serving.
+    startCommand: pnpm --filter api migrate:built && pnpm --filter api start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: '24'
+      # Neon's pooled connection string, ending in ?sslmode=require.
+      - key: DATABASE_URL
+        sync: false
+      - key: TWITCH_CLIENT_ID
+        sync: false
+      - key: TWITCH_CLIENT_SECRET
+        sync: false
+      # A new value for staging (openssl rand -hex 24), not the local one.
+      - key: CATALOG_API_KEY
+        sync: false

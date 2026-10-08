@@ -13,6 +13,10 @@ type Props = {
   onPress: (gameId: number) => void;
   /** False when the grid is filtered to one status: every cell would say the same. */
   showStatus: boolean;
+  /** The entry's platform as a short label ("PS5"), or null when it has none. */
+  platform: string | null;
+  /** Its full name, for VoiceOver ("PlayStation 5"). */
+  platformName: string | null;
 };
 
 /**
@@ -20,10 +24,11 @@ type Props = {
  * stable callback (plan §12.3), so scrolling 5,000 covers re-renders only the
  * cells that change.
  */
-export const CoverCell = memo(({ row, onPress, showStatus }: Props) => {
+export const CoverCell = memo(({ row, onPress, showStatus, platform, platformName }: Props) => {
   const { colors, status } = useTheme();
   const label = [
     row.name,
+    platformName,
     STATUS_LABEL[row.status],
     row.favourite ? 'favourite' : null,
     row.openNotes > 0 ? `${String(row.openNotes)} open notes` : null,
@@ -40,6 +45,11 @@ export const CoverCell = memo(({ row, onPress, showStatus }: Props) => {
     >
       <View>
         <Cover imageId={row.coverImageId} gameId={row.gameId} size="cover_small" width="100%" />
+        {platform === null ? null : (
+          <View style={[styles.platform, { backgroundColor: colors.surface }]}>
+            <Text style={[type.label, { color: colors.text }]}>{platform}</Text>
+          </View>
+        )}
         {row.openNotes > 0 ? (
           <View style={[styles.badge, { backgroundColor: colors.accentFill }]}>
             <Text style={[type.label, tabularNumbers, { color: colors.onAccent }]}>
@@ -80,6 +90,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  platform: {
+    position: 'absolute',
+    top: space.md,
+    left: space.md,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: radius.small,
   },
   status: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   label: { flexShrink: 1 },

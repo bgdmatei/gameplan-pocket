@@ -1,6 +1,8 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { DatabaseProvider } from '@/data/database';
+// Evaluated first thing, so its clock starts as the app's JS does (cold start, T19).
+import '@/data/perf';
 import { KeyboardDismiss } from '@/ui/components/keyboard-dismiss';
 import { ToastProvider } from '@/ui/components/toast';
 import { useTheme } from '@/ui/use-theme';

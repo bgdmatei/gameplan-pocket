@@ -9,16 +9,48 @@ import {
 import { seed } from '@gameplan/storage/testing';
 import { tagId } from '@gameplan/sync';
 import catalog from '@gameplan/storage/testing/catalog.json';
-import { Link } from 'expo-router';
-import { useState } from 'react';
+import { Link, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase, useEraseDatabase } from '@/data/database';
+import {
+  BUDGETS,
+  METRICS,
+  getHeapBaseline,
+  jsHeapBytes,
+  perfSummary,
+  resetPerf,
+  setHeapBaseline,
+} from '@/data/perf';
+import type { Metric, Summary } from '@/data/perf';
 import { useQuery } from '@/data/use-query';
 import { minTouchTarget, radius, space, tabularNumbers, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 const TABLES = [...SYNC_STATE_TABLES, ...PENDING_OP_TABLES, ...LIBRARY_ENTRY_TABLES];
+
+const METRIC_LABEL: Record<Metric, string> = {
+  coldStart: 'Cold start (JS)',
+  search: 'Keystroke → results',
+  filter: 'Filter → grid',
+  write: 'Edit → saved on screen',
+  scrollFps: 'Grid scroll (JS fps)',
+};
+
+const round = (value: number): string => String(Math.round(value));
+
+/** "median 12 · worst 31 ms (budget 50, met)", or a note that nothing was measured yet. */
+const describe = (metric: Metric, summary: Summary): string => {
+  const { limit, unit, better } = BUDGETS[metric];
+  if (summary.median === null || summary.worst === null)
+    return `not measured (budget ${String(limit)} ${unit})`;
+  const met = better === 'lower' ? summary.worst <= limit : summary.worst >= limit;
+  return `median ${round(summary.median)} · worst ${round(summary.worst)} ${unit} · ${String(summary.count)} runs (budget ${String(limit)}, ${met ? 'met' : 'MISSED'})`;
+};
+
+const megabytes = (bytes: number | null): string =>
+  bytes === null ? 'not reported' : `${(bytes / 1_048_576).toFixed(1)} MB`;
 
 /**
  * What the sync engine thinks, and tools for testing on a real phone. Ships in
@@ -31,6 +63,13 @@ const DebugScreen = () => {
   const adapter = useDatabase();
   const erase = useEraseDatabase();
   const [busy, setBusy] = useState<string | null>(null);
+  // Samples live outside React: read them again whenever this screen shows.
+  const [, setReadAt] = useState(0);
+  const refresh = useCallback(() => setReadAt(Date.now()), []);
+  useFocusEffect(refresh);
+  const summary = perfSummary();
+  const heap = jsHeapBytes();
+  const baseline = getHeapBaseline();
 
   const state = useQuery(
     async (db) => ({
@@ -102,6 +141,28 @@ const DebugScreen = () => {
         {row('Last clock', info?.sync.hlcLast ?? 'none')}
         {row('Waiting to sync', info === null ? '…' : `${String(info.pending)} ops`)}
       </View>
+
+      <Text style={[type.label, { color: colors.muted }]} accessibilityRole="header">
+        PERFORMANCE (T19)
+      </Text>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+        {METRICS.map((metric) => row(METRIC_LABEL[metric], describe(metric, summary[metric])))}
+        {row(
+          'JS heap',
+          `${megabytes(heap)} now · baseline ${baseline === null ? 'not set' : megabytes(baseline)}${
+            heap !== null && baseline !== null ? ` · change ${megabytes(heap - baseline)}` : ''
+          }`,
+        )}
+      </View>
+      {action('Refresh numbers', refresh)}
+      {action('Reset heap baseline', () => {
+        setHeapBaseline();
+        refresh();
+      })}
+      {action('Clear timings', () => {
+        resetPerf();
+        refresh();
+      })}
 
       {link('/debug/outbox', 'Outbox')}
       {link('/debug/storage-check', 'Run the storage contract')}

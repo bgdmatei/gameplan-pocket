@@ -18,7 +18,7 @@ export const LIBRARY_ENTRY_TABLES = [
  */
 export type LibraryGridRow = Pick<
   LibraryEntry,
-  'id' | 'gameId' | 'status' | 'rating' | 'favourite'
+  'id' | 'gameId' | 'status' | 'rating' | 'favourite' | 'platformId'
 > &
   Pick<Game, 'name' | 'coverImageId'> & { openNotes: number };
 
@@ -30,7 +30,6 @@ export type SortDirection = 'asc' | 'desc';
 export type ListLibraryOptions = {
   status?: EntryStatus;
   favourite?: boolean;
-  shelved?: boolean;
   /** `true` lists the Archive; the library shows only games not archived. */
   archived?: boolean;
   tag?: string;
@@ -126,6 +125,7 @@ type GridRow = {
   status: string;
   rating: number | null;
   favourite: number;
+  platform_id: number | null;
   name: string;
   cover_image_id: string | null;
   open_notes: number;
@@ -141,6 +141,7 @@ const gridEntrySchema = libraryEntrySchema.pick({
   status: true,
   rating: true,
   favourite: true,
+  platformId: true,
 });
 const gridGameSchema = gameSchema.pick({ name: true, coverImageId: true });
 
@@ -152,6 +153,7 @@ const toGridRow = (row: GridRow): LibraryGridRow => ({
     status: row.status,
     rating: row.rating,
     favourite: row.favourite === 1,
+    platformId: row.platform_id,
   }),
   ...gridGameSchema.parse({ name: row.name, coverImageId: row.cover_image_id }),
   openNotes: row.open_notes,
@@ -163,7 +165,8 @@ const toGridRow = (row: GridRow): LibraryGridRow => ({
  * lookup per row on the page.
  */
 const SELECT_GRID = `
-  SELECT e.id, e.game_id, e.status, e.rating, e.favourite, e.updated_at, e.playtime_minutes,
+  SELECT e.id, e.game_id, e.status, e.rating, e.favourite, e.platform_id, e.updated_at,
+         e.playtime_minutes,
          g.name, g.cover_image_id, g.first_release_date,
          (SELECT COUNT(*) FROM note_items n
           WHERE n.entry_id = e.id AND n.resolved = 0 AND n.deleted = 0) AS open_notes
@@ -237,7 +240,6 @@ export const listLibraryGrid = async (
   const {
     status,
     favourite,
-    shelved,
     archived = false,
     tag,
     genreId,
@@ -263,10 +265,6 @@ export const listLibraryGrid = async (
   if (favourite !== undefined) {
     conditions.push('e.favourite = ?');
     params.push(favourite);
-  }
-  if (shelved !== undefined) {
-    conditions.push('e.shelved = ?');
-    params.push(shelved);
   }
   if (tag !== undefined) {
     conditions.push(
@@ -379,11 +377,11 @@ export const SHELF_SIZE = 5;
 export type ShelfGame = Pick<LibraryEntry, 'id' | 'gameId'> & Pick<Game, 'name' | 'coverImageId'>;
 
 /**
- * The Now Playing shelf: shelved games still being played, by name. A merge
- * can leave more than five shelved (two devices each adding one); the shelf
- * shows the first five and a local write refuses a sixth.
+ * Every game being played, for the Now Playing shelf: the most recently
+ * started first, then by name. The shelf shows the first `SHELF_SIZE` and a
+ * sheet the rest (spec decision 20). Few enough to read whole.
  */
-export const listShelf = async (adapter: StorageAdapter): Promise<ShelfGame[]> => {
+export const listNowPlaying = async (adapter: StorageAdapter): Promise<ShelfGame[]> => {
   const rows = await adapter.execute<{
     id: string;
     game_id: number;
@@ -393,10 +391,8 @@ export const listShelf = async (adapter: StorageAdapter): Promise<ShelfGame[]> =
     `SELECT e.id, e.game_id, g.name, g.cover_image_id
      FROM library_entries e
      JOIN games g ON g.id = e.game_id
-     WHERE e.deleted = 0 AND e.archived = 0 AND e.shelved = 1 AND e.status = 'playing'
-     ORDER BY g.name, e.id
-     LIMIT ?`,
-    [SHELF_SIZE],
+     WHERE e.deleted = 0 AND e.archived = 0 AND e.status = 'playing'
+     ORDER BY e.started_on IS NULL, e.started_on DESC, g.name, e.id`,
   );
   return rows.map((row) => ({
     id: row.id,

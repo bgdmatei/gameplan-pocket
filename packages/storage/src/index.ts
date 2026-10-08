@@ -15,7 +15,7 @@ export {
   SHELF_SIZE,
   listGenresInLibrary,
   listLibraryGrid,
-  listShelf,
+  listNowPlaying,
 } from './repositories/library-entries';
 export type {
   LibraryGridRow,

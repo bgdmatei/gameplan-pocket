@@ -11,19 +11,31 @@ export type GameRowProps = {
   releaseYear: string | null;
   /** The platforms it runs on, already ordered and joined: "Switch · PC · PS4". */
   platforms: string | null;
+  /** The same platforms by full name, for VoiceOver; short labels are spelled out. */
+  platformsSpoken?: string | null;
   onPress: (gameId: number) => void;
 };
 
 /** A game in a list: search results and recent games. */
 export const GameRow = memo(
-  ({ gameId, name, coverImageId, releaseYear, platforms, onPress }: GameRowProps) => {
+  ({
+    gameId,
+    name,
+    coverImageId,
+    releaseYear,
+    platforms,
+    platformsSpoken,
+    onPress,
+  }: GameRowProps) => {
     const { colors } = useTheme();
 
     return (
       <Pressable
         onPress={() => onPress(gameId)}
         accessibilityRole="button"
-        accessibilityLabel={[name, releaseYear, platforms].filter(Boolean).join(', ')}
+        accessibilityLabel={[name, releaseYear, platformsSpoken ?? platforms]
+          .filter(Boolean)
+          .join(', ')}
         style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.raised }]}
       >
         <Cover imageId={coverImageId} gameId={gameId} size="cover_small" width={48} />

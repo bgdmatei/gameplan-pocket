@@ -7,11 +7,12 @@ import {
 } from '@gameplan/domain';
 import type { EntryPatch, LibraryEntry, Platform } from '@gameplan/domain';
 import { Stack, useNavigation } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useDatabase } from '@/data/database';
 import { syncEnv, today } from '@/data/env';
+import { startTimer } from '@/data/perf';
 import { Chip } from '@/ui/components/chip';
 import { HeaderIconButton } from '@/ui/components/header-button';
 import { orderPlatforms, platformLabel } from '@/ui/platforms';
@@ -41,7 +42,13 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
   const navigation = useNavigation();
   const [pending, setPending] = useState<EntryPatch>({});
 
-  useEffect(() => setPending({}), [entry]);
+  // Times a change until the database's own copy of it is on screen (T19).
+  const writeTimer = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    setPending({});
+    writeTimer.current?.();
+    writeTimer.current = null;
+  }, [entry]);
 
   // The header outlives this editor: once the game is archived (or the editor
   // otherwise goes), take the archive button with it until it's restored.
@@ -55,6 +62,7 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
   /** Resolves `false` when the change was refused or failed, after saying so. */
   const save = async (patch: EntryPatch): Promise<boolean> => {
     setPending((current) => ({ ...current, ...patch }));
+    writeTimer.current = startTimer('write');
     try {
       await editEntry(adapter, syncEnv, {
         entryId: entry.id,

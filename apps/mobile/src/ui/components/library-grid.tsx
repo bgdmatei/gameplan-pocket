@@ -1,10 +1,14 @@
+import { CATALOG_TABLES, getReference } from '@gameplan/storage';
 import type { ListLibraryOptions } from '@gameplan/storage';
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useLibraryPages } from '@/data/use-library-pages';
+import { createScrollFpsMeter, markLibraryInteractive } from '@/data/perf';
+import { useQuery } from '@/data/use-query';
+import { platformById, platformLabel } from '../platforms';
 import { space } from '../theme';
 import { CoverCell } from './cover-cell';
 import { LoadFailed } from './load-failed';
@@ -17,11 +21,22 @@ type Props = {
   empty: ReactElement;
   /** Extra room at the end, for a grid pushed over the tab bar down to the home indicator. */
   bottomInset?: number;
+  /** Called when a page of results is ready, for timing filter changes. */
+  onShown?: () => void;
 };
 
 /** The library as a cover grid, paged as the user scrolls. Shared by Library and Archive. */
-export const LibraryGrid = ({ filters, header, empty, bottomInset = 0 }: Props) => {
+export const LibraryGrid = ({ filters, header, empty, bottomInset = 0, onShown }: Props) => {
   const { state, loadMore } = useLibraryPages(filters);
+  const reference = useQuery(getReference, CATALOG_TABLES, []);
+  const known = reference.status === 'ready' ? reference.data.platforms : [];
+  const [onScroll] = useState(createScrollFpsMeter);
+
+  useEffect(() => {
+    if (state.status !== 'ready') return;
+    markLibraryInteractive();
+    onShown?.();
+  }, [state, onShown]);
 
   const open = useCallback((gameId: number) => {
     router.push({ pathname: '/game/[id]', params: { id: String(gameId) } });
@@ -42,12 +57,28 @@ export const LibraryGrid = ({ filters, header, empty, bottomInset = 0 }: Props) 
 
   return (
     <FlashList
+      // FlashList 2 keeps the visible content's position when its data changes
+      // (on by default, meant for chats). On a filter change it held a row's
+      // place and left blank rows above the grid. The grid only grows at the
+      // end, so it is off, and each filter gets a fresh list from the top.
+      key={JSON.stringify(filters)}
+      maintainVisibleContentPosition={{ disabled: true }}
       data={state.data.rows}
       numColumns={3}
       keyExtractor={(row) => row.id}
-      renderItem={({ item }) => (
-        <CoverCell row={item} onPress={open} showStatus={filters.status === undefined} />
-      )}
+      renderItem={({ item }) => {
+        const platform = platformById(item.platformId, known);
+        return (
+          <CoverCell
+            row={item}
+            onPress={open}
+            showStatus={filters.status === undefined}
+            platform={platform === null ? null : platformLabel(platform)}
+            platformName={platform?.name ?? null}
+          />
+        );
+      }}
+      onScroll={onScroll}
       onEndReached={loadMore}
       onEndReachedThreshold={1}
       ListHeaderComponent={header}
