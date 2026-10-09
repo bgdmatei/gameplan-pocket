@@ -1,3 +1,4 @@
+import { hasPlayablePlatform } from '@gameplan/domain';
 import type { Game, GameWithEntry } from '@gameplan/domain';
 import type { ApiResult } from '@/data/api';
 
@@ -17,15 +18,23 @@ export type MergedSearch = { rows: GameWithEntry[]; notice: SearchNotice };
  * not jump. Games only the server knows follow in its ranking. The server
  * never tells us about the player's library, so those have no entry: a game in
  * the library is always cached locally, which is where its entry comes from.
+ *
+ * Games with no playable platform (browser-only, Mac-only) are left out,
+ * unless already in the library: a game the player added stays findable.
  */
 export const mergeSearch = (
   local: readonly GameWithEntry[],
   remote: RemoteSearch,
 ): MergedSearch => {
   const known = new Set(local.map((row) => row.game.id));
+  const offered = local.filter(
+    (row) => row.entry !== null || hasPlayablePlatform(row.game.platformIds),
+  );
   const found =
     remote.kind === 'ok'
-      ? remote.value.filter((game) => !known.has(game.id)).map((game) => ({ game, entry: null }))
+      ? remote.value
+          .filter((game) => !known.has(game.id) && hasPlayablePlatform(game.platformIds))
+          .map((game) => ({ game, entry: null }))
       : [];
 
   const notice: SearchNotice =
@@ -35,5 +44,5 @@ export const mergeSearch = (
         ? 'incomplete'
         : null;
 
-  return { rows: [...local, ...found], notice };
+  return { rows: [...offered, ...found], notice };
 };

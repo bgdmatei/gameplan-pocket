@@ -8,7 +8,11 @@ export { COVER_SIZES, coverUrl } from './catalog/cover-url';
 export type { CoverSize } from './catalog/cover-url';
 export { gameSchema, genreSchema, platformSchema } from './catalog/schema';
 export type { Game, Genre, Platform } from './catalog/schema';
-export { STEAM_DECK_PLATFORM_ID, playablePlatformIds } from './catalog/playable-platforms';
+export {
+  STEAM_DECK_PLATFORM_ID,
+  hasPlayablePlatform,
+  playablePlatformIds,
+} from './catalog/playable-platforms';
 export { isInLibrary } from './catalog/view';
 export type { GameWithEntry } from './catalog/view';
 export { applyListChange, createList, createListItem, listPatchSchema } from './list/changes';

@@ -50,4 +50,24 @@ describe('mergeSearch', () => {
     expect(merged.rows[0]?.entry).toBe(entry);
     expect(merged.notice).toBe(notice);
   });
+
+  // Browser-only games are out of scope (mobile-library decision 22), from
+  // either side of the search, but one already in the library stays findable.
+  it('leaves out games with no playable platform, unless they are in the library', () => {
+    const BROWSER = 82;
+    const owned = { ...game(10, 'Owned Flash Game'), platformIds: [BROWSER] };
+    const cached = { ...game(11, 'Cached Flash Game'), platformIds: [BROWSER] };
+    const remoteOnly = { ...game(12, 'Remote Flash Game'), platformIds: [BROWSER] };
+    const ownedEntry = { id: 'e-10', gameId: 10, status: 'backlog' } as LibraryEntry;
+
+    const merged = mergeSearch(
+      [
+        { game: owned, entry: ownedEntry },
+        { game: cached, entry: null },
+      ],
+      { kind: 'ok', value: [remoteOnly, WITCHER_1], stale: false },
+    );
+
+    expect(merged.rows.map((row) => row.game.id)).toEqual([10, 471]);
+  });
 });
