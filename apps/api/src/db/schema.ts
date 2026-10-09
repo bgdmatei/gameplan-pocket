@@ -73,7 +73,8 @@ export type AuthCodesTable = {
 };
 
 export type AuthFailuresTable = {
-  id: Generated<string>;
+  /** BIGINT, read as a number by `db/client.ts`. */
+  id: Generated<number>;
   email: string;
   failed_at: ColumnType<Date, Date | string | undefined, never>;
 };
