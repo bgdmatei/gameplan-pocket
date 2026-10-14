@@ -170,6 +170,10 @@ export const createNodeAdapter = (options: NodeAdapterOptions = {}): StorageAdap
       // Drop every table rather than deleting the file: the same code then
       // works for an in-memory database, and it needs no filesystem access.
       // The phone's implementation removes the file as well.
+      // Foreign keys off first: with them on, a child table (game_genres)
+      // cannot be dropped once its parent (games) is gone, and the order
+      // tables come back in is not the order they depend on each other.
+      database.exec('PRAGMA foreign_keys = OFF');
       const tables = await run<{ name: string }>(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
       );
