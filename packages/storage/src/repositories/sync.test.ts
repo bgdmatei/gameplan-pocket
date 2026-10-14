@@ -71,12 +71,21 @@ describe('sync state', () => {
   });
 
   it('starts from defaults and updates only the fields given', async () => {
-    expect(await getSyncState(adapter)).toMatchObject({ nodeId: null, lastPulledSeq: 0 });
+    expect(await getSyncState(adapter)).toMatchObject({
+      nodeId: null,
+      lastPulledSeq: 0,
+      ownerUserId: null,
+    });
 
-    await updateSyncState(adapter, { nodeId: 'device-7', lastPulledSeq: 42 });
+    await updateSyncState(adapter, { nodeId: 'device-7', lastPulledSeq: 42, ownerUserId: 'u-1' });
     await updateSyncState(adapter, { lastPulledSeq: 43 });
 
-    expect(await getSyncState(adapter)).toMatchObject({ nodeId: 'device-7', lastPulledSeq: 43 });
+    // The library's owner (migration 005) survives an unrelated update.
+    expect(await getSyncState(adapter)).toMatchObject({
+      nodeId: 'device-7',
+      lastPulledSeq: 43,
+      ownerUserId: 'u-1',
+    });
   });
 
   /** A cursor that slipped would re-apply or skip part of the server's log. */

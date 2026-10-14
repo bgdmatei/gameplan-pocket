@@ -17,6 +17,8 @@ export type SyncState = {
   hlcLast: string | null;
   schemaVersion: number;
   catalogVersion: number;
+  /** The account this library belongs to; null until the first sign-in claims it. */
+  ownerUserId: string | null;
 };
 
 export type SyncStatePatch = Partial<SyncState>;
@@ -27,6 +29,7 @@ type SyncStateRow = {
   hlc_last: string | null;
   schema_version: number;
   catalog_version: number;
+  owner_user_id: string | null;
 };
 
 const COLUMNS: Record<keyof SyncState, string> = {
@@ -35,12 +38,13 @@ const COLUMNS: Record<keyof SyncState, string> = {
   hlcLast: 'hlc_last',
   schemaVersion: 'schema_version',
   catalogVersion: 'catalog_version',
+  ownerUserId: 'owner_user_id',
 };
 
 /** Takes a transaction too, so a write can read and advance the clock atomically. */
 export const getSyncState = async (adapter: Transaction): Promise<SyncState> => {
   const rows = await adapter.execute<SyncStateRow>(
-    `SELECT node_id, last_pulled_seq, hlc_last, schema_version, catalog_version
+    `SELECT node_id, last_pulled_seq, hlc_last, schema_version, catalog_version, owner_user_id
      FROM sync_state WHERE id = 1`,
   );
   const row = rows[0];
@@ -55,6 +59,7 @@ export const getSyncState = async (adapter: Transaction): Promise<SyncState> => 
     hlcLast: row.hlc_last,
     schemaVersion: row.schema_version,
     catalogVersion: row.catalog_version,
+    ownerUserId: row.owner_user_id,
   };
 };
 
