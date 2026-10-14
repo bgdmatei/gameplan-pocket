@@ -57,5 +57,13 @@ export const createAuthRoutes = (service: AuthService): Hono => {
     return c.json(result.value satisfies RefreshResponse);
   });
 
+  // 204 always, so it is safe to repeat and says nothing about the token.
+  routes.post('/logout', async (c) => {
+    const body = await parseBody(c, refreshRequestSchema);
+    if (!body.ok) return c.json(body.error, 400);
+    await service.logout(body.data.refreshToken);
+    return c.body(null, 204);
+  });
+
   return routes;
 };

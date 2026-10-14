@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import type { RefreshResponse, VerifyRequest, VerifyResponse } from '@gameplan/contracts';
+import type {
+  MeResponse,
+  RefreshResponse,
+  VerifyRequest,
+  VerifyResponse,
+} from '@gameplan/contracts';
 import type { Logger } from '../logger';
 import type { EmailTransport } from './email';
 import type { AuthRepository, AuthStatements } from './repository';
@@ -12,7 +17,9 @@ import {
   newRefreshToken,
   sameDigest,
   signAccessToken,
+  verifyAccessToken,
 } from './tokens';
+import type { AccessClaims } from './tokens';
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -221,6 +228,31 @@ export const createAuthService = ({
         await statements.markRefreshTokenUsed(token.id, refreshId, new Date(at));
         return { kind: 'ok', value: pair };
       });
+    },
+
+    /**
+     * Ends the session the token belongs to: its whole family is revoked, so
+     * any token of this sign-in stops working. An unknown or already revoked
+     * token changes nothing, and the caller is not told which it was.
+     */
+    logout: async (refreshToken: string): Promise<void> => {
+      const token = await repository.refreshTokenForUpdate(hashRefreshToken(refreshToken));
+      if (token !== undefined) await repository.revokeFamily(token.familyId, new Date(now()));
+    },
+
+    /** The claims of a valid access token, on the service's clock; null for anything else. */
+    authenticate: (accessToken: string): Promise<AccessClaims | null> =>
+      verifyAccessToken(accessToken, jwtSecret, now()),
+
+    /**
+     * `GET /me`: the token's user and device. Null if either is gone (an
+     * account deleted while its access token still lives), which is a `401`.
+     */
+    me: async ({ userId, deviceId }: AccessClaims): Promise<MeResponse | null> => {
+      const user = await repository.getUser(userId);
+      const device = await repository.getDevice(deviceId, userId);
+      if (user === undefined || device === undefined) return null;
+      return { user: { id: user.id, email: user.email }, device: { id: device.id } };
     },
   };
 };
