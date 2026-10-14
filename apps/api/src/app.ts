@@ -1,7 +1,8 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { HEADERS } from '@gameplan/contracts';
-import type { ErrorResponse } from '@gameplan/contracts';
+import type { ErrorResponse, MeResponse } from '@gameplan/contracts';
 import { Hono } from 'hono';
+import { requireUser } from './auth/middleware';
 import { createAuthRoutes } from './auth/routes';
 import type { AuthService } from './auth/service';
 import { createCatalogRoutes } from './catalog/routes';
@@ -42,6 +43,11 @@ export const createApp = ({ catalog, auth, logger, apiKey }: AppDependencies): H
   });
   app.route('/catalog', createCatalogRoutes(catalog));
   app.route('/auth', createAuthRoutes(auth));
+  app.get('/me', requireUser(auth), async (c) => {
+    const me = await auth.me(c.get('user'));
+    if (me === null) return c.json({ error: 'unauthorized' } satisfies ErrorResponse, 401);
+    return c.json(me satisfies MeResponse);
+  });
 
   // An unexpected error answers with a generic body: an error message can
   // carry details a client should not see. The name is enough for the log.
