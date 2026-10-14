@@ -44,3 +44,29 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  # Its own job, so the job above keeps its name (branch protection matches
+  # required checks by name). There is no apps/api/.env here, so it searches
+  # for the secrets' names only; their values are checked by running
+  # `pnpm check:secrets` locally.
+  secrets:
+    name: no secrets in the app bundles
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Search the exported iOS and Android bundles
+        run: pnpm check:secrets

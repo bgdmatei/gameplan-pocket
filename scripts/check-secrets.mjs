@@ -7,7 +7,8 @@
 // found, or the search is not reading the bundle and a pass would mean nothing.
 // Strings are searched as UTF-8 and UTF-16: Hermes bytecode stores either.
 //
-// Manual, not per push: an export takes ~10 s. `pnpm check:secrets`.
+// Runs in CI on every push (names only, no .env there) and by hand with
+// `pnpm check:secrets`, which also checks the values in apps/api/.env.
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,7 +16,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SECRET_NAMES = ['TWITCH_CLIENT_ID', 'TWITCH_CLIENT_SECRET', 'DATABASE_URL'];
+// CATALOG_API_KEY is absent on purpose: it ships in the app by design.
+const SECRET_NAMES = [
+  'TWITCH_CLIENT_ID',
+  'TWITCH_CLIENT_SECRET',
+  'DATABASE_URL',
+  // Auth (module 7): signing keys and the email provider's key.
+  'JWT_SECRET',
+  'CODE_SECRET',
+  'RESEND_API_KEY',
+];
 const CONTROL = 'Run the storage contract';
 
 const envFile = path.join(root, 'apps/api/.env');
