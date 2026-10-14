@@ -7,11 +7,14 @@ import { createAuthRoutes } from './auth/routes';
 import type { AuthService } from './auth/service';
 import { createCatalogRoutes } from './catalog/routes';
 import type { CatalogService } from './catalog/service';
+import { createCors } from './cors';
 import type { Logger } from './logger';
 
 export type AppDependencies = {
   catalog: CatalogService;
   auth: AuthService;
+  /** Origins browsers may call from (`CORS_ORIGINS`); empty until the web app exists. */
+  corsOrigins: readonly string[];
   logger: Logger;
   /**
    * Required on every `/catalog/*` request. Not a secret: it ships inside the
@@ -31,8 +34,16 @@ const sameKey = (given: string, expected: string): boolean => {
 };
 
 /** The HTTP app, given its dependencies: the server wires real ones, tests fakes. */
-export const createApp = ({ catalog, auth, logger, apiKey }: AppDependencies): Hono => {
+export const createApp = ({
+  catalog,
+  auth,
+  corsOrigins,
+  logger,
+  apiKey,
+}: AppDependencies): Hono => {
   const app = new Hono();
+
+  app.use('*', createCors(corsOrigins));
 
   app.get('/health', (c) => c.json({ status: 'ok' }));
   app.use('/catalog/*', async (c, next) => {

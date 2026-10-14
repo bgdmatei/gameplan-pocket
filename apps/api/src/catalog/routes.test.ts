@@ -44,6 +44,7 @@ describe('catalog routes', () => {
     app = createApp({
       catalog: createCatalogService({ repository, igdb: igdb.client, logger }),
       auth: (await createTestAuth(db)).auth,
+      corsOrigins: [],
       logger,
       apiKey: API_KEY,
     });

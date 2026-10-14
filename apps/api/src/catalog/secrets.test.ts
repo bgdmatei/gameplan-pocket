@@ -33,7 +33,7 @@ const setup = async (answer: (url: string) => Response) => {
   const db = await createTestDb();
   const catalog = createCatalogService({ repository: createCatalogRepository(db), igdb, logger });
   const { auth } = await createTestAuth(db);
-  const app = createApp({ catalog, auth, logger, apiKey: API_KEY });
+  const app = createApp({ catalog, auth, corsOrigins: [], logger, apiKey: API_KEY });
   const request = (path: string) => app.request(path, { headers: { [HEADERS.apiKey]: API_KEY } });
   return { request, lines, db };
 };

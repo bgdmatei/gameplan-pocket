@@ -40,7 +40,13 @@ const auth = createAuthService({
 });
 
 serve({
-  fetch: createApp({ catalog, auth, logger, apiKey: env.CATALOG_API_KEY }).fetch,
+  fetch: createApp({
+    catalog,
+    auth,
+    corsOrigins: env.CORS_ORIGINS,
+    logger,
+    apiKey: env.CATALOG_API_KEY,
+  }).fetch,
   port: env.PORT,
 });
 console.warn(`api listening on http://localhost:${env.PORT}`);

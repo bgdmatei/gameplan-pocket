@@ -32,8 +32,16 @@ export type TestAuth = {
   clock: { now: () => number; advance: (ms: number) => void };
 };
 
+export type TestAuthOptions = {
+  /** Runs after a send is recorded, as the real transport would; may throw to fail it. */
+  afterSend?: EmailTransport['sendCode'];
+};
+
 /** An auth service on its own fresh database, with a recording email transport. */
-export const createTestAuth = async (db?: Kysely<Database>): Promise<TestAuth> => {
+export const createTestAuth = async (
+  db?: Kysely<Database>,
+  { afterSend }: TestAuthOptions = {},
+): Promise<TestAuth> => {
   const database = db ?? (await createTestDb());
   const sent: SentCode[] = [];
   const logs: string[] = [];
@@ -43,6 +51,7 @@ export const createTestAuth = async (db?: Kysely<Database>): Promise<TestAuth> =
   const email: EmailTransport = {
     sendCode: async (to, code) => {
       sent.push({ to, code });
+      await afterSend?.(to, code);
     },
   };
   const repository = createAuthRepository(database);
@@ -58,8 +67,13 @@ export const createTestAuth = async (db?: Kysely<Database>): Promise<TestAuth> =
 };
 
 /** The whole app over a test auth service, with an empty fake catalog. */
-export const createTestApp = async (): Promise<TestAuth & { app: Hono }> => {
-  const testAuth = await createTestAuth();
+export const createTestApp = async ({
+  corsOrigins = [],
+  ...options
+}: TestAuthOptions & { corsOrigins?: readonly string[] } = {}): Promise<
+  TestAuth & { app: Hono }
+> => {
+  const testAuth = await createTestAuth(undefined, options);
   const logger = { warn: (line: string) => testAuth.logs.push(line) };
   const igdb = createFakeIgdb([], { genres: [], platforms: [] });
   const catalog = createCatalogService({
@@ -67,7 +81,13 @@ export const createTestApp = async (): Promise<TestAuth & { app: Hono }> => {
     igdb: igdb.client,
     logger,
   });
-  const app = createApp({ catalog, auth: testAuth.auth, logger, apiKey: TEST_API_KEY });
+  const app = createApp({
+    catalog,
+    auth: testAuth.auth,
+    corsOrigins,
+    logger,
+    apiKey: TEST_API_KEY,
+  });
   return { ...testAuth, app };
 };
 
