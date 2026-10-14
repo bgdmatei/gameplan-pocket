@@ -41,10 +41,21 @@ const statements = (db: Kysely<Database>) => ({
     return Number(row.count);
   },
 
-  insertCode: async (code: { email: string; codeHmac: string; expiresAt: Date }) => {
+  /** `createdAt` from the service's clock, which the send limits count by. */
+  insertCode: async (code: {
+    email: string;
+    codeHmac: string;
+    createdAt: Date;
+    expiresAt: Date;
+  }) => {
     await db
       .insertInto('auth_codes')
-      .values({ email: code.email, code_hmac: code.codeHmac, expires_at: code.expiresAt })
+      .values({
+        email: code.email,
+        code_hmac: code.codeHmac,
+        created_at: code.createdAt,
+        expires_at: code.expiresAt,
+      })
       .execute();
   },
 
