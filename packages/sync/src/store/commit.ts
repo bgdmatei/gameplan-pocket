@@ -1,11 +1,12 @@
 import { getSyncState, readSyncedRow, updateSyncState, writeRows } from '@gameplan/storage';
 import type { StorageAdapter, Transaction } from '@gameplan/storage';
 import { tick } from '../clock/hlc';
-import { newId, newNodeId } from '../ids';
+import { newId } from '../ids';
 import { DELETE_CLOCK, isDeleted } from '../merge/merge';
 import { OP_SCHEMA_VERSION, opSchema } from '../op/schema';
 import type { Op } from '../op/schema';
 import { codecFor, isoAt, parseClocks, stringifyClocks } from './entities';
+import { ensureNodeId } from './node-id';
 import type { DeletableEntity, EntityValues, StoredEntity, SyncEnv } from './entities';
 
 /** The result of a domain write rule, ready to commit. */
@@ -33,12 +34,12 @@ export type LocalEdit<E extends StoredEntity> = {
  * value given out but not remembered.
  */
 const nextClock = async (tx: Transaction, env: SyncEnv) => {
+  const nodeId = await ensureNodeId(tx, env.randomBytes);
   const state = await getSyncState(tx);
-  const nodeId = state.nodeId ?? newNodeId(env.randomBytes);
   const nowMs = env.now();
   const hlc = tick(state.hlcLast, nowMs, nodeId);
 
-  await updateSyncState(tx, { nodeId, hlcLast: hlc });
+  await updateSyncState(tx, { hlcLast: hlc });
   return { hlc, nowMs };
 };
 
