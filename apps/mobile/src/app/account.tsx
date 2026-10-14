@@ -7,8 +7,8 @@ import { useDatabase, useEraseDatabase } from '@/data/database';
 import { appVersion, syncEnv } from '@/data/env';
 import { authApi, session } from '@/features/account/account';
 import type { Session } from '@/features/account/session';
-import { secureSessionStore } from '@/features/account/secure-session-store';
 import { signIn } from '@/features/account/sign-in';
+import { signOut } from '@/features/account/sign-out';
 import { PrimaryButton } from '@/ui/components/primary-button';
 import { PressableScale } from '@/ui/components/pressable-scale';
 import { useToast } from '@/ui/components/toast';
@@ -87,8 +87,38 @@ const AccountScreen = () => {
     setView({ kind: 'code', email: parsed.data });
   };
 
+  // The spec's warning, plainly: until sync, signing out loses the library.
+  const confirmSignOut = (): void => {
+    Alert.alert(
+      'Sign out?',
+      'This erases your library and notes from this phone. Until sync arrives, they are not stored anywhere else.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Erase and sign out',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              setBusy(true);
+              try {
+                await signOut({ session, api: authApi, erase });
+                setOwned(false);
+                setEmail('');
+                setView({ kind: 'email' });
+              } catch {
+                toast.show('Signing out didn’t finish. Try again.');
+              } finally {
+                setBusy(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
+
   const eraseLibrary = async (): Promise<void> => {
-    await secureSessionStore.clear();
+    await session.end();
     await erase();
     setOwned(false);
     toast.show('This phone’s library was erased. Tap Sign in to continue.');
@@ -219,6 +249,18 @@ const AccountScreen = () => {
           {view.online === false && <Text style={muted}>Offline. Will reconnect when online.</Text>}
         </View>
       )}
+
+      {view.kind === 'signed_in' && (
+        <PressableScale
+          accessibilityRole="button"
+          accessibilityState={{ busy }}
+          disabled={busy}
+          onPress={confirmSignOut}
+          style={[styles.signOut, { borderColor: colors.line }]}
+        >
+          <Text style={[type.headline, { color: colors.danger }]}>Sign out</Text>
+        </PressableScale>
+      )}
     </ScrollView>
   );
 };
@@ -235,6 +277,13 @@ const styles = StyleSheet.create({
   code: { letterSpacing: 8, textAlign: 'center' },
   links: { flexDirection: 'row', justifyContent: 'space-between' },
   card: { padding: space.lg, gap: space.xs, borderRadius: radius.card },
+  signOut: {
+    minHeight: minTouchTarget + 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: radius.small,
+  },
 });
 
 export default AccountScreen;

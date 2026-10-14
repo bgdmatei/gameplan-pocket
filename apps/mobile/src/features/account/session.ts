@@ -69,6 +69,9 @@ export const createSession = ({ store, refresh, now }: SessionOptions) => {
     /** After `/auth/verify`. */
     start: (session: Session): Promise<void> => store.write(session),
 
+    /** Forgets the tokens; signing out (sign-out.ts) also erases the library. */
+    end: (): Promise<void> => store.clear(),
+
     accessToken: async (): Promise<AccessToken> => {
       if (inFlight !== null) return inFlight;
       const session = await store.read();
