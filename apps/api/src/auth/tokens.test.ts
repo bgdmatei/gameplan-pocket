@@ -10,7 +10,7 @@ const base64url = (value: object): string =>
 describe('access tokens', () => {
   it('a token signed now verifies to the same user and device', async () => {
     const { token } = await signAccessToken(claims, { secret, nowMs: Date.now() });
-    expect(await verifyAccessToken(token, secret)).toEqual(claims);
+    expect(await verifyAccessToken(token, secret, Date.now())).toEqual(claims);
   });
 
   // Attack 8 (unit half): each of these must be refused.
@@ -44,6 +44,6 @@ describe('access tokens', () => {
     ],
     ['not a token', async () => 'garbage'],
   ])('refuses a token that is %s', async (_name, make) => {
-    expect(await verifyAccessToken(await make(), secret)).toBeNull();
+    expect(await verifyAccessToken(await make(), secret, Date.now())).toBeNull();
   });
 });

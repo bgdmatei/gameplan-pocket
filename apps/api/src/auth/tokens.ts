@@ -31,14 +31,26 @@ export const signAccessToken = async (
  * The claims of a valid token, or `null` for anything else: a bad signature,
  * another algorithm (`alg: none` included), another issuer, or an expired
  * token. Why it failed is not told; every failure is a `401`.
+ *
+ * Hono checks the signature, algorithm and issuer; expiry is checked here
+ * against `nowMs`, the same clock that signed the token, so the service's
+ * clock alone decides (Hono's own time checks read the wall clock).
  */
 export const verifyAccessToken = async (
   token: string,
   secret: string,
+  nowMs: number,
 ): Promise<AccessClaims | null> => {
   try {
-    const payload = await verify(token, secret, { alg: ALG, iss: ISSUER });
-    const { sub, did } = payload;
+    const payload = await verify(token, secret, {
+      alg: ALG,
+      iss: ISSUER,
+      exp: false,
+      iat: false,
+      nbf: false,
+    });
+    const { sub, did, exp } = payload;
+    if (typeof exp !== 'number' || exp * 1000 <= nowMs) return null;
     return typeof sub === 'string' && typeof did === 'string'
       ? { userId: sub, deviceId: did }
       : null;

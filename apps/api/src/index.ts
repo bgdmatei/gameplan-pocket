@@ -35,6 +35,7 @@ const auth = createAuthService({
   email,
   logger,
   codeSecret: env.CODE_SECRET,
+  jwtSecret: env.JWT_SECRET,
   now: () => Date.now(),
 });
 

@@ -1,5 +1,5 @@
-import { codeRequestSchema } from '@gameplan/contracts';
-import type { ErrorResponse } from '@gameplan/contracts';
+import { codeRequestSchema, refreshRequestSchema, verifyRequestSchema } from '@gameplan/contracts';
+import type { ErrorResponse, RefreshResponse, VerifyResponse } from '@gameplan/contracts';
 import type { Context } from 'hono';
 import { Hono } from 'hono';
 import type { z } from 'zod';
@@ -30,6 +30,31 @@ export const createAuthRoutes = (service: AuthService): Hono => {
     if (!body.ok) return c.json(body.error, 400);
     await service.requestCode(body.data.email);
     return c.body(null, 202);
+  });
+
+  routes.post('/verify', async (c) => {
+    const body = await parseBody(c, verifyRequestSchema);
+    if (!body.ok) return c.json(body.error, 400);
+
+    const result = await service.verify(body.data);
+    if (result.kind === 'invalid_code') {
+      return c.json({ error: 'invalid_code' } satisfies ErrorResponse, 401);
+    }
+    if (result.kind === 'device_conflict') {
+      return c.json({ error: 'device_conflict' } satisfies ErrorResponse, 409);
+    }
+    return c.json(result.value satisfies VerifyResponse);
+  });
+
+  routes.post('/refresh', async (c) => {
+    const body = await parseBody(c, refreshRequestSchema);
+    if (!body.ok) return c.json(body.error, 400);
+
+    const result = await service.refresh(body.data.refreshToken);
+    if (result.kind === 'unauthorized') {
+      return c.json({ error: 'unauthorized' } satisfies ErrorResponse, 401);
+    }
+    return c.json(result.value satisfies RefreshResponse);
   });
 
   return routes;

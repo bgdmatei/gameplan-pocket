@@ -142,6 +142,9 @@ const statements = (db: Kysely<Database>) => ({
     return user;
   },
 
+  findUserByEmail: async (email: string): Promise<UserRow | undefined> =>
+    db.selectFrom('users').select(['id', 'email']).where('email', '=', email).executeTakeFirst(),
+
   getUser: async (id: string): Promise<UserRow | undefined> =>
     db.selectFrom('users').select(['id', 'email']).where('id', '=', id).executeTakeFirst(),
 
@@ -246,6 +249,17 @@ const statements = (db: Kysely<Database>) => ({
           revokedAt: row.revoked_at,
         };
   },
+
+  /** The token a used one was rotated into, locked, to see whether it was used yet. */
+  refreshTokenByIdForUpdate: async (
+    id: string,
+  ): Promise<{ id: string; usedAt: Date | null } | undefined> =>
+    db
+      .selectFrom('refresh_tokens')
+      .select(['id', 'used_at as usedAt'])
+      .where('id', '=', id)
+      .forUpdate()
+      .executeTakeFirst(),
 
   /** Marks a token rotated into `replacedBy`; keeps the first use's time on a replay. */
   markRefreshTokenUsed: async (id: string, replacedBy: string, at: Date): Promise<void> => {
