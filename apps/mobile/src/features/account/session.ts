@@ -113,7 +113,13 @@ export type SessionManager = ReturnType<typeof createSession>;
  */
 export const checkSession = async (
   session: SessionManager,
-  me: (accessToken: string) => Promise<AuthResult<unknown>>,
+  {
+    me,
+    logout,
+  }: {
+    me: (accessToken: string) => Promise<AuthResult<unknown>>;
+    logout: (refreshToken: string) => Promise<AuthResult<void>>;
+  },
 ): Promise<'online' | 'offline' | 'ended'> => {
   const ask = async (accessToken: string): Promise<'online' | 'offline' | 'refused'> => {
     const answer = await me(accessToken);
@@ -130,7 +136,11 @@ export const checkSession = async (
   if (renewed.kind !== 'ok') return renewed.kind === 'offline' ? 'offline' : 'ended';
   const retried = await ask(renewed.token);
   if (retried !== 'refused') return retried;
-  // A fresh token refused too: the account or device is gone.
+  // A fresh token refused too: the account or device is gone. The refresh
+  // just handed us a live family, so it is revoked, best effort, as it goes;
+  // a 401 from refresh needs none, the server already refused it.
+  const current = await session.current();
   await session.end();
+  if (current !== null) void logout(current.refreshToken);
   return 'ended';
 };

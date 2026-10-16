@@ -1,5 +1,5 @@
 import type { RefreshResponse } from '@gameplan/contracts';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { AuthResult } from '@/data/auth-api';
 import { checkSession, createSession } from './session';
 import type { Session, SessionStore } from './session';
@@ -110,9 +110,12 @@ describe('checkSession', () => {
       const session = createSession({ store, now: () => NOW, refresh: async () => refreshed });
       const asked: string[] = [];
 
-      const result = await checkSession(session, async (token) => {
-        asked.push(token);
-        return token === 'access-1' ? { kind: 'unauthorized' } : { kind: 'ok', value: null };
+      const result = await checkSession(session, {
+        me: async (token) => {
+          asked.push(token);
+          return token === 'access-1' ? { kind: 'unauthorized' } : { kind: 'ok', value: null };
+        },
+        logout: async () => ({ kind: 'ok', value: undefined }),
       });
 
       expect(result).toBe(expected);
@@ -120,4 +123,29 @@ describe('checkSession', () => {
       expect(store.held() !== null).toBe(kept);
     },
   );
+
+  // Found in review: when /me refused even a freshly refreshed token, the
+  // session ended on the phone but the family it had just been handed stayed
+  // live on the server for 60 days. Ending it there must revoke it too.
+  it('revokes the fresh tokens when /me refuses them as well', async () => {
+    const store = memoryStore(fresh);
+    const session = createSession({
+      store,
+      now: () => NOW,
+      refresh: async () => ({ kind: 'ok', value: rotated }),
+    });
+    const loggedOut: string[] = [];
+
+    const result = await checkSession(session, {
+      me: async () => ({ kind: 'unauthorized' }),
+      logout: async (token) => {
+        loggedOut.push(token);
+        return { kind: 'ok', value: undefined };
+      },
+    });
+
+    expect(result).toBe('ended');
+    expect(store.held()).toBeNull();
+    await vi.waitFor(() => expect(loggedOut).toEqual(['refresh-2']));
+  });
 });

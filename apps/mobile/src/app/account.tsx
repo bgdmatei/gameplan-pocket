@@ -46,7 +46,7 @@ const AccountScreen = () => {
   // needed. Offline is normal and keeps the session (never signed out for it).
   const check = useCallback(
     async (current: Session) => {
-      const status = await checkSession(session, (token) => authApi.me(token));
+      const status = await checkSession(session, authApi);
       if (status === 'ended') {
         setView({ kind: 'email' });
         toast.show('Your sign-in ended. Sign in again to keep this library.');
