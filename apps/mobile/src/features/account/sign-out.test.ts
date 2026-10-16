@@ -3,10 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { migrate } from '@gameplan/db-schema';
 import { getSyncState, updateSyncState } from '@gameplan/storage';
-import { createNodeAdapter } from '@gameplan/storage/node';
+import { createMigratedNodeAdapter, createNodeAdapter } from '@gameplan/storage/node';
 import { describe, expect, it, vi } from 'vitest';
 import type { Session } from './session';
-import { signOut } from './sign-out';
+import { eraseWarning, libraryCounts, signOut } from './sign-out';
 import { playerSession, seedOneGame } from './test-fixtures';
 
 const signedIn = playerSession({ refreshToken: 'refresh-to-revoke' });
@@ -86,5 +86,25 @@ describe('signOut', () => {
     await signOut(deps);
     expect(held).toBeNull();
     await vi.waitFor(() => expect(loggedOut).toEqual(['refresh-to-revoke']));
+  });
+});
+
+describe('the erase warning', () => {
+  // The warning names what would be lost; a removed game is already gone.
+  it('counts the live games and notes on the phone', async () => {
+    const adapter = await createMigratedNodeAdapter();
+    await seedOneGame(adapter);
+    expect(await libraryCounts(adapter)).toEqual({ games: 1, notes: 0 });
+
+    await adapter.execute('UPDATE library_entries SET deleted = 1');
+    expect(await libraryCounts(adapter)).toEqual({ games: 0, notes: 0 });
+  });
+
+  it.each([
+    { games: 1, notes: 0, says: 'This erases 1 game and 0 notes from this phone.' },
+    { games: 12, notes: 3, says: 'This erases 12 games and 3 notes from this phone.' },
+    { games: 0, notes: 0, says: 'There is nothing in your library yet.' },
+  ])('$games games, $notes notes', ({ games, notes, says }) => {
+    expect(eraseWarning({ games, notes })).toContain(says);
   });
 });

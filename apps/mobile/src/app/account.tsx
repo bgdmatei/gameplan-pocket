@@ -13,7 +13,7 @@ import { checkSession } from '@/features/account/session';
 import type { Session } from '@/features/account/session';
 import { SignedInCard } from '@/features/account/signed-in-card';
 import { signIn } from '@/features/account/sign-in';
-import { ERASE_WARNING, signOut } from '@/features/account/sign-out';
+import { eraseWarning, libraryCounts, signOut } from '@/features/account/sign-out';
 import { useToast } from '@/ui/components/toast';
 import { space } from '@/ui/theme';
 
@@ -88,11 +88,13 @@ const AccountScreen = () => {
   };
 
   /**
-   * Every way of erasing ends here, after the one warning (decision 6).
-   * Erasing reopens the database, so the app starts again on the Library.
+   * Every way of erasing ends here, after the one warning (decision 6), which
+   * counts what would go. Erasing reopens the database, so the app starts
+   * again on the Library.
    */
-  const confirmErase = (title: string, message: string, action: string): void => {
-    Alert.alert(title, message, [
+  const confirmErase = async (title: string, why: string | null, action: string): Promise<void> => {
+    const warning = eraseWarning(await libraryCounts(adapter));
+    Alert.alert(title, why === null ? warning : `${why} ${warning}`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: action,
@@ -143,10 +145,9 @@ const AccountScreen = () => {
         toast.show('Signing in didn’t work. Try again.');
         return;
       case 'library_belongs_to_other':
-        confirmErase(
+        await confirmErase(
           'This library belongs to another account',
-          `Sign in with the account it belongs to, or erase it and then sign in as ${address}. ` +
-            ERASE_WARNING,
+          `Sign in with the account it belongs to, or erase it and then sign in as ${address}.`,
           'Erase library',
         );
     }
@@ -165,9 +166,7 @@ const AccountScreen = () => {
           busy={busy}
           owned={owned}
           onSend={() => void sendCode()}
-          onErase={() =>
-            confirmErase('Erase this phone’s library?', ERASE_WARNING, 'Erase library')
-          }
+          onErase={() => void confirmErase('Erase this phone’s library?', null, 'Erase library')}
         />
       )}
 
@@ -188,7 +187,7 @@ const AccountScreen = () => {
           session={step.session}
           online={step.online}
           busy={busy}
-          onSignOut={() => confirmErase('Sign out?', ERASE_WARNING, 'Erase and sign out')}
+          onSignOut={() => void confirmErase('Sign out?', null, 'Erase and sign out')}
         />
       )}
     </ScrollView>
