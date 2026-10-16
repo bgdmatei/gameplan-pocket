@@ -9,6 +9,7 @@
     "dev:android": "expo run:android",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "ios:staging": "set -a && . ./.env.staging && set +a && expo run:ios --configuration Release",
     "prebuild": "expo prebuild",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
