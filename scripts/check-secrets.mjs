@@ -10,8 +10,10 @@
 // found, or the search is not reading the bundle and a pass would mean nothing.
 // Strings are searched as UTF-8 and UTF-16: Hermes bytecode stores either.
 //
-// Runs in CI on every push (names only, no .env there) and by hand with
-// `pnpm check:secrets`, which also checks the values in the local env files.
+// Values also come from the environment as STAGING_<NAME>: CI passes staging's
+// from GitHub Actions secrets (masked in logs) and runs with --require-values,
+// so a missing secret fails the job instead of quietly checking names only.
+// By hand, `pnpm check:secrets` checks the values in the local env files.
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -40,10 +42,26 @@ const readEnv = (file) =>
         .filter(([name]) => /^[A-Z_][A-Z0-9_]*$/.test(name))
     : [];
 
-const values = ['.env', '.env.staging'].flatMap((file) =>
+const fromFiles = ['.env', '.env.staging'].flatMap((file) =>
   readEnv(path.join(root, 'apps/api', file))
     .filter(([name, value]) => SECRET_NAMES.includes(name) && value.length >= 8)
     .map(([name, value]) => ({ label: `value of ${name} (apps/api/${file})`, text: value })),
+);
+const fromEnvironment = SECRET_NAMES.map((name) => [name, process.env[`STAGING_${name}`] ?? ''])
+  .filter(([, value]) => value.length >= 8)
+  .map(([name, value]) => ({ label: `value of ${name} (STAGING_${name})`, text: value }));
+const values = [...fromFiles, ...fromEnvironment];
+
+if (process.argv.includes('--require-values')) {
+  const missing = SECRET_NAMES.filter((name) => (process.env[`STAGING_${name}`] ?? '').length < 8);
+  if (missing.length > 0) {
+    console.error(`FAIL: no value to search for ${missing.map((n) => `STAGING_${n}`).join(', ')}.`);
+    process.exit(1);
+  }
+}
+// The values never reach the export itself.
+const exportEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([name]) => !name.startsWith('STAGING_')),
 );
 const needles = [...SECRET_NAMES.map((name) => ({ label: name, text: name })), ...values];
 
@@ -76,7 +94,7 @@ try {
           path.join(out, build.name, platform),
         ],
         // Variables already set win over apps/mobile/.env, as for `ios:staging`.
-        { cwd: root, encoding: 'utf8', env: { ...process.env, ...build.env } },
+        { cwd: root, encoding: 'utf8', env: { ...exportEnv, ...build.env } },
       );
       if (result.status !== 0) {
         console.error(`FAIL: expo export (${build.name}, ${platform}) failed.\n${result.stderr}`);
@@ -123,7 +141,7 @@ try {
   console.log(
     `OK: ${files.length} files in ${builds.map((b) => b.name).join(' and ')} bundles searched; ` +
       `${needles.length} secret names and values absent` +
-      (values.length === 0 ? ' (no apps/api env files, so names only).' : '.'),
+      (values.length === 0 ? ' (no values given, so names only).' : '.'),
   );
 } finally {
   rmSync(out, { recursive: true, force: true });
