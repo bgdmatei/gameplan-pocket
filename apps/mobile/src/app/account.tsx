@@ -1,11 +1,13 @@
 import { emailSchema } from '@gameplan/contracts';
 import { getSyncState } from '@gameplan/storage';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase, useEraseDatabase } from '@/data/database';
 import { appVersion, syncEnv } from '@/data/env';
 import { authApi, session } from '@/features/account/account';
+import { checkSession } from '@/features/account/session';
 import type { Session } from '@/features/account/session';
 import { signIn } from '@/features/account/sign-in';
 import { signOut } from '@/features/account/sign-out';
@@ -44,14 +46,13 @@ const AccountScreen = () => {
   // needed. Offline is normal and keeps the session (never signed out for it).
   const check = useCallback(
     async (current: Session) => {
-      const token = await session.accessToken();
-      if (token.kind === 'ended' || token.kind === 'signed_out') {
+      const status = await checkSession(session, (token) => authApi.me(token));
+      if (status === 'ended') {
         setView({ kind: 'email' });
         toast.show('Your sign-in ended. Sign in again to keep this library.');
         return;
       }
-      const me = token.kind === 'ok' ? await authApi.me(token.token) : null;
-      setView({ kind: 'signed_in', session: current, online: me?.kind === 'ok' });
+      setView({ kind: 'signed_in', session: current, online: status === 'online' });
     },
     [toast],
   );
@@ -141,8 +142,8 @@ const AccountScreen = () => {
 
     switch (result.kind) {
       case 'signed_in':
-        setOwned(true);
-        setView({ kind: 'signed_in', session: result.session, online: true });
+        // Back to the Library header this screen was opened from.
+        router.back();
         return;
       case 'invalid_code':
         toast.show('That code didn’t work. Check it, or send a new one.');

@@ -1,7 +1,7 @@
 import type { RefreshResponse } from '@gameplan/contracts';
 import { describe, expect, it } from 'vitest';
 import type { AuthResult } from '@/data/auth-api';
-import { createSession } from './session';
+import { checkSession, createSession } from './session';
 import type { Session, SessionStore } from './session';
 
 const NOW = Date.parse('2026-10-14T12:00:00.000Z');
@@ -80,6 +80,44 @@ describe('session', () => {
 
       expect(await session.accessToken()).toEqual({ kind: expected });
       expect(store.held()).toEqual(kept ? expired : null);
+    },
+  );
+});
+
+describe('checkSession', () => {
+  /** A session whose access token has 15 minutes left, so nothing refreshes on its own. */
+  const fresh: Session = {
+    ...expired,
+    accessExpiresAt: new Date(NOW + 15 * 60 * 1000).toISOString(),
+  };
+
+  // The device run for criterion 14 deleted the phone's device on the server:
+  // `/me` answered 401 to a token with minutes left, and the Account screen
+  // showed "Offline" instead of ending the sign-in. A 401 must refresh at once.
+  it.each([
+    { refreshed: { kind: 'unauthorized' }, expected: 'ended', kept: false, retried: [] },
+    { refreshed: { kind: 'offline' }, expected: 'offline', kept: true, retried: [] },
+    {
+      refreshed: { kind: 'ok', value: rotated },
+      expected: 'online',
+      kept: true,
+      retried: ['access-2'],
+    },
+  ] as const)(
+    'a 401 from /me, then a refresh answered $refreshed.kind → $expected',
+    async ({ refreshed, expected, kept, retried }) => {
+      const store = memoryStore(fresh);
+      const session = createSession({ store, now: () => NOW, refresh: async () => refreshed });
+      const asked: string[] = [];
+
+      const result = await checkSession(session, async (token) => {
+        asked.push(token);
+        return token === 'access-1' ? { kind: 'unauthorized' } : { kind: 'ok', value: null };
+      });
+
+      expect(result).toBe(expected);
+      expect(asked).toEqual(['access-1', ...retried]);
+      expect(store.held() !== null).toBe(kept);
     },
   );
 });

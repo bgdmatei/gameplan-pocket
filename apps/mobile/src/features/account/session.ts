@@ -63,6 +63,13 @@ export const createSession = ({ store, refresh, now }: SessionOptions) => {
     return { kind: 'offline' };
   };
 
+  const refreshShared = (session: Session): Promise<AccessToken> => {
+    inFlight ??= refreshNow(session).finally(() => {
+      inFlight = null;
+    });
+    return inFlight;
+  };
+
   return {
     current: (): Promise<Session | null> => store.read(),
 
@@ -79,12 +86,51 @@ export const createSession = ({ store, refresh, now }: SessionOptions) => {
       if (Date.parse(session.accessExpiresAt) - now() > REFRESH_MARGIN_MS) {
         return { kind: 'ok', token: session.accessToken };
       }
-      inFlight ??= refreshNow(session).finally(() => {
-        inFlight = null;
-      });
-      return inFlight;
+      return refreshShared(session);
+    },
+
+    /**
+     * The server refused `accessToken` (a 401) before it expired, as when the
+     * device was removed: refresh now, so a dead sign-in ends instead of
+     * waiting out the token. Skipped if the token was already replaced.
+     */
+    rejected: async (accessToken: string): Promise<AccessToken> => {
+      if (inFlight !== null) return inFlight;
+      const session = await store.read();
+      if (session === null) return { kind: 'signed_out' };
+      if (session.accessToken !== accessToken) return { kind: 'ok', token: session.accessToken };
+      return refreshShared(session);
     },
   };
 };
 
 export type SessionManager = ReturnType<typeof createSession>;
+
+/**
+ * Asks the server who we are with `me`. A 401 gets one refresh and one retry:
+ * the refresh is what tells a revoked sign-in (`ended`) from a token the
+ * server merely stopped accepting. Offline keeps the session.
+ */
+export const checkSession = async (
+  session: SessionManager,
+  me: (accessToken: string) => Promise<AuthResult<unknown>>,
+): Promise<'online' | 'offline' | 'ended'> => {
+  const ask = async (accessToken: string): Promise<'online' | 'offline' | 'refused'> => {
+    const answer = await me(accessToken);
+    if (answer.kind === 'unauthorized') return 'refused';
+    return answer.kind === 'ok' ? 'online' : 'offline';
+  };
+
+  const first = await session.accessToken();
+  if (first.kind !== 'ok') return first.kind === 'offline' ? 'offline' : 'ended';
+  const answer = await ask(first.token);
+  if (answer !== 'refused') return answer;
+
+  const renewed = await session.rejected(first.token);
+  if (renewed.kind !== 'ok') return renewed.kind === 'offline' ? 'offline' : 'ended';
+  const retried = await ask(renewed.token);
+  if (retried !== 'refused') return retried;
+  // A fresh token refused too: the account or device is gone.
+  await session.end();
+  return 'ended';
+};
