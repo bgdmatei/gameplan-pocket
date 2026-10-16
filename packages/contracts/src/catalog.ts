@@ -50,6 +50,8 @@ export const errorResponseSchema = z.discriminatedUnion('error', [
   z.object({ error: z.literal('invalid_code') }),
   // `/auth/verify` with a node id another account registered.
   z.object({ error: z.literal('device_conflict') }),
+  // `/auth/verify` from a phone whose library belongs to another account.
+  z.object({ error: z.literal('library_owner_mismatch') }),
   z.object({ error: z.literal('internal') }),
 ]);
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;

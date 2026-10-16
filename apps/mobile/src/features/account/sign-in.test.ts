@@ -47,6 +47,7 @@ describe('signIn', () => {
     const started: Session[] = [];
     const loggedOut: string[] = [];
     const sentNodeIds: string[] = [];
+    const sentOwners: (string | undefined)[] = [];
     const result = await signIn(
       {
         adapter,
@@ -55,8 +56,9 @@ describe('signIn', () => {
         appVersion: '1.0.0',
         session: { start: async (session) => void started.push(session) },
         api: {
-          verify: async ({ device }) => {
+          verify: async ({ device, ownerUserId }) => {
             sentNodeIds.push(device.nodeId);
+            sentOwners.push(ownerUserId);
             return answer;
           },
           logout: async (token) => {
@@ -71,7 +73,7 @@ describe('signIn', () => {
     const [{ games } = { games: -1 }] = await adapter.execute<{ games: number }>(
       'SELECT count(*) AS games FROM library_entries',
     );
-    return { result, started, loggedOut, sentNodeIds, state, games };
+    return { result, started, loggedOut, sentNodeIds, sentOwners, state, games };
   };
 
   // Decision 3 and 6: who owns the library decides; attack 14 is the last two.
@@ -91,7 +93,14 @@ describe('signIn', () => {
       ownerAfter: OWNER,
     },
     {
-      case: 'another account, refused by the server',
+      case: 'another account, refused by the server for the library',
+      owner: OWNER,
+      answer: { kind: 'library_owner_mismatch' },
+      result: 'library_belongs_to_other',
+      ownerAfter: OWNER,
+    },
+    {
+      case: 'another account, refused by the server for the node id',
       owner: OWNER,
       answer: { kind: 'device_conflict' },
       result: 'library_belongs_to_other',
@@ -112,6 +121,8 @@ describe('signIn', () => {
     expect(outcome.games).toBe(1);
     // The phone registers the node id its edits already carry.
     expect(outcome.sentNodeIds).toEqual([outcome.state.nodeId]);
+    // And names the library's owner, so the server refuses anyone else.
+    expect(outcome.sentOwners).toEqual([owner ?? undefined]);
     if (result === 'signed_in') {
       expect(outcome.started).toHaveLength(1);
     } else {

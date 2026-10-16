@@ -32,9 +32,10 @@ export type SignInDeps = {
  * - this account: it stays, as after a session that ended with a 401;
  * - another account: refused, and the library is left exactly as it was.
  *
- * The last case is normally refused by the server already: an owner means
- * this phone's node id is registered to that account, so another account
- * presenting it gets `device_conflict` before anything is written. The local
+ * The last case is refused by the server before anything is written: the
+ * phone names its library's owner, and another account gets
+ * `library_owner_mismatch`, even when the owner's device is gone and the node
+ * id is free (`device_conflict` covers it while that device exists). The local
  * check below is a second line, should the server ever answer otherwise.
  */
 export const signIn = async (
@@ -44,10 +45,17 @@ export const signIn = async (
   const nodeId = await adapter.transaction((tx) => ensureNodeId(tx, randomBytes));
   const { ownerUserId } = await getSyncState(adapter);
 
-  const result = await api.verify({ email, code, device: { nodeId, platform, appVersion } });
+  const result = await api.verify({
+    email,
+    code,
+    device: { nodeId, platform, appVersion },
+    ...(ownerUserId === null ? {} : { ownerUserId }),
+  });
   switch (result.kind) {
     case 'ok':
       break;
+    case 'library_owner_mismatch':
+      return { kind: 'library_belongs_to_other' };
     case 'device_conflict':
       // Node ids are random; with no owner a conflict is not a stale library.
       return ownerUserId === null ? { kind: 'failed' } : { kind: 'library_belongs_to_other' };

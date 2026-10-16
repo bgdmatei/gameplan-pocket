@@ -39,6 +39,9 @@ export const verifyRequestSchema = z.object({
     platform: z.enum(['ios', 'android']),
     appVersion: z.string().min(1).max(AUTH_LIMITS.appVersionMaxLength),
   }),
+  // The account the phone's library belongs to, if any (decision 6). Another
+  // account is refused before anything is written.
+  ownerUserId: z.uuid().optional(),
 });
 export type VerifyRequest = z.infer<typeof verifyRequestSchema>;
 

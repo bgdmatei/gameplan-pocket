@@ -43,6 +43,9 @@ export const createAuthRoutes = (service: AuthService): Hono => {
     if (result.kind === 'device_conflict') {
       return c.json({ error: 'device_conflict' } satisfies ErrorResponse, 409);
     }
+    if (result.kind === 'library_owner_mismatch') {
+      return c.json({ error: 'library_owner_mismatch' } satisfies ErrorResponse, 409);
+    }
     return c.json(result.value satisfies VerifyResponse);
   });
 

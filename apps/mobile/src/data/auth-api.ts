@@ -20,6 +20,7 @@ export type AuthResult<T> =
   | { kind: 'unauthorized' }
   | { kind: 'invalid_code' }
   | { kind: 'device_conflict' }
+  | { kind: 'library_owner_mismatch' }
   | { kind: 'failed' };
 
 type Failure = Exclude<AuthResult<never>, { kind: 'ok' }>;
@@ -78,6 +79,9 @@ export const createAuthApi = ({ baseUrl, appVersion, fetch = globalThis.fetch }:
       return code === 'invalid_code' ? { kind: 'invalid_code' } : { kind: 'unauthorized' };
     }
     if (response.status === 409 && code === 'device_conflict') return { kind: 'device_conflict' };
+    if (response.status === 409 && code === 'library_owner_mismatch') {
+      return { kind: 'library_owner_mismatch' };
+    }
     // A 5xx is the server's trouble, not the session's: treated like offline.
     return response.status >= 500 ? { kind: 'offline' } : { kind: 'failed' };
   };

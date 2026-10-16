@@ -54,7 +54,10 @@ export type AuthServiceOptions = {
  * the daily cap), so a guesser learns nothing about which rule refused it.
  */
 export type VerifyResult =
-  { kind: 'ok'; value: VerifyResponse } | { kind: 'invalid_code' } | { kind: 'device_conflict' };
+  | { kind: 'ok'; value: VerifyResponse }
+  | { kind: 'invalid_code' }
+  | { kind: 'device_conflict' }
+  | { kind: 'library_owner_mismatch' };
 
 /** Every refused refresh is the same `unauthorized`: why is not told. */
 export type RefreshResult = { kind: 'ok'; value: RefreshResponse } | { kind: 'unauthorized' };
@@ -130,7 +133,12 @@ export const createAuthService = ({
      * device, and starts a refresh token family. One transaction, so the code
      * row stays locked while it is judged and nothing is half-written.
      */
-    verify: async ({ email: address, code, device }: VerifyRequest): Promise<VerifyResult> => {
+    verify: async ({
+      email: address,
+      code,
+      device,
+      ownerUserId,
+    }: VerifyRequest): Promise<VerifyResult> => {
       const at = now();
       await repository.deleteFailuresBefore(new Date(at - DAY_MS));
 
@@ -159,10 +167,17 @@ export const createAuthService = ({
           return refuse();
         }
 
+        // The phone's library belongs to another account (decision 6). Only after
+        // a right code, so it tells nothing to a guesser; the code is left unused,
+        // to sign in once the player has erased the library.
+        const existingUser = await statements.findUserByEmail(address);
+        if (ownerUserId !== undefined && existingUser?.id !== ownerUserId) {
+          return { kind: 'library_owner_mismatch' };
+        }
+
         // A node id belongs to one account (ADR-006). Checked before anything is
         // written, so a conflict leaves the code, the user and the other device alone.
         const existingDevice = await statements.findDeviceByNodeId(device.nodeId);
-        const existingUser = await statements.findUserByEmail(address);
         if (existingDevice !== undefined && existingDevice.userId !== existingUser?.id) {
           return { kind: 'device_conflict' };
         }
