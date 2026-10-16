@@ -9,6 +9,14 @@ export type SignOutDeps = {
 };
 
 /**
+ * The one warning before anything erases the library (spec §Sign out,
+ * decision 6): signing out, erasing without signing in, or erasing to sign
+ * in as another account. Each dialog's title says why.
+ */
+export const ERASE_WARNING =
+  'This erases your library and notes from this phone. Until sync arrives, they are not stored anywhere else.';
+
+/**
  * Signing out leaves nothing of the player on the phone (CLAUDE.md §Privacy):
  * the whole database (library, notes, the library's owner and the node id),
  * then the tokens. The server is told once, best effort: offline, its tokens
