@@ -8,7 +8,7 @@ import { getSyncState, updateSyncState } from '@gameplan/storage';
 import { createNodeAdapter } from '@gameplan/storage/node';
 import { commitLocalCreate, entryId } from '@gameplan/sync';
 import type { SyncEnv } from '@gameplan/sync';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Session } from './session';
 import { signOut } from './sign-out';
 
@@ -71,5 +71,40 @@ describe('signOut', () => {
     expect(state).toMatchObject({ ownerUserId: null, nodeId: null });
     expect(held).toBeNull();
     expect(loggedOut).toEqual(['refresh-to-revoke']);
+  });
+
+  // Found in review: the tokens went before the erase, so an erase that threw
+  // left a retry with nothing to revoke, and the sign-in stayed live on the
+  // server for 60 days. A failed erase must keep the tokens for the retry.
+  it('keeps the tokens when the erase fails, so the retry still revokes them', async () => {
+    let held: Session | null = signedIn;
+    const loggedOut: string[] = [];
+    let eraseFails = true;
+    const deps = {
+      session: {
+        current: async () => held,
+        end: async () => {
+          held = null;
+        },
+      },
+      api: {
+        logout: async (token: string) => {
+          loggedOut.push(token);
+          return { kind: 'ok' as const, value: undefined };
+        },
+      },
+      erase: async () => {
+        if (eraseFails) throw new Error('database busy');
+      },
+    };
+
+    await expect(signOut(deps)).rejects.toThrow('database busy');
+    expect(held).toEqual(signedIn);
+    expect(loggedOut).toEqual([]);
+
+    eraseFails = false;
+    await signOut(deps);
+    expect(held).toBeNull();
+    await vi.waitFor(() => expect(loggedOut).toEqual(['refresh-to-revoke']));
   });
 });

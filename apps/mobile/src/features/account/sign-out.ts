@@ -10,14 +10,15 @@ export type SignOutDeps = {
 
 /**
  * Signing out leaves nothing of the player on the phone (CLAUDE.md §Privacy):
- * the tokens go, then the whole database (library, notes, the library's
- * owner and the node id). The server is told once, best effort: offline,
- * its tokens simply expire. The screen warns first that, until sync, the
- * library is stored nowhere else.
+ * the whole database (library, notes, the library's owner and the node id),
+ * then the tokens. The server is told once, best effort: offline, its tokens
+ * simply expire. The tokens go only after the erase, so an erase that throws
+ * leaves them for the retry to revoke. The screen warns first that, until
+ * sync, the library is stored nowhere else.
  */
 export const signOut = async ({ session, api, erase }: SignOutDeps): Promise<void> => {
+  await erase();
   const current = await session.current();
   await session.end();
-  await erase();
   if (current !== null) void api.logout(current.refreshToken);
 };
