@@ -29,7 +29,15 @@ export type AuthApiConfig = {
   baseUrl: string;
   appVersion: string;
   fetch?: typeof fetch;
+  timeoutMs?: number;
 };
+
+/**
+ * A server that never answers reads as offline after this long, rather than
+ * spinning forever. A refresh cut off after the server rotated it is covered
+ * by the 30-second grace window (decision 5).
+ */
+const TIMEOUT_MS = 15_000;
 
 type Schema<T> = {
   safeParse: (value: unknown) => { success: true; data: T } | { success: false };
@@ -46,7 +54,12 @@ const parseJson = (text: string): unknown => {
 };
 
 /** The auth routes. Bodies hold emails, codes and tokens: none are ever logged here. */
-export const createAuthApi = ({ baseUrl, appVersion, fetch = globalThis.fetch }: AuthApiConfig) => {
+export const createAuthApi = ({
+  baseUrl,
+  appVersion,
+  fetch = globalThis.fetch,
+  timeoutMs = TIMEOUT_MS,
+}: AuthApiConfig) => {
   /** The answer's text, or which way it failed. */
   const send = async (
     path: string,
@@ -54,8 +67,11 @@ export const createAuthApi = ({ baseUrl, appVersion, fetch = globalThis.fetch }:
   ): Promise<{ kind: 'ok'; text: string } | Failure> => {
     let response: Response;
     let text: string;
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), timeoutMs);
     try {
       response = await fetch(`${baseUrl}${path}`, {
+        signal: abort.signal,
         method: init.method,
         headers: {
           [HEADERS.appVersion]: appVersion,
@@ -70,6 +86,8 @@ export const createAuthApi = ({ baseUrl, appVersion, fetch = globalThis.fetch }:
       text = await response.text();
     } catch {
       return { kind: 'offline' };
+    } finally {
+      clearTimeout(timer);
     }
     if (response.ok) return { kind: 'ok', text };
 
