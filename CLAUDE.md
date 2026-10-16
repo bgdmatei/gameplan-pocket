@@ -35,6 +35,8 @@ pnpm --filter mobile start
 pnpm exec prettier --check <paths>
 ```
 
+**Never run a command outside this repo.** `cd` by absolute path into the repo before running any tool; never chain relative `cd ../..`. Two of those once landed in `~/Code`, where pnpm ran without the repo's `packageManager` pin: corepack downloaded pnpm 12 globally and pnpm left a stray `node_modules`. If a command fails because of where it ran, report it instead of retrying elsewhere.
+
 ## Definition of done
 
 A task is done when `pnpm typecheck && pnpm lint && pnpm lint:boundaries && pnpm test` pass and Prettier is clean on changed files.

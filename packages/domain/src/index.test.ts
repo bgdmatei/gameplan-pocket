@@ -25,6 +25,7 @@ const EXPECTED_EXPORTS = [
   'isInLibrary',
   'STEAM_DECK_PLATFORM_ID',
   'playablePlatformIds',
+  'hasPlayablePlatform',
   // library entry
   'ENTRY_STATUSES',
   'TRANSITIONS',

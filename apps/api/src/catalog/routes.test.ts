@@ -9,6 +9,7 @@ import type { Game } from '@gameplan/domain';
 import type { Hono } from 'hono';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../app';
+import { createTestAuth } from '../testing/auth';
 import { createTestDb } from '../testing/database';
 import { IgdbError } from './igdb/client';
 import { createFakeIgdb } from './igdb/fake';
@@ -38,9 +39,12 @@ describe('catalog routes', () => {
   beforeAll(async () => {
     const logger = { warn: () => undefined };
     igdb = createFakeIgdb([WITCHER_3], { genres: [RPG], platforms: [PC] });
-    const repository = createCatalogRepository(await createTestDb());
+    const db = await createTestDb();
+    const repository = createCatalogRepository(db);
     app = createApp({
       catalog: createCatalogService({ repository, igdb: igdb.client, logger }),
+      auth: (await createTestAuth(db)).auth,
+      corsOrigins: [],
       logger,
       apiKey: API_KEY,
     });

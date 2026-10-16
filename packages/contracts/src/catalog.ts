@@ -45,6 +45,13 @@ export const errorResponseSchema = z.discriminatedUnion('error', [
   z.object({ error: z.literal('invalid_request'), fields: z.array(z.string()) }),
   z.object({ error: z.literal('not_found'), stale }),
   z.object({ error: z.literal('unauthorized') }),
+  // Wrong, expired, burned or over the daily cap alike: which rule refused a
+  // code is not told, so guessing learns nothing (SPEC-auth-identity.md).
+  z.object({ error: z.literal('invalid_code') }),
+  // `/auth/verify` with a node id another account registered.
+  z.object({ error: z.literal('device_conflict') }),
+  // `/auth/verify` from a phone whose library belongs to another account.
+  z.object({ error: z.literal('library_owner_mismatch') }),
   z.object({ error: z.literal('internal') }),
 ]);
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;

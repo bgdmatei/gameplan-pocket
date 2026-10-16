@@ -28,3 +28,19 @@ services:
       # A new value for staging (openssl rand -hex 24), not the local one.
       - key: CATALOG_API_KEY
         sync: false
+      # Auth (module 7). New values for staging: openssl rand -hex 32 each.
+      - key: JWT_SECRET
+        sync: false
+      - key: CODE_SECRET
+        sync: false
+      # Pinned rather than relying on NODE_ENV=production, which would make
+      # pnpm skip the devDependencies the build needs (esbuild).
+      - key: EMAIL_TRANSPORT
+        value: resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      # Empty until the web app exists.
+      - key: CORS_ORIGINS
+        value: ''

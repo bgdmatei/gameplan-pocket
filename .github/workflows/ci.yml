@@ -44,3 +44,36 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  # Its own job, so the job above keeps its name (branch protection matches
+  # required checks by name). Searches for the secrets' names and staging's
+  # values, from GitHub Actions secrets (masked in logs); --require-values
+  # fails the job if any is missing rather than checking names only.
+  secrets:
+    name: no secrets in the app bundles
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Search the exported iOS and Android bundles
+        run: pnpm check:secrets --require-values
+        env:
+          STAGING_TWITCH_CLIENT_ID: ${{ secrets.STAGING_TWITCH_CLIENT_ID }}
+          STAGING_TWITCH_CLIENT_SECRET: ${{ secrets.STAGING_TWITCH_CLIENT_SECRET }}
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          STAGING_JWT_SECRET: ${{ secrets.STAGING_JWT_SECRET }}
+          STAGING_CODE_SECRET: ${{ secrets.STAGING_CODE_SECRET }}
+          STAGING_RESEND_API_KEY: ${{ secrets.STAGING_RESEND_API_KEY }}

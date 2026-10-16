@@ -2,6 +2,7 @@ import { HEADERS } from '@gameplan/contracts';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../app';
 import type { Logger } from '../logger';
+import { createTestAuth } from '../testing/auth';
 import { createTestDb } from '../testing/database';
 import { createIgdbClient } from './igdb/client';
 import { createRateLimitedQueue } from './igdb/queue';
@@ -31,7 +32,8 @@ const setup = async (answer: (url: string) => Response) => {
   });
   const db = await createTestDb();
   const catalog = createCatalogService({ repository: createCatalogRepository(db), igdb, logger });
-  const app = createApp({ catalog, logger, apiKey: API_KEY });
+  const { auth } = await createTestAuth(db);
+  const app = createApp({ catalog, auth, corsOrigins: [], logger, apiKey: API_KEY });
   const request = (path: string) => app.request(path, { headers: { [HEADERS.apiKey]: API_KEY } });
   return { request, lines, db };
 };

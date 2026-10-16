@@ -40,6 +40,15 @@ const LibraryScreen = () => {
           Library
         </Text>
         <View style={styles.actions}>
+          <Link href="/account" asChild>
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel="Account"
+              style={styles.icon}
+            >
+              <Ionicons name="person-circle-outline" size={26} color={colors.accent} />
+            </PressableScale>
+          </Link>
           <Link href="/archive" asChild>
             <PressableScale
               accessibilityRole="button"

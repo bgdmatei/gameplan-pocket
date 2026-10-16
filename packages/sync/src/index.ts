@@ -20,5 +20,6 @@ export type { LocalChange, LocalEdit } from './store/commit';
 export { readFieldClock } from './store/read';
 export type { DeletableEntity, EntityValues, StoredEntity, SyncEnv } from './store/entities';
 export { applyRemoteOps } from './store/apply';
+export { ensureNodeId } from './store/node-id';
 export { createSingleFlight } from './single-flight';
 export type { SingleFlight } from './single-flight';

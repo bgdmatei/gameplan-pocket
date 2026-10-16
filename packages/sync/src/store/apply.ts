@@ -1,12 +1,12 @@
 import { getSyncState, readSyncedRow, updateSyncState, writeRows } from '@gameplan/storage';
 import type { StorageAdapter } from '@gameplan/storage';
 import { receive } from '../clock/hlc';
-import { newNodeId } from '../ids';
 import { isDeleted, mergeOp } from '../merge/merge';
 import { opSchema } from '../op/schema';
 import type { Op } from '../op/schema';
 import { SCHEMAS, codecFor, isoAt, parseClocks, storedEntity, stringifyClocks } from './entities';
 import type { SyncEnv } from './entities';
+import { ensureNodeId } from './node-id';
 
 const withoutId = (value: object): Record<string, unknown> =>
   Object.fromEntries(Object.entries(value).filter(([field]) => field !== 'id'));
@@ -32,8 +32,8 @@ export const applyRemoteOps = async (
   { lastPulledSeq }: { lastPulledSeq: number },
 ): Promise<{ applied: number }> =>
   adapter.transaction(async (tx) => {
+    const nodeId = await ensureNodeId(tx, env.randomBytes);
     const state = await getSyncState(tx);
-    const nodeId = state.nodeId ?? newNodeId(env.randomBytes);
     const nowMs = env.now();
     let clock = state.hlcLast;
     let applied = 0;
@@ -68,6 +68,6 @@ export const applyRemoteOps = async (
       applied += 1;
     }
 
-    await updateSyncState(tx, { nodeId, hlcLast: clock, lastPulledSeq });
+    await updateSyncState(tx, { hlcLast: clock, lastPulledSeq });
     return { applied };
   });

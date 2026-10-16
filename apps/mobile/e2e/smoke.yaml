@@ -1,7 +1,7 @@
 # Smoke: a game added to the library survives a force-quit (spec criterion 5).
 #
 # Runs against a Release build, which talks to the staging API:
-#   pnpm --filter mobile ios --configuration Release --device "iPhone 17 Pro"
+#   pnpm --filter mobile ios:staging --device "iPhone 18 Pro"
 #   maestro --device <simulator id> test apps/mobile/e2e/smoke.yaml
 #
 # (--device only when a phone is plugged in as well.)
