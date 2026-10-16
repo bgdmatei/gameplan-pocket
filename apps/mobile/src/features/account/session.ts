@@ -63,7 +63,15 @@ export const createSession = ({ store, refresh, now }: SessionOptions) => {
     return { kind: 'offline' };
   };
 
-  const refreshShared = (session: Session): Promise<AccessToken> => {
+  /**
+   * A refresh in flight answers everyone; otherwise the stored token, if
+   * `usable` accepts it, else one shared refresh.
+   */
+  const tokenFor = async (usable: (session: Session) => boolean): Promise<AccessToken> => {
+    if (inFlight !== null) return inFlight;
+    const session = await store.read();
+    if (session === null) return { kind: 'signed_out' };
+    if (usable(session)) return { kind: 'ok', token: session.accessToken };
     inFlight ??= refreshNow(session).finally(() => {
       inFlight = null;
     });
@@ -79,32 +87,27 @@ export const createSession = ({ store, refresh, now }: SessionOptions) => {
     /** Forgets the tokens; signing out (sign-out.ts) also erases the library. */
     end: (): Promise<void> => store.clear(),
 
-    accessToken: async (): Promise<AccessToken> => {
-      if (inFlight !== null) return inFlight;
-      const session = await store.read();
-      if (session === null) return { kind: 'signed_out' };
-      if (Date.parse(session.accessExpiresAt) - now() > REFRESH_MARGIN_MS) {
-        return { kind: 'ok', token: session.accessToken };
-      }
-      return refreshShared(session);
-    },
+    accessToken: (): Promise<AccessToken> =>
+      tokenFor((session) => Date.parse(session.accessExpiresAt) - now() > REFRESH_MARGIN_MS),
 
     /**
      * The server refused `accessToken` (a 401) before it expired, as when the
      * device was removed: refresh now, so a dead sign-in ends instead of
      * waiting out the token. Skipped if the token was already replaced.
      */
-    rejected: async (accessToken: string): Promise<AccessToken> => {
-      if (inFlight !== null) return inFlight;
-      const session = await store.read();
-      if (session === null) return { kind: 'signed_out' };
-      if (session.accessToken !== accessToken) return { kind: 'ok', token: session.accessToken };
-      return refreshShared(session);
-    },
+    rejected: (accessToken: string): Promise<AccessToken> =>
+      tokenFor((session) => session.accessToken !== accessToken),
   };
 };
 
 export type SessionManager = ReturnType<typeof createSession>;
+
+/** What the Account screen shows: reachable, not reachable, or signed out by the server. */
+export type SessionStatus = 'online' | 'offline' | 'ended';
+
+/** A token that could not be had: offline keeps the session, anything else ended it. */
+const statusWithout = (token: Exclude<AccessToken, { kind: 'ok' }>): SessionStatus =>
+  token.kind === 'offline' ? 'offline' : 'ended';
 
 /**
  * Asks the server who we are with `me`. A 401 gets one refresh and one retry:
@@ -120,20 +123,20 @@ export const checkSession = async (
     me: (accessToken: string) => Promise<AuthResult<unknown>>;
     logout: (refreshToken: string) => Promise<AuthResult<void>>;
   },
-): Promise<'online' | 'offline' | 'ended'> => {
-  const ask = async (accessToken: string): Promise<'online' | 'offline' | 'refused'> => {
+): Promise<SessionStatus> => {
+  const ask = async (accessToken: string): Promise<Exclude<SessionStatus, 'ended'> | 'refused'> => {
     const answer = await me(accessToken);
     if (answer.kind === 'unauthorized') return 'refused';
     return answer.kind === 'ok' ? 'online' : 'offline';
   };
 
   const first = await session.accessToken();
-  if (first.kind !== 'ok') return first.kind === 'offline' ? 'offline' : 'ended';
+  if (first.kind !== 'ok') return statusWithout(first);
   const answer = await ask(first.token);
   if (answer !== 'refused') return answer;
 
   const renewed = await session.rejected(first.token);
-  if (renewed.kind !== 'ok') return renewed.kind === 'offline' ? 'offline' : 'ended';
+  if (renewed.kind !== 'ok') return statusWithout(renewed);
   const retried = await ask(renewed.token);
   if (retried !== 'refused') return retried;
   // A fresh token refused too: the account or device is gone. The refresh

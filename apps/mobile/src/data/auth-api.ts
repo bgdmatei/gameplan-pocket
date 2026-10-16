@@ -6,7 +6,17 @@ import {
   refreshResponseSchema,
   verifyResponseSchema,
 } from '@gameplan/contracts';
-import type { VerifyRequest } from '@gameplan/contracts';
+import type { ErrorResponse, VerifyRequest } from '@gameplan/contracts';
+
+/** The server's refusals the phone acts on, by the contract's own error codes. */
+const REFUSALS = [
+  'invalid_code',
+  'device_conflict',
+  'library_owner_mismatch',
+] as const satisfies readonly ErrorResponse['error'][];
+type Refusal = (typeof REFUSALS)[number];
+const isRefusal = (code: string | null): code is Refusal =>
+  REFUSALS.some((refusal) => refusal === code);
 
 /**
  * Every outcome is a value, never a throw. `offline` means the server could
@@ -18,9 +28,7 @@ export type AuthResult<T> =
   | { kind: 'ok'; value: T }
   | { kind: 'offline' }
   | { kind: 'unauthorized' }
-  | { kind: 'invalid_code' }
-  | { kind: 'device_conflict' }
-  | { kind: 'library_owner_mismatch' }
+  | { kind: Refusal }
   | { kind: 'failed' };
 
 type Failure = Exclude<AuthResult<never>, { kind: 'ok' }>;
@@ -93,13 +101,10 @@ export const createAuthApi = ({
 
     const error = errorResponseSchema.safeParse(parseJson(text));
     const code = error.success ? error.data.error : null;
-    if (response.status === 401) {
-      return code === 'invalid_code' ? { kind: 'invalid_code' } : { kind: 'unauthorized' };
+    if ((response.status === 401 || response.status === 409) && isRefusal(code)) {
+      return { kind: code };
     }
-    if (response.status === 409 && code === 'device_conflict') return { kind: 'device_conflict' };
-    if (response.status === 409 && code === 'library_owner_mismatch') {
-      return { kind: 'library_owner_mismatch' };
-    }
+    if (response.status === 401) return { kind: 'unauthorized' };
     // A 5xx is the server's trouble, not the session's: treated like offline.
     return response.status >= 500 ? { kind: 'offline' } : { kind: 'failed' };
   };
