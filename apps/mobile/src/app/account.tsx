@@ -40,6 +40,8 @@ const AccountScreen = () => {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [owned, setOwned] = useState(false);
+  // Something to lose: an empty library offers no erase button.
+  const [hasData, setHasData] = useState(false);
 
   // Signed in: ask the server who we are, which also refreshes the token if
   // needed. Offline is normal and keeps the session (never signed out for it).
@@ -59,6 +61,8 @@ const AccountScreen = () => {
   useEffect(() => {
     void (async () => {
       setOwned((await getSyncState(adapter)).ownerUserId !== null);
+      const { games, notes } = await libraryCounts(adapter);
+      setHasData(games + notes > 0);
       const current = await session.current();
       if (current === null) {
         setStep({ kind: 'email' });
@@ -165,6 +169,7 @@ const AccountScreen = () => {
           onChangeEmail={setEmail}
           busy={busy}
           owned={owned}
+          canErase={owned && hasData}
           onSend={() => void sendCode()}
           onErase={() => void confirmErase('Erase this phone’s library?', null, 'Erase library')}
         />

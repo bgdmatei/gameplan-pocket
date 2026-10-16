@@ -10,19 +10,23 @@ type EmailFormProps = {
   busy: boolean;
   /** The phone holds a library that belongs to an account. */
   owned: boolean;
+  /** An owned library with games or notes in it: something to erase. */
+  canErase: boolean;
   onSend: () => void;
   onErase: () => void;
 };
 
 /**
- * Signed out: an email for a code. With a library that belongs to an account,
- * also the way to erase it without signing in, for a player who cannot.
+ * Signed out: an email for a code. With a library that belongs to an account
+ * and holds games or notes, also the way to erase it without signing in, for
+ * a player who cannot.
  */
 export const EmailForm = ({
   email,
   onChangeEmail,
   busy,
   owned,
+  canErase,
   onSend,
   onErase,
 }: EmailFormProps) => {
@@ -51,7 +55,7 @@ export const EmailForm = ({
         style={field}
       />
       <PrimaryButton label="Send code" busy={busy} onPress={onSend} />
-      {owned && (
+      {canErase && (
         <PressableScale
           accessibilityRole="button"
           accessibilityState={{ busy }}
