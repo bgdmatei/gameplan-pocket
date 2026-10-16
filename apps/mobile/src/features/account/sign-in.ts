@@ -1,3 +1,4 @@
+import type { VerifyRequest } from '@gameplan/contracts';
 import { getSyncState, updateSyncState } from '@gameplan/storage';
 import type { StorageAdapter } from '@gameplan/storage';
 import { ensureNodeId } from '@gameplan/sync';
@@ -21,7 +22,7 @@ export type SignInDeps = {
   api: Pick<AuthApi, 'verify' | 'logout'>;
   session: Pick<SessionManager, 'start'>;
   randomBytes: RandomBytes;
-  platform: 'ios' | 'android';
+  platform: VerifyRequest['device']['platform'];
   appVersion: string;
 };
 
