@@ -1,29 +1,15 @@
-import { webcrypto } from 'node:crypto';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { migrate } from '@gameplan/db-schema';
-import { createEntry } from '@gameplan/domain';
 import { getSyncState, updateSyncState } from '@gameplan/storage';
 import { createNodeAdapter } from '@gameplan/storage/node';
-import { commitLocalCreate, entryId } from '@gameplan/sync';
-import type { SyncEnv } from '@gameplan/sync';
 import { describe, expect, it, vi } from 'vitest';
 import type { Session } from './session';
 import { signOut } from './sign-out';
+import { playerSession, seedOneGame } from './test-fixtures';
 
-const env: SyncEnv = {
-  now: () => Date.parse('2026-10-14T12:00:00.000Z'),
-  randomBytes: (length) => webcrypto.getRandomValues(new Uint8Array(length)),
-};
-
-const signedIn: Session = {
-  accessToken: 'access',
-  refreshToken: 'refresh-to-revoke',
-  accessExpiresAt: '2026-10-14T12:15:00.000Z',
-  user: { id: '0b7a4c1e-7f4e-4c55-9d1a-2f0f3b6d8e10', email: 'player@example.com' },
-  device: { id: '6f1c2b8a-3d4e-4f5a-8b9c-0d1e2f3a4b5c' },
-};
+const signedIn = playerSession({ refreshToken: 'refresh-to-revoke' });
 
 describe('signOut', () => {
   // Criterion 5 and CLAUDE.md §Privacy: after signing out, nothing of the
@@ -33,13 +19,7 @@ describe('signOut', () => {
     const path = join(await mkdtemp(join(tmpdir(), 'gameplan-signout-')), 'library.db');
     const adapter = createNodeAdapter({ path });
     await migrate(adapter);
-    await commitLocalCreate(adapter, env, {
-      entity: 'library_entry',
-      next: createEntry(
-        { id: entryId(1942), gameId: 1942, status: 'playing', createdAt: '2026-10-14T10:00:00Z' },
-        { today: '2026-10-14' },
-      ),
-    });
+    await seedOneGame(adapter);
     await updateSyncState(adapter, { ownerUserId: signedIn.user.id });
 
     let held: Session | null = signedIn;
@@ -70,7 +50,7 @@ describe('signOut', () => {
     expect(games).toBe(0);
     expect(state).toMatchObject({ ownerUserId: null, nodeId: null });
     expect(held).toBeNull();
-    expect(loggedOut).toEqual(['refresh-to-revoke']);
+    await vi.waitFor(() => expect(loggedOut).toEqual(['refresh-to-revoke']));
   });
 
   // Found in review: the tokens went before the erase, so an erase that threw

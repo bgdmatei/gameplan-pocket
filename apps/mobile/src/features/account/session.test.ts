@@ -2,18 +2,17 @@ import type { RefreshResponse } from '@gameplan/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import type { AuthResult } from '@/data/auth-api';
 import { checkSession, createSession } from './session';
+import { playerSession } from './test-fixtures';
 import type { Session, SessionStore } from './session';
 
 const NOW = Date.parse('2026-10-14T12:00:00.000Z');
 
 /** A session whose access token has already expired, so the next request refreshes. */
-const expired: Session = {
+const expired: Session = playerSession({
   accessToken: 'access-1',
   refreshToken: 'refresh-1',
   accessExpiresAt: new Date(NOW - 1000).toISOString(),
-  user: { id: '0b7a4c1e-7f4e-4c55-9d1a-2f0f3b6d8e10', email: 'player@example.com' },
-  device: { id: '6f1c2b8a-3d4e-4f5a-8b9c-0d1e2f3a4b5c' },
-};
+});
 
 const rotated: RefreshResponse = {
   accessToken: 'access-2',
