@@ -1,115 +1,20 @@
 import type { EntryStatus } from '@gameplan/domain';
 import { Platform } from 'react-native';
 import type { TextStyle } from 'react-native';
+import { frosted, palettes, statusPalettes } from './palette';
+import type { ColorScheme, Colors } from './palette';
+
+export type { ColorScheme, Colors } from './palette';
+export { gradients } from './palette';
 
 /**
- * Design tokens for "Arcade Night" (approved 2026-09-30, replacing "Save
- * Point"): an OLED-black ground where the covers carry the colour, one cyan
- * accent for what is selected and what is still open, and monospaced numbers
- * for playtime, progress and counts. Dark is the primary theme; light is the
- * same system on a pale ground. Screens use these tokens only, never literal
- * colours or sizes.
- *
- * Contrast (WCAG 2.x, AA is 4.5:1 for text), checked per pair:
- *
- * | Pair                            | Light | Dark |
- * | ------------------------------- | ----- | ---- |
- * | text on background              | 17.7  | 19.5 |
- * | muted on background             | 5.8   | 7.0  |
- * | muted on surface                | 6.3   | 6.1  |
- * | muted on raised                 | 5.4   | 5.5  |
- * | accent on background            | 4.8   | 13.4 |
- * | accent on surface               | 5.2   | 11.8 |
- * | onAccent on accentFill (button) | 5.2   | 10.6 |
- * | noteLabel on noteFill           | 5.6   | 10.8 |
- * | muted on noteFill               | 5.6   | 5.6  |
- * | danger on surface               | 6.5   | 7.3  |
- * | every status colour on surface  | ≥ 5.4 | ≥ 8.1 |
- * | every status colour on ground   | ≥ 4.9 | ≥ 9.2 |
- * | every status colour on raised   | ≥ 4.5 | ≥ 7.3 |
+ * Design tokens for the visual-design direction (SPEC-visual-design.md,
+ * 2026-10-23, replacing "Arcade Night"): image-led cards over dark gradients,
+ * Fraunces for headlines, the system font for everything else, soft large
+ * radii, one warm gold accent. Colours live in `palette.ts` (pure, so the
+ * contrast test can read them); sizes, type and motion live here. Screens use
+ * these tokens only: `literals.test.ts` fails on a colour or font name anywhere else.
  */
-
-export type ColorScheme = 'light' | 'dark';
-
-export type Colors = {
-  /** The screen's ground. */
-  background: string;
-  /** Cards, sheets, chips at rest. */
-  surface: string;
-  /** One step above `surface`: inputs inside a card, a pressed row. */
-  raised: string;
-  text: string;
-  /** Secondary text: captions, counts, locations. */
-  muted: string;
-  /** Hairlines, dividers, empty stars, chip borders. */
-  line: string;
-  /** Accent used as text or an icon: links, filled stars, selected labels. */
-  accent: string;
-  /** Accent used as a fill: the selected chip, the primary button, the open-note badge. */
-  accentFill: string;
-  /** Text and icons placed on `accentFill`. */
-  onAccent: string;
-  /** Behind a note that is still open. */
-  noteFill: string;
-  /** The type label on an open note ("Puzzle · open"). */
-  noteLabel: string;
-  /** Destructive actions (delete a note). Same hue as `dropped`. */
-  danger: string;
-};
-
-const light: Colors = {
-  background: '#F3F6F9',
-  surface: '#FFFFFF',
-  raised: '#E8EDF2',
-  text: '#0B0F14',
-  muted: '#56616E',
-  line: '#D5DCE4',
-  accent: '#007A70',
-  accentFill: '#007A70',
-  onAccent: '#FFFFFF',
-  noteFill: '#E0F5F2',
-  noteLabel: '#006B62',
-  danger: '#B3261E',
-};
-
-/** Pure black on purpose: OLED pixels switch off, and covers glow against it. */
-const dark: Colors = {
-  background: '#000000',
-  surface: '#111418',
-  raised: '#1A1F25',
-  text: '#F4F7FA',
-  muted: '#8A96A3',
-  line: '#262D36',
-  accent: '#2EE6D6',
-  accentFill: '#2EE6D6',
-  onAccent: '#032320',
-  noteFill: '#08201E',
-  noteLabel: '#2EE6D6',
-  danger: '#FF7A70',
-};
-
-/**
- * Status colours carry meaning, not brand, so they are shared by both themes'
- * logic and only shift in lightness. Always shown with the status label:
- * colour alone would fail anyone who can't tell them apart.
- */
-const statusLight: Record<EntryStatus, string> = {
-  wishlist: '#7A4FC0',
-  backlog: '#56606E',
-  playing: '#1B5FBF',
-  paused: '#9A5B00',
-  completed: '#1E7A45',
-  dropped: '#B3261E',
-};
-
-const statusDark: Record<EntryStatus, string> = {
-  wishlist: '#C4A6FF',
-  backlog: '#AEB6C4',
-  playing: '#7DB6FF',
-  paused: '#F2B544',
-  completed: '#6FD39A',
-  dropped: '#FF8A80',
-};
 
 /** A 4-point scale. The grid gutter is `sm`; screen edges are `lg`. */
 export const space = {
@@ -122,31 +27,17 @@ export const space = {
 } as const;
 
 export const radius = {
-  /** Cover art: rounded like a cartridge label, still a shelf at 5,000. */
-  cover: 10,
-  /** Inputs, buttons and small controls. */
-  small: 10,
-  /** Cards, notes and sheets. */
-  card: 16,
-  /** Chips and badges. */
+  /** Cover art in grids and rows. */
+  cover: 14,
+  /** Inputs and small controls. */
+  small: 14,
+  /** Cards, notes and image cards. */
+  card: 24,
+  /** Sheets and the floating tab bar. */
+  sheet: 28,
+  /** Pill buttons, chips and badges. */
   pill: 999,
 } as const;
-
-/**
- * The system font (SF Pro on iOS, Roboto on Android) for text: no font to bundle, and
- * it follows the user's text-size setting. Sizes follow iOS's text styles.
- */
-export const type = {
-  largeTitle: { fontSize: 32, lineHeight: 38, fontWeight: '800', letterSpacing: -0.5 },
-  title: { fontSize: 20, lineHeight: 25, fontWeight: '700' },
-  headline: { fontSize: 17, lineHeight: 22, fontWeight: '600' },
-  body: { fontSize: 16, lineHeight: 22, fontWeight: '400' },
-  callout: { fontSize: 15, lineHeight: 20, fontWeight: '400' },
-  subhead: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
-  caption: { fontSize: 12, lineHeight: 16, fontWeight: '400' },
-  /** Uppercase labels: note types, section eyebrows. */
-  label: { fontSize: 11, lineHeight: 13, fontWeight: '700', letterSpacing: 0.6 },
-} as const satisfies Record<string, TextStyle>;
 
 /**
  * Fraunces (72pt Soft cut), embedded at build time by the expo-font plugin
@@ -158,6 +49,26 @@ export const fonts = {
   serif: 'Fraunces72ptSoft-SemiBold',
   serifRegular: 'Fraunces72ptSoft-Regular',
 } as const;
+
+/**
+ * Fraunces for headlines (`display*`), the system font (SF Pro on iOS, Roboto
+ * on Android) for everything else. System sizes follow iOS's text styles.
+ */
+export const type = {
+  /** Screen titles ("Library") and a hero's game name. */
+  display: { fontFamily: fonts.serif, fontSize: 34, lineHeight: 40, letterSpacing: -0.3 },
+  /** An image card's title; section titles. */
+  displaySmall: { fontFamily: fonts.serif, fontSize: 24, lineHeight: 29 },
+  largeTitle: { fontSize: 32, lineHeight: 38, fontWeight: '800', letterSpacing: -0.5 },
+  title: { fontSize: 20, lineHeight: 25, fontWeight: '700' },
+  headline: { fontSize: 17, lineHeight: 22, fontWeight: '600' },
+  body: { fontSize: 16, lineHeight: 22, fontWeight: '400' },
+  callout: { fontSize: 15, lineHeight: 20, fontWeight: '400' },
+  subhead: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
+  caption: { fontSize: 12, lineHeight: 16, fontWeight: '400' },
+  /** Uppercase labels above titles ("NOW PLAYING"), note types, section eyebrows. */
+  label: { fontSize: 11, lineHeight: 13, fontWeight: '700', letterSpacing: 1.2 },
+} as const satisfies Record<string, TextStyle>;
 
 /**
  * Numbers in the system monospace (SF Mono, Roboto Mono's fallback on
@@ -187,9 +98,21 @@ export type Theme = {
   scheme: ColorScheme;
   colors: Colors;
   status: Record<EntryStatus, string>;
+  /** expo-blur settings for frosted chrome (`ui/components/frosted.tsx`). */
+  frosted: { tint: ColorScheme; intensity: number };
 };
 
 export const themes: Record<ColorScheme, Theme> = {
-  light: { scheme: 'light', colors: light, status: statusLight },
-  dark: { scheme: 'dark', colors: dark, status: statusDark },
+  light: {
+    scheme: 'light',
+    colors: palettes.light,
+    status: statusPalettes.light,
+    frosted: frosted.light,
+  },
+  dark: {
+    scheme: 'dark',
+    colors: palettes.dark,
+    status: statusPalettes.dark,
+    frosted: frosted.dark,
+  },
 };
