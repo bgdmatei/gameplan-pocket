@@ -3,6 +3,7 @@ import { migration002 } from './002-search-without-apostrophes';
 import { migration003 } from './003-archived-entries';
 import { migration004 } from './004-shelved-entries';
 import { migration005 } from './005-library-owner';
+import { migration006 } from './006-theme';
 import type { Migration } from './types';
 
 /**
@@ -16,6 +17,7 @@ export const MIGRATIONS: readonly Migration[] = [
   migration003,
   migration004,
   migration005,
+  migration006,
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]?.number ?? 0;

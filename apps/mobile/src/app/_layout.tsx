@@ -5,6 +5,7 @@ import { DatabaseProvider } from '@/data/database';
 import '@/data/perf';
 import { KeyboardDismiss } from '@/ui/components/keyboard-dismiss';
 import { ToastProvider } from '@/ui/components/toast';
+import { useApplyStoredTheme } from '@/ui/theme-preference';
 import { useTheme } from '@/ui/use-theme';
 
 /**
@@ -12,6 +13,12 @@ import { useTheme } from '@/ui/use-theme';
  * cold from a link still has somewhere to go back to.
  */
 export const unstable_settings = { initialRouteName: '(tabs)' };
+
+/** Applies the player's stored theme once the database is open (and again after an erase). */
+const StoredTheme = () => {
+  useApplyStoredTheme();
+  return null;
+};
 
 const RootLayout = () => {
   const { colors, scheme } = useTheme();
@@ -28,6 +35,7 @@ const RootLayout = () => {
 
   return (
     <DatabaseProvider>
+      <StoredTheme />
       <ToastProvider>
         <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
         <KeyboardDismiss>
