@@ -149,6 +149,17 @@ export const type = {
 } as const satisfies Record<string, TextStyle>;
 
 /**
+ * Fraunces (72pt Soft cut), embedded at build time by the expo-font plugin
+ * (app.json), so it is there on the first frame. Named by PostScript name, which
+ * iOS and Android both accept here. Never set a `fontWeight` with these: the
+ * weight is the file, and iOS falls back to the system font on a mismatch.
+ */
+export const fonts = {
+  serif: 'Fraunces72ptSoft-SemiBold',
+  serifRegular: 'Fraunces72ptSoft-Regular',
+} as const;
+
+/**
  * Numbers in the system monospace (SF Mono, Roboto Mono's fallback on
  * Android): playtime, progress, counts and dates line up and read as a readout.
  */

@@ -25,7 +25,7 @@ import {
 } from '@/data/perf';
 import type { Metric, Summary } from '@/data/perf';
 import { useQuery } from '@/data/use-query';
-import { minTouchTarget, radius, space, tabularNumbers, type } from '@/ui/theme';
+import { fonts, minTouchTarget, radius, space, tabularNumbers, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 const TABLES = [...SYNC_STATE_TABLES, ...PENDING_OP_TABLES, ...LIBRARY_ENTRY_TABLES];
@@ -136,6 +136,10 @@ const DebugScreen = () => {
 
   return (
     <ScrollView contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}>
+      {/* Embedded fonts check (visual-design T1): serif here means the plugin worked. */}
+      <Text style={[styles.fontCheck, { color: colors.text }]}>
+        Fraunces: Protecting your peace
+      </Text>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
         {row('Node id', info?.sync.nodeId ?? 'not yet (created at the first edit)')}
         {row('Last clock', info?.sync.hlcLast ?? 'none')}
@@ -176,6 +180,7 @@ const DebugScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  fontCheck: { fontFamily: fonts.serif, fontSize: 24, lineHeight: 30 },
   page: { padding: space.lg, gap: space.md },
   card: { borderWidth: 1, borderRadius: radius.card, padding: space.md, gap: space.sm },
   row: { gap: 2 },
