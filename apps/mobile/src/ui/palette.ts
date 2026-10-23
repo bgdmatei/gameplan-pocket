@@ -20,6 +20,11 @@ export type Colors = {
   raised: string;
   /** What a frosted surface shows when blur is off (Reduce Transparency). */
   frostedFill: string;
+  /**
+   * Laid over the blur so labels read whatever scrolls beneath: opaque enough
+   * that even a white cover (dark) or a black one (light) keeps text at AA.
+   */
+  frostedTint: string;
   text: string;
   /** Secondary text: captions, counts, locations. */
   muted: string;
@@ -52,6 +57,7 @@ const dark: Colors = {
   surface: '#1A1C24',
   raised: '#252833',
   frostedFill: '#1A1C24',
+  frostedTint: 'rgba(26, 28, 36, 0.9)',
   text: '#F6F3ED',
   muted: '#A4A3AF',
   line: '#2F3340',
@@ -72,6 +78,7 @@ const light: Colors = {
   surface: '#FFFFFF',
   raised: '#EFE9DE',
   frostedFill: '#FFFFFF',
+  frostedTint: 'rgba(255, 255, 255, 0.93)',
   text: '#1C1914',
   muted: '#686154',
   line: '#E3DACB',

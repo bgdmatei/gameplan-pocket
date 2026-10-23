@@ -22,6 +22,7 @@ import { LoadFailed } from '@/ui/components/load-failed';
 import type { GameRowProps } from '@/ui/components/game-row';
 import { releaseYear } from '@/ui/labels';
 import { platformLabel, playablePlatforms } from '@/ui/platforms';
+import { useTabBarSpace } from '@/ui/components/tab-bar';
 import { minTouchTarget, radius, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
@@ -56,6 +57,7 @@ const NOTICE: Record<Exclude<SearchNotice, null>, string> = {
 
 const SearchScreen = () => {
   const { colors } = useTheme();
+  const tabBarSpace = useTabBarSpace();
   const navigation = useNavigation();
   const [text, setText] = useState('');
 
@@ -183,6 +185,8 @@ const SearchScreen = () => {
         renderItem={({ item }) => <GameRow {...item} onPress={open} />}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        // The last row clears the floating tab bar.
+        contentContainerStyle={{ paddingBottom: space.xl + tabBarSpace }}
         ListEmptyComponent={
           failed === null ? (
             <Text style={[type.body, styles.empty, { color: colors.muted }]}>{empty}</Text>

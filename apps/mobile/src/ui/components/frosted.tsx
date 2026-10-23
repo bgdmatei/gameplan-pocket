@@ -21,8 +21,9 @@ type Props = { style?: StyleProp<ViewStyle>; children?: ReactNode };
 /**
  * Frosted chrome: the tab bar, round header buttons, sheets. The app's only
  * `BlurView` (literals.test.ts), so blur never lands in a list cell. With
- * Reduce Transparency on it is a solid `frostedFill`, which the contrast test
- * covers; corners clip the blur through `overflow: hidden`.
+ * Reduce Transparency on it is a solid `frostedFill`; otherwise a near-opaque
+ * `frostedTint` sits over the blur. The contrast test covers both, the tint over
+ * white and black content. Corners clip the blur through `overflow: hidden`.
  */
 export const Frosted = ({ style, children }: Props) => {
   const { colors, frosted } = useTheme();
@@ -35,6 +36,8 @@ export const Frosted = ({ style, children }: Props) => {
   }
   return (
     <BlurView tint={frosted.tint} intensity={frosted.intensity} style={[styles.clip, style]}>
+      {/* The tint carries the labels over bright covers (theme.test.ts). */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.frostedTint }]} />
       {children}
     </BlurView>
   );

@@ -53,6 +53,23 @@ describe('theme contrast', () => {
     expect(failing).toEqual([]);
   });
 
+  // Frosted chrome blurs whatever scrolls beneath it, covers included. Its tint
+  // must carry the labels on its own, over the worst content: white behind the
+  // dark bar, black behind the light one. Found when the first tab bar
+  // screenshot showed a bright cover bleeding through behind a grey label.
+  it.each(['dark', 'light'] as const)(
+    '%s theme: frosted labels read over any content behind them',
+    (scheme) => {
+      const c = palettes[scheme];
+      for (const behind of ['#FFFFFF', '#000000']) {
+        const ground = composite(c.frostedTint, behind);
+        expect(contrastRatio(c.text, ground)).toBeGreaterThanOrEqual(BODY);
+        expect(contrastRatio(c.muted, ground)).toBeGreaterThanOrEqual(BODY);
+        expect(contrastRatio(c.accent, ground)).toBeGreaterThanOrEqual(BODY);
+      }
+    },
+  );
+
   // Text never sits on raw cover art (spec boundary). Where text starts, the
   // gradient must make even a pure white cover dark enough for white text.
   it.each(['dark', 'light'] as const)(

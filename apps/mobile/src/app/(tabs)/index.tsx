@@ -10,6 +10,7 @@ import type { LibraryFilters } from '@/ui/components/filter-bar';
 import { LibraryGrid } from '@/ui/components/library-grid';
 import { STATUS_LABEL } from '@/ui/labels';
 import { PressableScale } from '@/ui/components/pressable-scale';
+import { useTabBarSpace } from '@/ui/components/tab-bar';
 import { minTouchTarget, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
@@ -18,6 +19,7 @@ const endOfThisYear = (): string => `${String(new Date().getFullYear())}-12-31`;
 
 const LibraryScreen = () => {
   const { colors } = useTheme();
+  const tabBarSpace = useTabBarSpace();
   const [filters, setFilters] = useState<LibraryFilters>({
     status: DEFAULT_GRID_STATUS,
     sort: 'released',
@@ -75,6 +77,7 @@ const LibraryScreen = () => {
       <FilterBar filters={filters} onChange={changeFilters} />
 
       <LibraryGrid
+        bottomInset={tabBarSpace}
         onShown={onShown}
         filters={{ ...filters, releasedBy: endOfThisYear() }}
         empty={

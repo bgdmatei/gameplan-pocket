@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import type { ComponentProps } from 'react';
 import type { ColorValue } from 'react-native';
-import { type } from '@/ui/theme';
+import { FloatingTabBar } from '@/ui/components/tab-bar';
 import { useTheme } from '@/ui/use-theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -14,19 +14,16 @@ const tabIcon =
     <Ionicons name={focused ? selected : idle} color={color} size={size} />
   );
 
-/** Two tabs: the library, where the app opens, and search. */
+/** Two tabs: the library, where the app opens, and search, in the floating bar. */
 const TabsLayout = () => {
   const { colors } = useTheme();
 
   return (
     <Tabs
+      tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
         headerShown: false,
         sceneStyle: { backgroundColor: colors.background },
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.line },
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.muted,
-        tabBarLabelStyle: type.caption,
       }}
     >
       <Tabs.Screen
