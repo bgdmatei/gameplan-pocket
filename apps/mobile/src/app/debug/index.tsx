@@ -25,7 +25,10 @@ import {
 } from '@/data/perf';
 import type { Metric, Summary } from '@/data/perf';
 import { useQuery } from '@/data/use-query';
-import { fonts, minTouchTarget, radius, space, tabularNumbers, type } from '@/ui/theme';
+import { Hero } from '@/ui/components/hero';
+import { ImageCard } from '@/ui/components/image-card';
+import { PillButton, RoundButton } from '@/ui/components/pill-button';
+import { minTouchTarget, radius, space, tabularNumbers, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 const TABLES = [...SYNC_STATE_TABLES, ...PENDING_OP_TABLES, ...LIBRARY_ENTRY_TABLES];
@@ -136,10 +139,44 @@ const DebugScreen = () => {
 
   return (
     <ScrollView contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}>
-      {/* Embedded fonts check (visual-design T1): serif here means the plugin worked. */}
-      <Text style={[styles.fontCheck, { color: colors.text }]}>
-        Fraunces: Protecting your peace
-      </Text>
+      {/* visual-design T3: the new components on real covers, for review. */}
+      <Text style={[type.label, { color: colors.muted }]}>COMPONENTS (VISUAL-DESIGN)</Text>
+      <View>
+        <Hero imageId="co20gb" gameId={5} height={240} />
+        <View style={styles.heroButtons}>
+          <RoundButton icon="share-outline" label="Share" onPress={() => undefined} />
+          <RoundButton icon="heart-outline" label="Favourite" onPress={() => undefined} />
+        </View>
+        <Text style={[type.display, { color: colors.text }]}>Baldur&apos;s Gate</Text>
+      </View>
+      <View style={styles.cards}>
+        <ImageCard
+          imageId="co22nc"
+          gameId={4}
+          label="Now playing"
+          title="Thief"
+          caption="PC · 2 days ago"
+          width="48%"
+          onPress={() => undefined}
+        />
+        <ImageCard
+          imageId="co71yr"
+          gameId={6}
+          label="Now playing"
+          title="Baldur's Gate II: Shadows of Amn"
+          width="48%"
+          onPress={() => undefined}
+        />
+      </View>
+      <View style={styles.cards}>
+        <PillButton
+          label="Notes"
+          icon="document-text-outline"
+          variant="filled"
+          onPress={() => undefined}
+        />
+        <PillButton label="Share" icon="share-outline" onPress={() => undefined} />
+      </View>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
         {row('Node id', info?.sync.nodeId ?? 'not yet (created at the first edit)')}
         {row('Last clock', info?.sync.hlcLast ?? 'none')}
@@ -180,7 +217,14 @@ const DebugScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  fontCheck: { fontFamily: fonts.serif, fontSize: 24, lineHeight: 30 },
+  heroButtons: {
+    position: 'absolute',
+    top: space.md,
+    right: space.md,
+    flexDirection: 'row',
+    gap: space.sm,
+  },
+  cards: { flexDirection: 'row', justifyContent: 'space-between', gap: space.md },
   page: { padding: space.lg, gap: space.md },
   card: { borderWidth: 1, borderRadius: radius.card, padding: space.md, gap: space.sm },
   row: { gap: 2 },
