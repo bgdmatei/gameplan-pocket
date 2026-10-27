@@ -59,6 +59,8 @@ export const type = {
   display: { fontFamily: fonts.serif, fontSize: 34, lineHeight: 40, letterSpacing: -0.3 },
   /** An image card's title; section titles. */
   displaySmall: { fontFamily: fonts.serif, fontSize: 24, lineHeight: 29 },
+  /** A small image card's title (the Now Playing row). */
+  displayCaption: { fontFamily: fonts.serif, fontSize: 16, lineHeight: 20 },
   largeTitle: { fontSize: 32, lineHeight: 38, fontWeight: '800', letterSpacing: -0.5 },
   title: { fontSize: 20, lineHeight: 25, fontWeight: '700' },
   headline: { fontSize: 17, lineHeight: 22, fontWeight: '600' },

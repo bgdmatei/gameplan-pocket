@@ -10,13 +10,19 @@ import { PressableScale } from './pressable-scale';
 type Props = {
   imageId: string | null;
   gameId: number;
-  /** Small uppercase line above the title ("NOW PLAYING"). */
-  label: string;
+  /** Small uppercase line above the title ("NOW PLAYING"); none when a heading already says it. */
+  label?: string;
   title: string;
   /** A line under the title, in the same muted white as the label. */
   caption?: string;
+  /** The caption as VoiceOver should read it, when it uses short forms ("PS5"). */
+  spokenCaption?: string;
   width: DimensionValue;
   onPress: () => void;
+  onLongPress?: () => void;
+  accessibilityHint?: string;
+  /** `small`: a smaller title and tighter padding, for a row of several cards. */
+  size?: 'regular' | 'small';
 };
 
 /**
@@ -24,15 +30,31 @@ type Props = {
  * "Daily Horoscope" card. Text sits only in the lower part, below the
  * gradient's text stop, so it reads even on a white cover (theme.test.ts).
  */
-export const ImageCard = ({ imageId, gameId, label, title, caption, width, onPress }: Props) => {
+export const ImageCard = ({
+  imageId,
+  gameId,
+  label,
+  title,
+  caption,
+  spokenCaption,
+  width,
+  onPress,
+  onLongPress,
+  accessibilityHint,
+  size = 'regular',
+}: Props) => {
   const { colors } = useTheme();
+  const small = size === 'small';
   const uri = coverUrl(imageId, 'cover_big');
+  const spoken = [title, spokenCaption ?? caption ?? label].filter(Boolean).join(', ');
 
   return (
     <PressableScale
       onPress={onPress}
+      onLongPress={onLongPress}
       accessibilityRole="button"
-      accessibilityLabel={caption === undefined ? `${title}, ${label}` : `${title}, ${caption}`}
+      accessibilityLabel={spoken}
+      accessibilityHint={accessibilityHint}
       style={[styles.card, { width, backgroundColor: colors.raised }]}
     >
       {uri === null ? null : (
@@ -50,13 +72,21 @@ export const ImageCard = ({ imageId, gameId, label, title, caption, width, onPre
         locations={gradients.overImage.locations}
         style={StyleSheet.absoluteFill}
       />
-      <View style={styles.text}>
-        <Text style={[type.label, { color: colors.onImageMuted }]}>{label.toUpperCase()}</Text>
-        <Text style={[type.displaySmall, { color: colors.onImage }]} numberOfLines={3}>
+      <View style={[styles.text, small && styles.smallText]}>
+        {label === undefined ? null : (
+          <Text style={[type.label, { color: colors.onImageMuted }]}>{label.toUpperCase()}</Text>
+        )}
+        <Text
+          style={[small ? type.displayCaption : type.displaySmall, { color: colors.onImage }]}
+          numberOfLines={small ? 2 : 3}
+        >
           {title}
         </Text>
         {caption === undefined ? null : (
-          <Text style={[type.subhead, { color: colors.onImageMuted }]} numberOfLines={1}>
+          <Text
+            style={[small ? type.caption : type.subhead, { color: colors.onImageMuted }]}
+            numberOfLines={1}
+          >
             {caption}
           </Text>
         )}
@@ -78,4 +108,5 @@ const styles = StyleSheet.create({
     gap: space.xs,
     padding: space.lg,
   },
+  smallText: { gap: 2, padding: space.sm },
 });

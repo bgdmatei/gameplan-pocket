@@ -38,7 +38,7 @@ export type LibraryFilters = {
 type Props = { filters: LibraryFilters; onChange: (filters: LibraryFilters) => void };
 
 /**
- * One row of small status chips, one always selected, scrolling sideways when
+ * One row of status pills, one always selected, scrolling sideways when
  * it runs past the screen. Filtering happens in SQL (plan §12.2); this only says what
  * to ask for.
  */
@@ -59,7 +59,6 @@ export const FilterBar = ({ filters, onChange }: Props) => {
         <Chip
           key={status}
           label={STATUS_LABEL[status]}
-          size="small"
           selected={filters.status === status}
           onPress={() => choose(status)}
         />

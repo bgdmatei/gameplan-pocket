@@ -374,7 +374,11 @@ export const listGenresInLibrary = async (
 /** How many games the Now Playing shelf shows. */
 export const SHELF_SIZE = 5;
 
-export type ShelfGame = Pick<LibraryEntry, 'id' | 'gameId'> & Pick<Game, 'name' | 'coverImageId'>;
+export type ShelfGame = Pick<LibraryEntry, 'id' | 'gameId' | 'platformId'> &
+  Pick<Game, 'name' | 'coverImageId'> & {
+    /** When the entry last changed, on this phone or by sync: the shelf's "2 days ago". */
+    updatedAt: string;
+  };
 
 /**
  * Every game being played, for the Now Playing shelf: the most recently
@@ -385,10 +389,12 @@ export const listNowPlaying = async (adapter: StorageAdapter): Promise<ShelfGame
   const rows = await adapter.execute<{
     id: string;
     game_id: number;
+    platform_id: number | null;
+    updated_at: string;
     name: string;
     cover_image_id: string | null;
   }>(
-    `SELECT e.id, e.game_id, g.name, g.cover_image_id
+    `SELECT e.id, e.game_id, e.platform_id, e.updated_at, g.name, g.cover_image_id
      FROM library_entries e
      JOIN games g ON g.id = e.game_id
      WHERE e.deleted = 0 AND e.archived = 0 AND e.status = 'playing'
@@ -397,6 +403,8 @@ export const listNowPlaying = async (adapter: StorageAdapter): Promise<ShelfGame
   return rows.map((row) => ({
     id: row.id,
     gameId: row.game_id,
+    platformId: row.platform_id,
+    updatedAt: row.updated_at,
     name: row.name,
     coverImageId: row.cover_image_id,
   }));
