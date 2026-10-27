@@ -20,6 +20,7 @@ import { StarRating } from '@/ui/components/star-rating';
 import { StatusChips } from '@/ui/components/status-chips';
 import { useToast } from '@/ui/components/toast';
 import { minTouchTarget, radius, space, tabularNumbers, type } from '@/ui/theme';
+import type { Colors } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 import { editEntry } from './edit-entry';
 
@@ -145,7 +146,7 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
         />
       </Section>
 
-      <View style={[styles.switchRow, styles.rule, { borderTopColor: colors.line }]}>
+      <View style={[styles.switchRow, styles.card, cardColours(colors)]}>
         <Text style={[type.body, { color: colors.text }]}>Favourite</Text>
         <Switch
           value={shown.favourite}
@@ -158,10 +159,15 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
   );
 };
 
+const cardColours = (colors: Colors) => ({
+  backgroundColor: colors.surface,
+  borderColor: colors.line,
+});
+
 const Section = ({ label, children }: { label: string; children: ReactNode }) => {
   const { colors } = useTheme();
   return (
-    <View style={[styles.section, styles.rule, { borderTopColor: colors.line }]}>
+    <View style={[styles.section, styles.card, cardColours(colors)]}>
       <Text style={[type.label, { color: colors.muted }]}>{label}</Text>
       {children}
     </View>
@@ -238,10 +244,10 @@ const Playtime = ({
 };
 
 const styles = StyleSheet.create({
-  editor: { gap: space.lg },
+  editor: { gap: space.md },
   section: { gap: space.sm },
-  /** Sections sit on the screen's ground, divided by hairlines rather than boxed. */
-  rule: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: space.lg },
+  /** Each section is a soft card on the ground, like the references' panels. */
+  card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.card, padding: space.lg },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   fields: { flexDirection: 'row', gap: space.md },
   field: { width: 128, gap: space.xs },
@@ -256,5 +262,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     minHeight: minTouchTarget,
+    paddingVertical: space.sm,
   },
 });

@@ -49,7 +49,11 @@ const RootLayout = () => {
             }}
           >
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="game/[id]" options={withHeader('')} />
+            {/* Over the cover hero: the screen colours it once its title is in it. */}
+            <Stack.Screen
+              name="game/[id]"
+              options={{ ...withHeader(''), headerTransparent: true }}
+            />
             <Stack.Screen name="game/[id]/notes" options={withHeader('Notes')} />
             <Stack.Screen name="note/new" options={withHeader('New note')} />
             <Stack.Screen name="note/[id]" options={withHeader('Note')} />
