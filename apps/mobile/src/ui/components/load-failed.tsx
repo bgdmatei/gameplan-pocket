@@ -1,7 +1,8 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, Text, View } from 'react-native';
-import { minTouchTarget, space, type } from '../theme';
+import { radius, space, type } from '../theme';
 import { useTheme } from '../use-theme';
-import { PressableScale } from './pressable-scale';
+import { PillButton } from './pill-button';
 
 type Props = { message: string; onRetry: () => void };
 
@@ -14,21 +15,28 @@ export const LoadFailed = ({ message, onRetry }: Props) => {
   const { colors } = useTheme();
 
   return (
-    <View style={styles.box} accessibilityLiveRegion="polite">
-      <Text style={[type.body, { color: colors.muted }]}>{message}</Text>
-      <PressableScale
-        onPress={onRetry}
-        accessibilityRole="button"
-        hitSlop={{ left: space.sm, right: space.sm }}
-        style={styles.retry}
+    <View style={styles.outer}>
+      <View
+        style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}
+        accessibilityLiveRegion="polite"
       >
-        <Text style={[type.headline, { color: colors.accent }]}>Try again</Text>
-      </PressableScale>
+        <Ionicons name="alert-circle-outline" size={28} color={colors.muted} />
+        <Text style={[type.body, styles.message, { color: colors.text }]}>{message}</Text>
+        <PillButton label="Try again" icon="refresh" onPress={onRetry} />
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  box: { padding: space.lg, gap: space.sm, alignItems: 'flex-start' },
-  retry: { minHeight: minTouchTarget, justifyContent: 'center' },
+  outer: { padding: space.lg },
+  // A soft card, centred: the one thing on the screen is what went wrong.
+  card: {
+    alignItems: 'center',
+    gap: space.md,
+    padding: space.xl,
+    borderRadius: radius.card,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  message: { textAlign: 'center' },
 });

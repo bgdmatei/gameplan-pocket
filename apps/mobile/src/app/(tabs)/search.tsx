@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { CATALOG_LIMITS } from '@gameplan/contracts';
 import type { Platform } from '@gameplan/domain';
 import {
@@ -11,12 +12,14 @@ import {
 import { router, useNavigation } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { startTimer } from '@/data/perf';
 import { useQuery } from '@/data/use-query';
 import { mergeSearch } from '@/features/search/merge';
 import type { SearchNotice } from '@/features/search/merge';
 import { useRemoteSearch } from '@/features/search/use-remote-search';
+import { EmptyState } from '@/ui/components/empty-state';
+import { Frosted } from '@/ui/components/frosted';
 import { GameRow } from '@/ui/components/game-row';
 import { LoadFailed } from '@/ui/components/load-failed';
 import type { GameRowProps } from '@/ui/components/game-row';
@@ -57,7 +60,10 @@ const NOTICE: Record<Exclude<SearchNotice, null>, string> = {
 
 const SearchScreen = () => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const tabBarSpace = useTabBarSpace();
+  // The frosted bar floats over the list; the list starts below it.
+  const [barHeight, setBarHeight] = useState(0);
   const navigation = useNavigation();
   const [text, setText] = useState('');
 
@@ -140,75 +146,129 @@ const SearchScreen = () => {
       ? recent
       : null;
 
-  const empty = searching
-    ? remote.kind === 'waiting'
-      ? 'Searching the catalog…'
-      : `No games match “${query}”.`
-    : 'Games you add show up here. Search by name to find one.';
+  const empty = !searching
+    ? {
+        icon: 'search' as const,
+        message: 'Games you add show up here. Search by name to find one.',
+      }
+    : remote.kind === 'waiting'
+      ? { icon: 'search' as const, message: 'Searching the catalog…', busy: true }
+      : { icon: 'help-circle-outline' as const, message: `No games match “${query}”.` };
 
   return (
-    <SafeAreaView edges={['top']} style={styles.page}>
-      <View style={styles.head}>
-        <Text style={[type.largeTitle, { color: colors.text }]} accessibilityRole="header">
-          Search
-        </Text>
-        <TextInput
-          value={text}
-          onChangeText={changeText}
-          placeholder="Game name"
-          placeholderTextColor={colors.muted}
-          accessibilityLabel="Search games"
-          autoCorrect={false}
-          autoCapitalize="none"
-          clearButtonMode="while-editing"
-          returnKeyType="search"
-          maxLength={CATALOG_LIMITS.queryMaxLength}
-          style={[
-            type.body,
-            styles.input,
-            { color: colors.text, backgroundColor: colors.surface, borderColor: colors.line },
-          ]}
-        />
-        {searching && merged.notice !== null ? (
-          <Text style={[type.subhead, { color: colors.muted }]} accessibilityLiveRegion="polite">
-            {NOTICE[merged.notice]}
-          </Text>
-        ) : null}
-        {!searching && rows.length > 0 ? (
-          <Text style={[type.label, { color: colors.muted }]}>RECENTLY UPDATED</Text>
-        ) : null}
-      </View>
-
+    <View style={styles.page}>
       <FlatList
         data={rows}
         keyExtractor={(row) => String(row.gameId)}
         renderItem={({ item }) => <GameRow {...item} onPress={open} />}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        // The last row clears the floating tab bar.
-        contentContainerStyle={{ paddingBottom: space.xl + tabBarSpace }}
+        // Rows scroll under the frosted bar; the last one clears the floating tab bar.
+        contentContainerStyle={{ paddingTop: barHeight, paddingBottom: space.xl + tabBarSpace }}
+        scrollIndicatorInsets={{ top: barHeight }}
+        ListHeaderComponent={
+          searching && merged.notice !== null ? (
+            <View
+              style={[styles.notice, { backgroundColor: colors.surface, borderColor: colors.line }]}
+              accessibilityLiveRegion="polite"
+            >
+              <Ionicons
+                name={merged.notice === 'offline' ? 'cloud-offline-outline' : 'warning-outline'}
+                size={18}
+                color={colors.muted}
+              />
+              <Text style={[type.subhead, styles.noticeText, { color: colors.text }]}>
+                {NOTICE[merged.notice]}
+              </Text>
+            </View>
+          ) : !searching && rows.length > 0 ? (
+            <Text style={[type.label, styles.section, { color: colors.muted }]}>
+              RECENTLY UPDATED
+            </Text>
+          ) : null
+        }
         ListEmptyComponent={
           failed === null ? (
-            <Text style={[type.body, styles.empty, { color: colors.muted }]}>{empty}</Text>
+            <EmptyState {...empty} />
           ) : (
             <LoadFailed message="Games on this phone couldn’t be read." onRetry={failed.retry} />
           )
         }
       />
-    </SafeAreaView>
+
+      <Frosted style={[styles.bar, { paddingTop: insets.top, borderBottomColor: colors.line }]}>
+        <View
+          onLayout={(event) =>
+            setBarHeight(event.nativeEvent.layout.height + insets.top + space.md)
+          }
+        >
+          <Text
+            style={[type.display, styles.title, { color: colors.text }]}
+            accessibilityRole="header"
+          >
+            Search
+          </Text>
+          <View
+            style={[styles.field, { backgroundColor: colors.surface, borderColor: colors.line }]}
+          >
+            <Ionicons name="search" size={18} color={colors.muted} />
+            <TextInput
+              value={text}
+              onChangeText={changeText}
+              placeholder="Game name"
+              placeholderTextColor={colors.muted}
+              accessibilityLabel="Search games"
+              autoCorrect={false}
+              autoCapitalize="none"
+              clearButtonMode="while-editing"
+              returnKeyType="search"
+              maxLength={CATALOG_LIMITS.queryMaxLength}
+              style={[type.body, styles.input, { color: colors.text }]}
+            />
+          </View>
+        </View>
+      </Frosted>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   page: { flex: 1 },
-  head: { paddingHorizontal: space.lg, paddingBottom: space.sm, gap: space.md },
-  input: {
-    minHeight: minTouchTarget,
-    paddingHorizontal: space.md,
-    borderRadius: radius.small,
-    borderWidth: 1,
+  bar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: space.lg,
+    paddingBottom: space.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  empty: { paddingHorizontal: space.lg, paddingTop: space.lg },
+  title: { paddingBottom: space.sm },
+  field: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    minHeight: minTouchTarget,
+    paddingLeft: space.md,
+    borderRadius: radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  // The clear button sits at the input's end, inside the pill.
+  input: { flex: 1, minHeight: minTouchTarget, paddingRight: space.md },
+  section: { paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.xs },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    marginHorizontal: space.lg,
+    marginTop: space.md,
+    marginBottom: space.xs,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  noticeText: { flex: 1 },
 });
 
 export default SearchScreen;

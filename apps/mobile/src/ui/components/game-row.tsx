@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { minTouchTarget, space, tabularNumbers, type } from '../theme';
+import { minTouchTarget, radius, space, tabularNumbers, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { Cover } from './cover';
 
@@ -38,7 +38,7 @@ export const GameRow = memo(
           .join(', ')}
         style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.raised }]}
       >
-        <Cover imageId={coverImageId} gameId={gameId} size="cover_small" width={48} />
+        <Cover imageId={coverImageId} gameId={gameId} size="cover_small" width={52} />
         <View style={styles.text}>
           <Text style={[type.headline, { color: colors.text }]} numberOfLines={2}>
             {name}
@@ -70,7 +70,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: space.md,
     paddingVertical: space.sm,
-    paddingHorizontal: space.lg,
+    // Inset, so the pressed highlight is a soft rounded card rather than an edge-to-edge band.
+    marginHorizontal: space.sm,
+    paddingHorizontal: space.sm,
+    borderRadius: radius.card,
     minHeight: minTouchTarget,
   },
   text: { flex: 1, gap: 2 },
