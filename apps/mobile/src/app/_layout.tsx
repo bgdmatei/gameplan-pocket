@@ -57,8 +57,8 @@ const RootLayout = () => {
             <Stack.Screen name="game/[id]/notes" options={withHeader('Notes')} />
             <Stack.Screen name="note/new" options={withHeader('New note')} />
             <Stack.Screen name="note/[id]" options={withHeader('Note')} />
-            <Stack.Screen name="archive" options={withHeader('Archive')} />
-            <Stack.Screen name="account" options={withHeader('Account')} />
+            <Stack.Screen name="archive" options={withHeader('')} />
+            <Stack.Screen name="account" options={withHeader('')} />
             <Stack.Screen name="debug/index" options={withHeader('Debug')} />
             <Stack.Screen name="debug/outbox" options={withHeader('Outbox')} />
             <Stack.Screen name="debug/storage-check" options={withHeader('Storage contract')} />

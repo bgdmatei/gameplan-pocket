@@ -17,8 +17,8 @@ export const SignedInCard = ({ session, online, busy, onSignOut }: SignedInCardP
   const { colors, muted } = useFormStyles();
   return (
     <>
-      <View style={[styles.card, { backgroundColor: colors.surface }]}>
-        <Text style={muted}>Signed in as</Text>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+        <Text style={[type.label, { color: colors.muted }]}>SIGNED IN AS</Text>
         <Text style={[type.headline, { color: colors.text }]}>{session.user.email}</Text>
         <Text style={muted}>This phone is registered for sync.</Text>
         <Text style={[muted, tabularNumbers]} accessibilityLabel={`Device ID ${session.device.id}`}>
@@ -40,5 +40,11 @@ export const SignedInCard = ({ session, online, busy, onSignOut }: SignedInCardP
 };
 
 const styles = StyleSheet.create({
-  card: { padding: space.lg, gap: space.xs, borderRadius: radius.card },
+  // A soft card, like the sections on Game detail.
+  card: {
+    padding: space.lg,
+    gap: space.xs,
+    borderRadius: radius.card,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
 });
