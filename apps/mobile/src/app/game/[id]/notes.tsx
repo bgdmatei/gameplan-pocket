@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@/data/use-query';
 import { Chip } from '@/ui/components/chip';
+import { EmptyState } from '@/ui/components/empty-state';
 import { LoadFailed } from '@/ui/components/load-failed';
 import { PressableScale } from '@/ui/components/pressable-scale';
 import { HeaderIconButton } from '@/ui/components/header-button';
@@ -107,7 +108,7 @@ const NotesScreen = () => {
         contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}
         ListHeaderComponent={
           <View style={styles.header}>
-            <Text style={[type.headline, { color: colors.text }]} accessibilityRole="header">
+            <Text style={[type.displaySmall, { color: colors.text }]} accessibilityRole="header">
               {open === 0 ? 'Nothing open' : `${String(open)} open`}
             </Text>
             <ScrollView
@@ -137,11 +138,14 @@ const NotesScreen = () => {
           </View>
         }
         ListEmptyComponent={
-          <Text style={[type.body, { color: colors.muted }]}>
-            {shown === 'open' && noteType === undefined
-              ? 'No open notes. Add a puzzle, a secret or a hint you want to remember.'
-              : 'No notes match.'}
-          </Text>
+          shown === 'open' && noteType === undefined ? (
+            <EmptyState
+              icon="document-text-outline"
+              message="No open notes. Add a puzzle, a secret or a hint you want to remember."
+            />
+          ) : (
+            <EmptyState icon="funnel-outline" message="No notes match." />
+          )
         }
         renderItem={({ item }) => <NoteRow note={item} />}
       />
@@ -183,7 +187,13 @@ const styles = StyleSheet.create({
   header: { gap: space.md, marginBottom: space.sm },
   row: { gap: space.sm },
   divider: { width: 1, marginVertical: space.xs },
-  note: { padding: space.md, gap: space.xs, borderRadius: radius.card, borderWidth: 1 },
+  // Soft cards: open notes in the warm note fill, resolved ones on the plain surface.
+  note: {
+    padding: space.lg,
+    gap: space.sm,
+    borderRadius: radius.card,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
 });
 
 export default NotesScreen;

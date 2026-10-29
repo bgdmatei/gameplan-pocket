@@ -16,7 +16,7 @@ import type { NoteSession } from '@/features/notes/note-session';
 import { HeaderIconButton } from '@/ui/components/header-button';
 import { LoadFailed } from '@/ui/components/load-failed';
 import { useToast } from '@/ui/components/toast';
-import { minTouchTarget, space, type } from '@/ui/theme';
+import { minTouchTarget, radius, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 const NoteScreen = () => {
@@ -169,7 +169,9 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
       />
       <NoteForm draft={draft} onChange={setDraft} />
 
-      <View style={styles.switchRow}>
+      <View
+        style={[styles.switchRow, { backgroundColor: colors.surface, borderColor: colors.line }]}
+      >
         <Text style={[type.body, { color: colors.text }]}>Resolved</Text>
         <Switch
           value={resolved}
@@ -188,11 +190,16 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
 const styles = StyleSheet.create({
   page: { padding: space.lg, gap: space.xl },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  // A soft card row, like Favourite on the game.
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     minHeight: minTouchTarget,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+    borderRadius: radius.card,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });
 
