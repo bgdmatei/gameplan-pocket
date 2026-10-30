@@ -44,6 +44,8 @@ coverage/
 *.md
 # ...except the agent instructions, which are shared
 !CLAUDE.md
+# ...and the README, how to run the project and why it is built this way
+!README.md
 # ...and measured numbers, which belong with the code they describe
 !PERFORMANCE.md
 !**/PERFORMANCE.md

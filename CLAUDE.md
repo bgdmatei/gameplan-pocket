@@ -19,7 +19,9 @@ Offline-first, multi-device game logbook: Expo (React Native) + Hono API + a cus
 
 Work follows spec → plan → tasks → implement, with a human review gate between phases. Don't start a module without an approved spec, and don't overwrite a plan that still has unchecked tasks — archive it instead.
 
-`*.md` is gitignored (see `.gitignore`), so specs and plans stay local. `CLAUDE.md` is the exception and is versioned.
+`*.md` is gitignored (see `.gitignore`), so specs and plans stay local. `CLAUDE.md` and `README.md` are the exceptions and are versioned.
+
+**Keep `README.md` current.** It is the versioned record of how to run the project and the tests, the decisions behind it, and what is done. When a change touches any of those (a command, a setup step, a decision revisited, a module finished), update the README in the same commit.
 
 ## Commands
 
