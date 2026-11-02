@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { DomainValidationError } from '@gameplan/domain';
 import { useSegments } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
@@ -6,6 +7,7 @@ import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radius, space, type } from '../theme';
 import { useTheme } from '../use-theme';
+import { Frosted } from './frosted';
 
 type Toast = { lines: readonly string[]; tone: 'info' | 'problem' };
 
@@ -62,20 +64,23 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
         <View
           pointerEvents="none"
           accessibilityLiveRegion="polite"
-          style={[
-            styles.toast,
-            {
-              bottom: insets.bottom + (onTabs ? ABOVE_TABS : space.lg),
-              backgroundColor: colors.text,
-              borderLeftColor: toast.tone === 'problem' ? colors.danger : colors.accentFill,
-            },
-          ]}
+          style={[styles.toast, { bottom: insets.bottom + (onTabs ? ABOVE_TABS : space.lg) }]}
         >
-          {toast.lines.map((line) => (
-            <Text key={line} style={[type.callout, { color: colors.background }]}>
-              {line}
-            </Text>
-          ))}
+          {/* Frosted like the tab bar it floats above; the icon carries the tone. */}
+          <Frosted style={[styles.card, { borderColor: colors.line }]}>
+            <Ionicons
+              name={toast.tone === 'problem' ? 'alert-circle' : 'information-circle'}
+              size={20}
+              color={toast.tone === 'problem' ? colors.danger : colors.accent}
+            />
+            <View style={styles.lines}>
+              {toast.lines.map((line) => (
+                <Text key={line} style={[type.callout, { color: colors.text }]}>
+                  {line}
+                </Text>
+              ))}
+            </View>
+          </Frosted>
         </View>
       )}
     </ToastContext.Provider>
@@ -89,13 +94,15 @@ export const useToast = (): ToastApi => {
 };
 
 const styles = StyleSheet.create({
-  toast: {
-    position: 'absolute',
-    left: space.lg,
-    right: space.lg,
-    padding: space.md,
-    gap: space.xs,
-    borderRadius: radius.card,
-    borderLeftWidth: 4,
+  toast: { position: 'absolute', left: space.lg, right: space.lg },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space.md,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    borderRadius: radius.sheet,
+    borderWidth: StyleSheet.hairlineWidth,
   },
+  lines: { flex: 1, gap: space.xs },
 });

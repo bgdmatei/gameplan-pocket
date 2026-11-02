@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { minTouchTarget, radius, space, type } from '../theme';
 import { useTheme } from '../use-theme';
+import { Frosted } from './frosted';
 import { PressableScale } from './pressable-scale';
 
 export type DropdownOption<T extends string> = {
@@ -75,66 +76,67 @@ export const Dropdown = <T extends string>({
       <Modal visible={anchor !== null} transparent animationType="fade" onRequestClose={close}>
         <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close" />
         {anchor === null ? null : (
+          // Frosted, so the screen shows through the menu as it does through the tab bar.
           <View
             accessibilityRole="menu"
-            style={[
-              styles.menu,
-              { top: anchor.top, left: anchor.left },
-              { backgroundColor: colors.surface, borderColor: colors.line },
-            ]}
+            style={[styles.menu, { top: anchor.top, left: anchor.left }]}
           >
-            {options.map((option) => {
-              const selected = option.value === value;
-              return (
-                <Pressable
-                  key={option.value}
-                  onPress={() => {
-                    close();
-                    if (!selected) onChange(option.value);
-                    else onReselect?.(option.value);
-                  }}
-                  accessibilityRole="menuitem"
-                  accessibilityLabel={
-                    option.detail === undefined ? option.label : `${option.label}, ${option.detail}`
-                  }
-                  accessibilityHint={
-                    selected && onReselect !== undefined ? 'Reverses the order' : undefined
-                  }
-                  accessibilityState={{ selected }}
-                  style={({ pressed }) => [
-                    styles.item,
-                    pressed && { backgroundColor: colors.raised },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      type.body,
-                      styles.grow,
-                      selected && styles.bold,
-                      { color: colors.text },
+            <Frosted style={[styles.menuFill, { borderColor: colors.line }]}>
+              {options.map((option) => {
+                const selected = option.value === value;
+                return (
+                  <Pressable
+                    key={option.value}
+                    onPress={() => {
+                      close();
+                      if (!selected) onChange(option.value);
+                      else onReselect?.(option.value);
+                    }}
+                    accessibilityRole="menuitem"
+                    accessibilityLabel={
+                      option.detail === undefined
+                        ? option.label
+                        : `${option.label}, ${option.detail}`
+                    }
+                    accessibilityHint={
+                      selected && onReselect !== undefined ? 'Reverses the order' : undefined
+                    }
+                    accessibilityState={{ selected }}
+                    style={({ pressed }) => [
+                      styles.item,
+                      pressed && { backgroundColor: colors.raised },
                     ]}
                   >
-                    {option.label}
-                  </Text>
-                  {option.detail === undefined ? null : (
                     <Text
-                      style={[type.subhead, { color: selected ? colors.accent : colors.muted }]}
+                      style={[
+                        type.body,
+                        styles.grow,
+                        selected && styles.bold,
+                        { color: colors.text },
+                      ]}
                     >
-                      {option.detail}
+                      {option.label}
                     </Text>
-                  )}
-                  <View style={styles.mark}>
-                    {selected ? (
-                      <Ionicons
-                        name={onReselect === undefined ? 'checkmark' : 'swap-vertical'}
-                        size={18}
-                        color={colors.accent}
-                      />
-                    ) : null}
-                  </View>
-                </Pressable>
-              );
-            })}
+                    {option.detail === undefined ? null : (
+                      <Text
+                        style={[type.subhead, { color: selected ? colors.accent : colors.muted }]}
+                      >
+                        {option.detail}
+                      </Text>
+                    )}
+                    <View style={styles.mark}>
+                      {selected ? (
+                        <Ionicons
+                          name={onReselect === undefined ? 'checkmark' : 'swap-vertical'}
+                          size={18}
+                          color={colors.accent}
+                        />
+                      ) : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </Frosted>
           </View>
         )}
       </Modal>
@@ -150,18 +152,17 @@ const styles = StyleSheet.create({
     minHeight: minTouchTarget - 12,
     paddingHorizontal: space.md,
     borderRadius: radius.pill,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   bold: { fontWeight: '700' },
   grow: { flex: 1 },
   /** Keeps the details lined up whether or not a row has the mark. */
   mark: { width: 18, alignItems: 'center' },
-  menu: {
-    position: 'absolute',
-    minWidth: 240,
-    paddingVertical: space.xs,
-    borderRadius: radius.card,
-    borderWidth: 1,
+  menu: { position: 'absolute', minWidth: 240 },
+  menuFill: {
+    paddingVertical: space.sm,
+    borderRadius: radius.sheet,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   item: {
     flexDirection: 'row',

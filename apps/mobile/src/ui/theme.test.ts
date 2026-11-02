@@ -17,6 +17,8 @@ const pairs = (scheme: ColorScheme): Pair[] => {
     ['text on surface', c.text, c.surface, BODY],
     ['text on raised', c.text, c.raised, BODY],
     ['text on frostedFill', c.text, c.frostedFill, BODY],
+    ['danger on frostedFill', c.danger, c.frostedFill, BODY],
+    ['accent on frostedFill', c.accent, c.frostedFill, BODY],
     ['muted on background', c.muted, c.background, BODY],
     ['muted on surface', c.muted, c.surface, BODY],
     ['muted on raised', c.muted, c.raised, BODY],
@@ -66,6 +68,8 @@ describe('theme contrast', () => {
         expect(contrastRatio(c.text, ground)).toBeGreaterThanOrEqual(BODY);
         expect(contrastRatio(c.muted, ground)).toBeGreaterThanOrEqual(BODY);
         expect(contrastRatio(c.accent, ground)).toBeGreaterThanOrEqual(BODY);
+        // A problem toast's icon, frosted over the screen.
+        expect(contrastRatio(c.danger, ground)).toBeGreaterThanOrEqual(BODY);
       }
     },
   );
