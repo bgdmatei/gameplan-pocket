@@ -8,6 +8,7 @@ import {
   listNowPlaying,
 } from '@gameplan/storage';
 import type { ShelfGame } from '@gameplan/storage';
+import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -18,6 +19,7 @@ import { GameRow } from '@/ui/components/game-row';
 import { ImageCard } from '@/ui/components/image-card';
 import { PressableScale } from '@/ui/components/pressable-scale';
 import { Sheet } from '@/ui/components/sheet';
+import { GameRowsSkeleton } from '@/ui/components/skeleton';
 import { useToast } from '@/ui/components/toast';
 import { STATUS_LABEL, timeSince } from '@/ui/labels';
 import { platformById, platformLabel } from '@/ui/platforms';
@@ -134,24 +136,33 @@ export const NowPlayingShelf = () => {
         ) : null}
       </ScrollView>
 
-      <Sheet visible={showingAll} title="Now playing" onClose={() => setShowingAll(false)}>
-        <View style={styles.list}>
-          {games.map((game) => (
-            <GameRow
-              key={game.id}
-              gameId={game.gameId}
-              name={game.name}
-              coverImageId={game.coverImageId}
-              releaseYear={null}
-              platforms={null}
-              onPress={(gameId) => {
-                setShowingAll(false);
-                openGame(gameId);
-              }}
-            />
-          ))}
-        </View>
-      </Sheet>
+      <Sheet
+        visible={showingAll}
+        title="Now playing"
+        onClose={() => setShowingAll(false)}
+        placeholder={<GameRowsSkeleton />}
+        list={(inset) => (
+          <FlashList
+            data={games}
+            keyExtractor={(game) => game.id}
+            renderItem={({ item }) => (
+              <GameRow
+                gameId={item.gameId}
+                name={item.name}
+                coverImageId={item.coverImageId}
+                releaseYear={null}
+                platforms={null}
+                onPress={(gameId) => {
+                  setShowingAll(false);
+                  openGame(gameId);
+                }}
+              />
+            )}
+            contentContainerStyle={{ paddingTop: inset.top, paddingBottom: inset.bottom }}
+            scrollIndicatorInsets={{ top: inset.top }}
+          />
+        )}
+      />
     </View>
   );
 };
@@ -177,5 +188,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   find: { textAlign: 'center', paddingHorizontal: space.sm },
-  list: { marginHorizontal: -space.lg },
 });
