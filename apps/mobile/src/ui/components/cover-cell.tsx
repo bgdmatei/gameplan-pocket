@@ -3,10 +3,11 @@ import type { LibraryGridRow } from '@gameplan/storage';
 import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { STATUS_LABEL } from '../labels';
-import { radius, space, statusDot, tabularNumbers, type } from '../theme';
+import { radius, space, tabularNumbers, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { Cover } from './cover';
 import { PressableScale } from './pressable-scale';
+import { StatusIcon } from './status-icon';
 
 type Props = {
   row: LibraryGridRow;
@@ -65,7 +66,7 @@ export const CoverCell = memo(({ row, onPress, showStatus, platform, platformNam
         <View style={styles.status}>
           {showStatus ? (
             <>
-              <View style={[styles.dot, { backgroundColor: status[row.status] }]} />
+              <StatusIcon status={row.status} color={status[row.status]} size={12} />
               <Text style={[type.caption, styles.label, { color: colors.muted }]} numberOfLines={1}>
                 {STATUS_LABEL[row.status]}
               </Text>
@@ -101,5 +102,4 @@ const styles = StyleSheet.create({
   },
   status: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   label: { flexShrink: 1 },
-  dot: { width: statusDot, height: statusDot, borderRadius: statusDot / 2 },
 });

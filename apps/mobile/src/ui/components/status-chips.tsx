@@ -1,9 +1,10 @@
 import type { EntryStatus } from '@gameplan/domain';
 import { StyleSheet, Text, View } from 'react-native';
 import { STATUS_LABEL } from '../labels';
-import { minTouchTarget, radius, space, statusDot, type } from '../theme';
+import { minTouchTarget, radius, space, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { PressableScale } from './pressable-scale';
+import { StatusIcon } from './status-icon';
 
 type Props = {
   options: readonly EntryStatus[];
@@ -48,7 +49,7 @@ export const StatusChips = ({ options, selected, onSelect, disabled = false, all
               },
             ]}
           >
-            <View style={[styles.dot, { backgroundColor: statusColors[status] }]} />
+            <StatusIcon status={status} filled={on} color={statusColors[status]} />
             <Text
               style={[
                 type.subhead,
@@ -76,7 +77,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1.5,
   },
-  dot: { width: statusDot, height: statusDot, borderRadius: statusDot / 2 },
   bold: { fontWeight: '700' },
   unavailable: { opacity: 0.4 },
 });
