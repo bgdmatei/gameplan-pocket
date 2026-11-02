@@ -2,7 +2,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { space, type } from '../theme';
+import { displayMaxScale, space, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { Frosted } from './frosted';
 import { HeaderButton } from './header-button';
@@ -80,7 +80,11 @@ export const Sheet = ({ visible, title, onClose, action, children, list, placeho
                 <HeaderButton label={action.label} onPress={action.onPress} />
               )}
             </View>
-            <Text style={[type.displaySmall, { color: colors.text }]} accessibilityRole="header">
+            <Text
+              maxFontSizeMultiplier={displayMaxScale}
+              style={[type.displaySmall, { color: colors.text }]}
+              accessibilityRole="header"
+            >
               {title}
             </Text>
             <View style={[styles.side, styles.end]}>

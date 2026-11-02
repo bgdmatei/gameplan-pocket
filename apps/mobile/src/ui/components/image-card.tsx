@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 import type { DimensionValue } from 'react-native';
-import { gradients, radius, space, type } from '../theme';
+import { displayMaxScale, gradients, radius, space, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { PressableScale } from './pressable-scale';
 
@@ -77,6 +77,7 @@ export const ImageCard = ({
           <Text style={[type.label, { color: colors.onImageMuted }]}>{label.toUpperCase()}</Text>
         )}
         <Text
+          maxFontSizeMultiplier={displayMaxScale}
           style={[small ? type.displayCaption : type.displaySmall, { color: colors.onImage }]}
           numberOfLines={small ? 2 : 3}
         >

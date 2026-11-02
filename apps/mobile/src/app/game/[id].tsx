@@ -21,7 +21,7 @@ import { StatusChips } from '@/ui/components/status-chips';
 import { useToast } from '@/ui/components/toast';
 import { releaseYear } from '@/ui/labels';
 import { platformLabel, playablePlatforms } from '@/ui/platforms';
-import { minTouchTarget, radius, space, tabularNumbers, type } from '@/ui/theme';
+import { displayMaxScale, minTouchTarget, radius, space, tabularNumbers, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 const UNAVAILABLE = {
@@ -155,6 +155,7 @@ const GameScreen = () => {
         <View style={styles.body}>
           <View style={styles.heading}>
             <Text
+              maxFontSizeMultiplier={displayMaxScale}
               style={[type.display, styles.centred, { color: colors.text }]}
               accessibilityRole="header"
             >

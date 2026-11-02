@@ -2,7 +2,7 @@ import { StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/ui/components/empty-state';
 import { LibraryGrid } from '@/ui/components/library-grid';
-import { space, type } from '@/ui/theme';
+import { displayMaxScale, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 /** Games taken out of the library. Archived, never deleted: opening one offers to restore it. */
@@ -17,6 +17,7 @@ const ArchiveScreen = () => {
       // The title in the serif, as on Library; the native header keeps only the back button.
       header={
         <Text
+          maxFontSizeMultiplier={displayMaxScale}
           style={[type.display, styles.title, { color: colors.text }]}
           accessibilityRole="header"
         >

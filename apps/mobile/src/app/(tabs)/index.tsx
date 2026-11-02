@@ -10,7 +10,7 @@ import { LibraryGrid } from '@/ui/components/library-grid';
 import { STATUS_LABEL } from '@/ui/labels';
 import { RoundButton } from '@/ui/components/pill-button';
 import { useTabBarSpace } from '@/ui/components/tab-bar';
-import { space, type } from '@/ui/theme';
+import { displayMaxScale, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 /** Newest release counts from this year: a game due next year isn't "newest" yet. */
@@ -37,7 +37,11 @@ const LibraryScreen = () => {
   return (
     <SafeAreaView edges={['top']} style={styles.page}>
       <View style={styles.head}>
-        <Text style={[type.display, { color: colors.text }]} accessibilityRole="header">
+        <Text
+          maxFontSizeMultiplier={displayMaxScale}
+          style={[type.display, { color: colors.text }]}
+          accessibilityRole="header"
+        >
           Library
         </Text>
         <View style={styles.actions}>

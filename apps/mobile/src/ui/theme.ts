@@ -51,6 +51,14 @@ export const fonts = {
 } as const;
 
 /**
+ * How far serif display text grows with Dynamic Type, as a Text's
+ * `maxFontSizeMultiplier`. Uncapped, "Library" at the largest size wrapped
+ * mid-word and pushed the header's buttons off screen; iOS caps its own
+ * large titles the same way. Body text scales fully.
+ */
+export const displayMaxScale = 1.5;
+
+/**
  * Fraunces for headlines (`display*`), the system font (SF Pro on iOS, Roboto
  * on Android) for everything else. System sizes follow iOS's text styles.
  */

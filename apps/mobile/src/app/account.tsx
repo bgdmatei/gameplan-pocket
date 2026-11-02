@@ -16,7 +16,7 @@ import { signIn } from '@/features/account/sign-in';
 import { eraseWarning, libraryCounts, signOut } from '@/features/account/sign-out';
 import { ThemeButton } from '@/ui/components/theme-button';
 import { useToast } from '@/ui/components/toast';
-import { space, type } from '@/ui/theme';
+import { displayMaxScale, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 type Step =
@@ -170,7 +170,11 @@ const AccountScreen = () => {
         keyboardShouldPersistTaps="handled"
       >
         {/* The title in the serif, as on Library; the native header keeps the back and theme buttons. */}
-        <Text style={[type.display, { color: colors.text }]} accessibilityRole="header">
+        <Text
+          maxFontSizeMultiplier={displayMaxScale}
+          style={[type.display, { color: colors.text }]}
+          accessibilityRole="header"
+        >
           Account
         </Text>
         {step.kind === 'email' && (

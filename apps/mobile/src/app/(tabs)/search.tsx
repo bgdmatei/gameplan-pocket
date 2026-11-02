@@ -26,7 +26,7 @@ import type { GameRowProps } from '@/ui/components/game-row';
 import { releaseYear } from '@/ui/labels';
 import { platformLabel, playablePlatforms } from '@/ui/platforms';
 import { useTabBarSpace } from '@/ui/components/tab-bar';
-import { minTouchTarget, radius, space, type } from '@/ui/theme';
+import { displayMaxScale, minTouchTarget, radius, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 type Row = Omit<GameRowProps, 'onPress'>;
@@ -203,6 +203,7 @@ const SearchScreen = () => {
           }
         >
           <Text
+            maxFontSizeMultiplier={displayMaxScale}
             style={[type.display, styles.title, { color: colors.text }]}
             accessibilityRole="header"
           >

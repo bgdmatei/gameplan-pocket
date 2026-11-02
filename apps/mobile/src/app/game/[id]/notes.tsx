@@ -19,7 +19,7 @@ import { PressableScale } from '@/ui/components/pressable-scale';
 import { HeaderIconButton } from '@/ui/components/header-button';
 import { SkeletonBlock } from '@/ui/components/skeleton';
 import { NOTE_TYPE_LABEL } from '@/ui/labels';
-import { radius, space, type } from '@/ui/theme';
+import { displayMaxScale, radius, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 type Shown = 'open' | 'all' | 'resolved';
@@ -108,7 +108,11 @@ const NotesScreen = () => {
         contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}
         ListHeaderComponent={
           <View style={styles.header}>
-            <Text style={[type.displaySmall, { color: colors.text }]} accessibilityRole="header">
+            <Text
+              maxFontSizeMultiplier={displayMaxScale}
+              style={[type.displaySmall, { color: colors.text }]}
+              accessibilityRole="header"
+            >
               {open === 0 ? 'Nothing open' : `${String(open)} open`}
             </Text>
             <ScrollView
