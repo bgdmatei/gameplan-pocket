@@ -14,8 +14,8 @@ import { useDatabase } from '@/data/database';
 import { syncEnv, today } from '@/data/env';
 import { startTimer } from '@/data/perf';
 import { Chip } from '@/ui/components/chip';
-import { HeaderIconButton } from '@/ui/components/header-button';
 import { orderPlatforms, platformLabel } from '@/ui/platforms';
+import { RoundButton } from '@/ui/components/pill-button';
 import { StarRating } from '@/ui/components/star-rating';
 import { StatusChips } from '@/ui/components/status-chips';
 import { useToast } from '@/ui/components/toast';
@@ -89,18 +89,24 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
       toast.show('Archived. It’s in the Archive, with its rating and notes.');
   };
 
+  const archiveButton = (
+    <RoundButton icon="archive-outline" label="Archive this game" onPress={() => void archive()} />
+  );
+
   return (
     <View style={styles.editor}>
-      {/* Archiving is an action on the whole game, so it sits in the header, not mid-page. */}
+      {/*
+       * Archiving is an action on the whole game, so it sits in the header, not
+       * mid-page. A frosted round button like Library's Archive: gold sank into
+       * the cover behind the header. On iOS 26 the bar's own glass pill is
+       * hidden so the two don't stack (headerRightItems is how to ask for that).
+       */}
       <Stack.Screen
         options={{
-          headerRight: () => (
-            <HeaderIconButton
-              icon="archive-outline"
-              label="Archive this game"
-              onPress={() => void archive()}
-            />
-          ),
+          headerRight: () => archiveButton,
+          unstable_headerRightItems: () => [
+            { type: 'custom', element: archiveButton, hidesSharedBackground: true },
+          ],
         }}
       />
       <Section label="STATUS">
