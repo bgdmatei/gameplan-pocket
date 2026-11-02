@@ -1,8 +1,9 @@
 import { CATALOG_TABLES, getReference } from '@gameplan/storage';
-import type { ListLibraryOptions } from '@gameplan/storage';
+import type { LibraryGridRow, ListLibraryOptions } from '@gameplan/storage';
 import { FlashList } from '@shopify/flash-list';
+import type { FlashListRef } from '@shopify/flash-list';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useLibraryPages } from '@/data/use-library-pages';
@@ -31,6 +32,15 @@ export const LibraryGrid = ({ filters, header, empty, bottomInset = 0, onShown }
   const reference = useQuery(getReference, CATALOG_TABLES, []);
   const known = reference.status === 'ready' ? reference.data.platforms : [];
   const [onScroll] = useState(createScrollFpsMeter);
+  const list = useRef<FlashListRef<LibraryGridRow>>(null);
+  const filterKey = JSON.stringify(filters);
+
+  // Each filter starts from the top. Scrolled rather than remounted: a
+  // remount rebuilt the header too, and the Now Playing shelf above the grid
+  // blinked empty on every chip tap.
+  useEffect(() => {
+    list.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [filterKey]);
 
   useEffect(() => {
     if (state.status !== 'ready') return;
@@ -57,11 +67,11 @@ export const LibraryGrid = ({ filters, header, empty, bottomInset = 0, onShown }
 
   return (
     <FlashList
+      ref={list}
       // FlashList 2 keeps the visible content's position when its data changes
       // (on by default, meant for chats). On a filter change it held a row's
       // place and left blank rows above the grid. The grid only grows at the
-      // end, so it is off, and each filter gets a fresh list from the top.
-      key={JSON.stringify(filters)}
+      // end, so it is off.
       maintainVisibleContentPosition={{ disabled: true }}
       data={state.data.rows}
       numColumns={3}
