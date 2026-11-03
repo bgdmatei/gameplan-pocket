@@ -82,7 +82,6 @@ export const LibraryGrid = ({ filters, header, empty, bottomInset = 0, onShown }
           <CoverCell
             row={item}
             onPress={open}
-            showStatus={filters.status === undefined}
             platform={platform === null ? null : platformLabel(platform)}
             platformName={platform?.name ?? null}
           />

@@ -7,13 +7,10 @@ import { radius, space, tabularNumbers, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { Cover } from './cover';
 import { PressableScale } from './pressable-scale';
-import { StatusIcon } from './status-icon';
 
 type Props = {
   row: LibraryGridRow;
   onPress: (gameId: number) => void;
-  /** False when the grid is filtered to one status: every cell would say the same. */
-  showStatus: boolean;
   /** The entry's platform as a short label ("PS5"), or null when it has none. */
   platform: string | null;
   /** Its full name, for VoiceOver ("PlayStation 5"). */
@@ -25,8 +22,8 @@ type Props = {
  * stable callback (plan §12.3), so scrolling 5,000 covers re-renders only the
  * cells that change.
  */
-export const CoverCell = memo(({ row, onPress, showStatus, platform, platformName }: Props) => {
-  const { colors, status } = useTheme();
+export const CoverCell = memo(({ row, onPress, platform, platformName }: Props) => {
+  const { colors } = useTheme();
   const label = [
     row.name,
     platformName,
@@ -68,14 +65,6 @@ export const CoverCell = memo(({ row, onPress, showStatus, platform, platformNam
       <Text style={[type.caption, { color: colors.text }]} numberOfLines={2}>
         {row.name}
       </Text>
-      {showStatus ? (
-        <View style={styles.status}>
-          <StatusIcon status={row.status} color={status[row.status]} size={12} />
-          <Text style={[type.caption, styles.label, { color: colors.muted }]} numberOfLines={1}>
-            {STATUS_LABEL[row.status]}
-          </Text>
-        </View>
-      ) : null}
     </PressableScale>
   );
 });
@@ -112,6 +101,4 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: radius.cover,
     borderBottomRightRadius: radius.cover,
   },
-  status: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
-  label: { flexShrink: 1 },
 });
