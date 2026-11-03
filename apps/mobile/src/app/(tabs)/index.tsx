@@ -77,7 +77,9 @@ const LibraryScreen = () => {
         empty={
           <View style={styles.empty}>
             <Text style={[type.body, { color: colors.muted }]}>
-              {`Nothing in ${STATUS_LABEL[filters.status]} yet. Find a game in Search, or change a game’s status.`}
+              {filters.status === undefined
+                ? 'No favourites yet. Turn on Favourite on a game to keep it here.'
+                : `Nothing in ${STATUS_LABEL[filters.status]} yet. Find a game in Search, or change a game’s status.`}
             </Text>
           </View>
         }

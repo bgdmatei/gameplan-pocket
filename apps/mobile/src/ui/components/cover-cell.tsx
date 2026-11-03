@@ -58,21 +58,22 @@ export const CoverCell = memo(({ row, onPress, showStatus, platform, platformNam
             </Text>
           </View>
         ) : null}
+        {/* A gold banner across the cover's foot, so favourites stand out in the grid. */}
+        {row.favourite ? (
+          <View style={[styles.banner, { backgroundColor: colors.accentFill }]}>
+            <Ionicons name="star" size={12} color={colors.onAccent} />
+          </View>
+        ) : null}
       </View>
       <Text style={[type.caption, { color: colors.text }]} numberOfLines={2}>
         {row.name}
       </Text>
-      {showStatus || row.favourite ? (
+      {showStatus ? (
         <View style={styles.status}>
-          {showStatus ? (
-            <>
-              <StatusIcon status={row.status} color={status[row.status]} size={12} />
-              <Text style={[type.caption, styles.label, { color: colors.muted }]} numberOfLines={1}>
-                {STATUS_LABEL[row.status]}
-              </Text>
-            </>
-          ) : null}
-          {row.favourite ? <Ionicons name="star" size={12} color={colors.accent} /> : null}
+          <StatusIcon status={row.status} color={status[row.status]} size={12} />
+          <Text style={[type.caption, styles.label, { color: colors.muted }]} numberOfLines={1}>
+            {STATUS_LABEL[row.status]}
+          </Text>
         </View>
       ) : null}
     </PressableScale>
@@ -99,6 +100,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: radius.small,
+  },
+  banner: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    paddingVertical: 3,
+    // The cover's own bottom corners.
+    borderBottomLeftRadius: radius.cover,
+    borderBottomRightRadius: radius.cover,
   },
   status: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   label: { flexShrink: 1 },
