@@ -80,7 +80,7 @@ export const CoverCell = memo(({ row, onPress, showStatus, platform, platformNam
 });
 
 const styles = StyleSheet.create({
-  cell: { flex: 1, gap: space.xs, padding: space.xs },
+  cell: { flex: 1, gap: space.xs, padding: space.xs, paddingBottom: space.md },
   badge: {
     position: 'absolute',
     top: space.xs,
