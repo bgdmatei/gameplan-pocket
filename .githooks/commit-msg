@@ -1,0 +1,10 @@
+#!/bin/sh
+# Rejects AI attribution in commit messages (CLAUDE.md, Git): the repo has one
+# contributor, and co-author lines add Claude to GitHub's contributor badges.
+# Enabled per clone with: git config core.hooksPath .githooks
+
+# Only a line that is the trailer itself, not a sentence that mentions one.
+if grep -qiE '^[^a-zA-Z]*(co-authored-by:|generated with \[?claude)' "$1"; then
+  echo "commit-msg: remove the Co-Authored-By / AI attribution line (CLAUDE.md, Git)." >&2
+  exit 1
+fi

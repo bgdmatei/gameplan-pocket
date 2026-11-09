@@ -32,6 +32,7 @@ Android builds too (`pnpm dev:android`), but iOS is the platform everything was 
 ```sh
 corepack enable
 pnpm install
+git config core.hooksPath .githooks   # the repo's git hooks, once per clone
 ```
 
 ### 2. Start the API
@@ -116,6 +117,8 @@ Node's SQLite is more forgiving than the phone's: FTS5 is built into Node but ha
 
 ### Other checks
 
+- **Git hooks** (`.githooks/`): Prettier on staged files before a commit, no AI attribution in commit messages, and no push to `main`.
+- **Claude Code guard** (`.claude/hooks/guard-bash.mjs`): when an AI agent works in the repo, a hook refuses commands that break the repo's git and workspace rules: a blanket `git add` or `git commit -a`, `--no-verify` or switching the hooks off, force pushes, pushes to `main`, a relative `cd`, and AI attribution in commits. Its tests run with `pnpm exec vitest run .claude/hooks`, and the pre-commit hook runs them whenever the guard changes.
 - `pnpm check:secrets` exports the iOS and Android bundles and searches them for the API's secrets, so "secrets never ship to the app" is checked by a tool rather than taken on trust. It runs as its own CI job.
 - `apps/mobile/PERFORMANCE.md` records budgets measured on a phone against the 5,000-game seed (cold start, keystroke to results, filter to grid, scroll fps, heap), including the one budget that was missed and why.
 

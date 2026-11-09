@@ -1,0 +1,30 @@
+#!/bin/sh
+# Prettier on the staged files, the formatting half of the definition of done
+# (CLAUDE.md). Checks only; run `pnpm exec prettier --write <paths>` to fix.
+# It reads the working copy, so stage a file's fixes before committing it.
+
+set -eu
+root=$(git rev-parse --show-toplevel)
+prettier="$root/node_modules/.bin/prettier"
+
+if [ ! -x "$prettier" ]; then
+  echo "pre-commit: Prettier not installed; run pnpm install." >&2
+  exit 1
+fi
+
+git diff --cached --name-only --diff-filter=ACMR -z |
+  xargs -0 "$prettier" --check --ignore-unknown --log-level warn ||
+  {
+    echo "pre-commit: Prettier found unformatted files above (CLAUDE.md, Definition of done)." >&2
+    exit 1
+  }
+
+# The Claude guard sits outside the workspaces, so pnpm test never runs its
+# tests; run them here whenever it changes.
+if git diff --cached --name-only | grep -q '^\.claude/hooks/'; then
+  "$root/node_modules/.bin/vitest" run --root "$root" .claude/hooks >/dev/null ||
+    {
+      echo "pre-commit: the guard's tests fail; run pnpm exec vitest run .claude/hooks." >&2
+      exit 1
+    }
+fi
