@@ -1,12 +1,22 @@
-import type { PushResponse } from '@gameplan/contracts';
+import type {
+  PullQuery,
+  PullResponse,
+  PushResponse,
+  SnapshotQuery,
+  SnapshotResponse,
+} from '@gameplan/contracts';
 import type { Op } from '@gameplan/sync';
 import { checkOp } from '@gameplan/sync-server';
 import type { Logger } from '../logger';
+import { decodeCursor, encodeCursor } from './cursor';
 import type { SyncRepository } from './repository';
 
 export type SyncService = {
   /** `ops` are as the client sent them: each is checked here, at the door. */
   push: (userId: string, ops: readonly unknown[]) => Promise<PushResponse>;
+  pull: (userId: string, query: PullQuery) => Promise<PullResponse>;
+  /** `invalid_cursor` for a cursor this server didn't hand out. */
+  snapshot: (userId: string, query: SnapshotQuery) => Promise<SnapshotResponse | 'invalid_cursor'>;
 };
 
 export const createSyncService = ({
@@ -41,5 +51,14 @@ export const createSyncService = ({
     }
 
     return { accepted: valid.map((op) => op.id), rejected, lastSeq };
+  },
+
+  pull: (userId, query) => repository.pull(userId, query),
+
+  snapshot: async (userId, { cursor: text, limit }) => {
+    const cursor = text === undefined ? undefined : decodeCursor(text);
+    if (cursor === null) return 'invalid_cursor';
+    const { rows, seq, next } = await repository.snapshot(userId, { cursor, limit });
+    return { rows, seq, nextCursor: next === null ? null : encodeCursor(next) };
   },
 });

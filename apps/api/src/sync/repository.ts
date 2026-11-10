@@ -1,10 +1,13 @@
 import { materialise } from '@gameplan/sync-server';
+import type { PullQuery, PullResponse, SnapshotRow } from '@gameplan/contracts';
 import type { Op, RowState } from '@gameplan/sync';
 import { sql } from 'kysely';
 import type { Kysely, Transaction } from 'kysely';
 import type { Database } from '../db/schema';
 import { ENTITY_TABLES, isServerEntity } from './columns';
 import type { ServerEntity } from './columns';
+import { SNAPSHOT_ORDER } from './cursor';
+import type { SnapshotCursor } from './cursor';
 
 export type SyncRepository = {
   /**
@@ -13,6 +16,16 @@ export type SyncRepository = {
    * position afterwards.
    */
   push: (userId: string, ops: readonly Op[]) => Promise<{ lastSeq: number }>;
+  /** Up to `limit` ops after `after`, oldest first. */
+  pull: (userId: string, query: PullQuery) => Promise<PullResponse>;
+  /**
+   * One page of the user's current rows, ordered by (entity, id). Without a
+   * cursor it starts a snapshot at the user's current log position.
+   */
+  snapshot: (
+    userId: string,
+    query: { cursor: SnapshotCursor | undefined; limit: number },
+  ) => Promise<{ rows: SnapshotRow[]; seq: number; next: SnapshotCursor | null }>;
 };
 
 type Row = Record<string, unknown>;
@@ -27,6 +40,25 @@ const toRowState = (entity: ServerEntity, row: Row | undefined): RowState => {
   }
   return { fields, clocks };
 };
+
+/** A logged op back in its wire shape, exactly as the device sent it. */
+const opOf = (row: {
+  op_id: string;
+  entity: string;
+  entity_id: string;
+  type: string;
+  fields: unknown;
+  hlc: string;
+  schema_version: number;
+}): Record<string, unknown> => ({
+  id: row.op_id,
+  entity: row.entity,
+  entityId: row.entity_id,
+  type: row.type,
+  ...(row.type === 'set' && { fields: row.fields }),
+  hlc: row.hlc,
+  schemaVersion: row.schema_version,
+});
 
 const writeRow = async (
   tx: Transaction<Database>,
@@ -148,4 +180,73 @@ export const createSyncRepository = (db: Kysely<Database>): SyncRepository => ({
       }
       return { lastSeq: seq };
     }),
+
+  pull: async (userId, { after, limit }) => {
+    // One extra row says whether there is more, without a count.
+    const rows = await db
+      .selectFrom('ops')
+      .select(['seq', 'op_id', 'entity', 'entity_id', 'type', 'fields', 'hlc', 'schema_version'])
+      .where('user_id', '=', userId)
+      .where('seq', '>', after)
+      .orderBy('seq')
+      .limit(limit + 1)
+      .execute();
+    const page = rows.slice(0, limit);
+    return {
+      ops: page.map((row) => ({ seq: row.seq, op: opOf(row) })),
+      lastSeq: page.at(-1)?.seq ?? after,
+      hasMore: rows.length > limit,
+    };
+  },
+
+  snapshot: async (userId, { cursor, limit }) => {
+    const seq =
+      cursor?.seq ??
+      (
+        await db
+          .selectFrom('user_sync')
+          .select('last_seq')
+          .where('user_id', '=', userId)
+          .executeTakeFirst()
+      )?.last_seq ??
+      0;
+
+    // Keyset over (entity, id): the rest of the cursor's table, then each
+    // later table from the start. One extra row says whether there is more.
+    const rows: { entity: ServerEntity; row: SnapshotRow }[] = [];
+    const start = cursor === undefined ? 0 : SNAPSHOT_ORDER.indexOf(cursor.entity);
+    for (const entity of SNAPSHOT_ORDER.slice(start)) {
+      const after = cursor?.entity === entity ? cursor.id : undefined;
+      const { rows: found } = await sql<Row>`
+        SELECT * FROM ${sql.table(ENTITY_TABLES[entity].table)}
+        WHERE user_id = ${userId} ${after === undefined ? sql`` : sql`AND id > ${after}`}
+        ORDER BY id
+        LIMIT ${limit + 1 - rows.length}`.execute(db);
+      for (const row of found) {
+        const state = toRowState(entity, row);
+        rows.push({
+          entity,
+          row: {
+            entity,
+            id: String(row['id']),
+            fields: state.fields,
+            fieldHlc: state.clocks,
+            deleted: row['deleted'] === true,
+          },
+        });
+      }
+      if (rows.length > limit) break;
+    }
+
+    const page = rows.slice(0, limit);
+    const last = page.at(-1);
+    return {
+      rows: page.map(({ row }) => row),
+      seq,
+      next:
+        rows.length > limit && last !== undefined
+          ? { seq, entity: last.entity, id: last.row.id }
+          : null,
+    };
+  },
 });

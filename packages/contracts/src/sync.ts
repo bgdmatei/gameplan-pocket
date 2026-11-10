@@ -14,6 +14,12 @@ export const SYNC_LIMITS = {
   snapshotMaxLimit: 1000,
   /** Longer than any id or entity name the app makes; keeps a hostile one off the log. */
   idMaxLength: 64,
+  /**
+   * A snapshot cursor carries a row id. A 64-character id of control
+   * characters JSON-escapes to 384 bytes, about 580 in base64url; this
+   * leaves room for that, so no id the door accepts can stall a bootstrap.
+   */
+  cursorMaxLength: 1024,
 } as const;
 
 /** A position in one user's log. Sequence numbers start at 1; 0 means "before everything". */
@@ -90,7 +96,7 @@ export type PullResponse = z.infer<typeof pullResponseSchema>;
  * cursor is opaque and carries the snapshot's log position across pages.
  */
 export const snapshotQuerySchema = z.object({
-  cursor: z.string().min(1).max(256).optional(),
+  cursor: z.string().min(1).max(SYNC_LIMITS.cursorMaxLength).optional(),
   limit: z.coerce
     .number()
     .int()
@@ -123,6 +129,6 @@ export type SnapshotRow = z.infer<typeof snapshotRowSchema>;
 export const snapshotResponseSchema = z.object({
   rows: z.array(snapshotRowSchema),
   seq: seqSchema,
-  nextCursor: z.string().min(1).max(256).nullable(),
+  nextCursor: z.string().min(1).max(SYNC_LIMITS.cursorMaxLength).nullable(),
 });
 export type SnapshotResponse = z.infer<typeof snapshotResponseSchema>;

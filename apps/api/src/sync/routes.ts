@@ -1,10 +1,15 @@
-import { pushRequestSchema } from '@gameplan/contracts';
-import type { PushResponse } from '@gameplan/contracts';
+import { pullQuerySchema, pushRequestSchema, snapshotQuerySchema } from '@gameplan/contracts';
+import type {
+  ErrorResponse,
+  PullResponse,
+  PushResponse,
+  SnapshotResponse,
+} from '@gameplan/contracts';
 import { Hono } from 'hono';
 import { requireUser } from '../auth/middleware';
 import type { UserVariables } from '../auth/middleware';
 import type { AuthService } from '../auth/service';
-import { parseBody } from '../parse-body';
+import { parseBody, parseQuery } from '../parse-body';
 import type { SyncService } from './service';
 
 /**
@@ -24,6 +29,23 @@ export const createSyncRoutes = (
     if (!body.ok) return c.json(body.error, 400);
     const result = await sync.push(c.get('user').userId, body.data.ops);
     return c.json(result satisfies PushResponse);
+  });
+
+  routes.get('/pull', async (c) => {
+    const query = parseQuery(c, pullQuerySchema);
+    if (!query.ok) return c.json(query.error, 400);
+    const result = await sync.pull(c.get('user').userId, query.data);
+    return c.json(result satisfies PullResponse);
+  });
+
+  routes.get('/snapshot', async (c) => {
+    const query = parseQuery(c, snapshotQuerySchema);
+    if (!query.ok) return c.json(query.error, 400);
+    const result = await sync.snapshot(c.get('user').userId, query.data);
+    if (result === 'invalid_cursor') {
+      return c.json({ error: 'invalid_request', fields: ['cursor'] } satisfies ErrorResponse, 400);
+    }
+    return c.json(result satisfies SnapshotResponse);
   });
 
   return routes;
