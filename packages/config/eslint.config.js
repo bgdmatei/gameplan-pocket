@@ -26,10 +26,12 @@ export default tseslint.config(
       // Order matters: the first matching pattern wins, so specific packages
       // come before the generic `pkg` pattern.
       'boundaries/elements': [
+        { type: 'api', pattern: 'apps/api' },
         { type: 'app', pattern: 'apps/*' },
         { type: 'domain', pattern: 'packages/domain' },
         { type: 'db-schema', pattern: 'packages/db-schema' },
         { type: 'storage', pattern: 'packages/storage' },
+        { type: 'sync-server', pattern: 'packages/sync-server' },
         { type: 'sync', pattern: 'packages/sync' },
         { type: 'contracts', pattern: 'packages/contracts' },
         { type: 'pkg', pattern: 'packages/*' },
@@ -45,9 +47,16 @@ export default tseslint.config(
         {
           default: 'disallow',
           policies: [
+            // Only the API may use the server's sync logic: the phone never
+            // carries code that decides what enters the log (ADR-023).
             {
-              from: [{ element: { type: 'app' } }],
+              from: [{ element: { type: 'api' } }],
+              allow: [{ to: { element: { type: 'sync-server' } } }],
+            },
+            {
+              from: [{ element: { type: 'api' } }, { element: { type: 'app' } }],
               allow: [
+                { to: { element: { type: 'api' } } },
                 { to: { element: { type: 'app' } } },
                 { to: { element: { type: 'pkg' } } },
                 { to: { element: { type: 'domain' } } },
@@ -92,6 +101,17 @@ export default tseslint.config(
                 { to: { element: { type: 'sync' } } },
                 { to: { element: { type: 'domain' } } },
                 { to: { element: { type: 'storage' } } },
+              ],
+            },
+            // sync-server is the server's door checks and merge, built on the
+            // op format and the wire shapes, and nothing else (ADR-023).
+            {
+              from: [{ element: { type: 'sync-server' } }],
+              allow: [
+                { to: { element: { type: 'sync-server' } } },
+                { to: { element: { type: 'sync' } } },
+                { to: { element: { type: 'contracts' } } },
+                { to: { element: { type: 'domain' } } },
               ],
             },
             // contracts are the API's wire shapes, built on domain schemas and

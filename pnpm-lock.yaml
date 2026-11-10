@@ -292,6 +292,25 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
+  packages/sync-server:
+    dependencies:
+      '@gameplan/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@gameplan/sync':
+        specifier: workspace:*
+        version: link:../sync
+    devDependencies:
+      '@gameplan/config':
+        specifier: workspace:*
+        version: link:../config
+      eslint:
+        specifier: ^9.39.5
+        version: 9.39.5
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
   packages/test-utils:
     devDependencies:
       '@gameplan/config':

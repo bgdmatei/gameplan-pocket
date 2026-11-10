@@ -27,6 +27,10 @@ const fixtures = [
   'packages/storage/tests/fixtures/storage-imports-sync.ts',
   // contracts → anything but domain
   'packages/contracts/tests/fixtures/contracts-imports-storage.ts',
+  // mobile → sync-server (only the API may use it)
+  'apps/mobile/tests/fixtures/mobile-imports-sync-server.ts',
+  // sync-server → the API's database code
+  'packages/sync-server/tests/fixtures/sync-server-imports-api.ts',
 ];
 
 let failed = false;
