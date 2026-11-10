@@ -57,6 +57,8 @@ export {
   listPendingOps,
 } from './repositories/pending-ops';
 export type { ListPendingOptions } from './repositories/pending-ops';
+export { REJECTED_OP_TABLES, listRejectedOps, rejectPendingOps } from './repositories/rejected-ops';
+export type { RejectedOp, Rejection } from './repositories/rejected-ops';
 export {
   SYNC_STATE_TABLES,
   THEME_PREFERENCES,
