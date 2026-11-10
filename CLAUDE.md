@@ -10,16 +10,17 @@ Offline-first, multi-device game logbook: Expo (React Native) + Hono API + a cus
 
 | File                     | Purpose                                                                                                      |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `SPEC-map.md`            | Capability map: the 14 modules, dependencies, build order. The index of what exists                          |
+| `SPEC-map.md`            | Capability map: the 15 modules, dependencies, build order. The index of what exists                          |
 | `SPEC-<module-id>.md`    | One approved spec per module (`SPEC-foundation.md`, `SPEC-domain-model.md`)                                  |
 | `tasks/plan.md`          | Implementation plan for the module in progress                                                               |
-| `tasks/todo.md`          | Its ordered task list; tick tasks off as they land                                                           |
-| `tasks/archive/`         | Plans and task lists from finished modules                                                                   |
+| GitHub Issues            | Its tasks, one issue each, in the module's milestone (`docs/agents/issue-tracker.md`). Replaced `todo.md`    |
+| `tasks/archive/`         | Plans from finished modules, plus `todo.md` task lists from before the switch to issues                      |
+| `CONTEXT.md`             | The glossary: use its words in code, issues and commits                                                      |
 | `game-logbook-plan.html` | The original architecture plan; authoritative for design decisions. Lives outside the repo, in `~/Downloads` |
 
-Work follows spec → plan → tasks → implement, with a human review gate between phases. Don't start a module without an approved spec, and don't overwrite a plan that still has unchecked tasks — archive it instead.
+Work follows spec → plan → issues → implement, with a human review gate between phases: the owner labels an issue `ready-for-agent`. Don't start a module without an approved spec, and don't overwrite a plan whose milestone still has open issues — archive it instead.
 
-`*.md` is gitignored (see `.gitignore`), so specs and plans stay local. `CLAUDE.md` and `README.md` are the exceptions and are versioned.
+`*.md` is gitignored (see `.gitignore`), so specs and plans stay local. The versioned exceptions are `CLAUDE.md`, `README.md`, `CONTEXT.md`, `docs/agents/*.md`, `docs/adr/*.md` and `PERFORMANCE.md`; anything written there gets committed.
 
 **Keep `README.md` current.** It is the versioned record of how to run the project and the tests, the decisions behind it, and what is done. When a change touches any of those (a command, a setup step, a decision revisited, a module finished), update the README in the same commit.
 

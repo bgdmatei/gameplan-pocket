@@ -54,4 +54,7 @@ coverage/
 !**/PERFORMANCE.md
 # ...and architecture decisions, the durable record of why
 !docs/adr/*.md
+# ...and the shared agent workflow and glossary
+!docs/agents/*.md
+!CONTEXT.md
 

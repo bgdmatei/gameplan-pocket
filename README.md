@@ -173,4 +173,6 @@ The project is planned as 15 modules (foundation → domain → storage → sync
 
 **Done:** the foundation, domain model, storage adapter, offline sync core, catalog service, the mobile library app (search, library grid and filters, favourites, game detail, notes, archive), auth, and the visual design: image-led covers, Fraunces headlines, frosted chrome, a floating tab bar, and light and dark themes with a switch in Account. A staging API runs on Render with Neon Postgres.
 
+**How work is tracked:** each module starts from an approved spec; its tasks are GitHub Issues in a milestone named after it, and an issue is built only once the owner labels it `ready-for-agent` (`docs/agents/`). `CONTEXT.md` is the glossary.
+
 **Not yet:** syncing between devices (the transport, the server's op log, realtime pokes and the conflict UI for notes). Each device already records everything sync will need. Steam import, stats, and the web app are not started either.
