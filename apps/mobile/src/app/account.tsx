@@ -1,8 +1,8 @@
 import { emailSchema } from '@gameplan/contracts';
 import { getSyncState } from '@gameplan/storage';
-import { router } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase, useEraseDatabase } from '@/data/database';
 import { appVersion, syncEnv } from '@/data/env';
@@ -14,8 +14,10 @@ import type { Session } from '@/features/account/session';
 import { SignedInCard } from '@/features/account/signed-in-card';
 import { signIn } from '@/features/account/sign-in';
 import { eraseWarning, libraryCounts, signOut } from '@/features/account/sign-out';
+import { ThemeButton } from '@/ui/components/theme-button';
 import { useToast } from '@/ui/components/toast';
-import { space } from '@/ui/theme';
+import { displayMaxScale, space, type } from '@/ui/theme';
+import { useTheme } from '@/ui/use-theme';
 
 type Step =
   | { kind: 'loading' }
@@ -31,6 +33,7 @@ const OFFLINE = 'You’re offline. Try again when you’re connected.';
  * Nothing typed here is logged or shown in an error (CLAUDE.md §Privacy).
  */
 const AccountScreen = () => {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const adapter = useDatabase();
   const erase = useEraseDatabase();
@@ -158,44 +161,56 @@ const AccountScreen = () => {
   };
 
   return (
-    <ScrollView
-      contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}
-      automaticallyAdjustKeyboardInsets
-      keyboardShouldPersistTaps="handled"
-    >
-      {step.kind === 'email' && (
-        <EmailForm
-          email={email}
-          onChangeEmail={setEmail}
-          busy={busy}
-          owned={owned}
-          canErase={owned && hasData}
-          onSend={() => void sendCode()}
-          onErase={() => void confirmErase('Erase this phone’s library?', null, 'Erase library')}
-        />
-      )}
+    <>
+      {/* The theme lives here, the screen for this phone's own settings. */}
+      <Stack.Screen options={{ headerRight: () => <ThemeButton /> }} />
+      <ScrollView
+        contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* The title in the serif, as on Library; the native header keeps the back and theme buttons. */}
+        <Text
+          maxFontSizeMultiplier={displayMaxScale}
+          style={[type.display, { color: colors.text }]}
+          accessibilityRole="header"
+        >
+          Account
+        </Text>
+        {step.kind === 'email' && (
+          <EmailForm
+            email={email}
+            onChangeEmail={setEmail}
+            busy={busy}
+            owned={owned}
+            canErase={owned && hasData}
+            onSend={() => void sendCode()}
+            onErase={() => void confirmErase('Erase this phone’s library?', null, 'Erase library')}
+          />
+        )}
 
-      {step.kind === 'code' && (
-        <CodeForm
-          email={step.email}
-          code={code}
-          onChangeCode={setCode}
-          busy={busy}
-          onSubmit={() => void submitCode(step.email)}
-          onDifferentEmail={() => setStep({ kind: 'email' })}
-          onResend={() => void sendCode()}
-        />
-      )}
+        {step.kind === 'code' && (
+          <CodeForm
+            email={step.email}
+            code={code}
+            onChangeCode={setCode}
+            busy={busy}
+            onSubmit={() => void submitCode(step.email)}
+            onDifferentEmail={() => setStep({ kind: 'email' })}
+            onResend={() => void sendCode()}
+          />
+        )}
 
-      {step.kind === 'signed_in' && (
-        <SignedInCard
-          session={step.session}
-          online={step.online}
-          busy={busy}
-          onSignOut={() => void confirmErase('Sign out?', null, 'Erase and sign out')}
-        />
-      )}
-    </ScrollView>
+        {step.kind === 'signed_in' && (
+          <SignedInCard
+            session={step.session}
+            online={step.online}
+            busy={busy}
+            onSignOut={() => void confirmErase('Sign out?', null, 'Erase and sign out')}
+          />
+        )}
+      </ScrollView>
+    </>
   );
 };
 

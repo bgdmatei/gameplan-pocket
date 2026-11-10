@@ -75,17 +75,31 @@ describe('sync state', () => {
       nodeId: null,
       lastPulledSeq: 0,
       ownerUserId: null,
+      theme: 'auto',
     });
 
-    await updateSyncState(adapter, { nodeId: 'device-7', lastPulledSeq: 42, ownerUserId: 'u-1' });
+    await updateSyncState(adapter, {
+      nodeId: 'device-7',
+      lastPulledSeq: 42,
+      ownerUserId: 'u-1',
+      theme: 'dark',
+    });
     await updateSyncState(adapter, { lastPulledSeq: 43 });
 
-    // The library's owner (migration 005) survives an unrelated update.
+    // The library's owner (005) and the theme (006) survive an unrelated update.
     expect(await getSyncState(adapter)).toMatchObject({
       nodeId: 'device-7',
       lastPulledSeq: 43,
       ownerUserId: 'u-1',
+      theme: 'dark',
     });
+  });
+
+  // The column is free text in SQLite; only the three choices the app offers may land in it.
+  it('refuses a theme the app does not offer', async () => {
+    await expect(
+      updateSyncState(adapter, { theme: 'purple' as unknown as 'dark' }),
+    ).rejects.toThrow(/theme/i);
   });
 
   /** A cursor that slipped would re-apply or skip part of the server's log. */
@@ -106,11 +120,12 @@ describe('sync state', () => {
 
     const first = createNodeAdapter({ path });
     await migrate(first);
-    await updateSyncState(first, { lastPulledSeq: 99 });
+    await updateSyncState(first, { lastPulledSeq: 99, theme: 'light' });
     await first.close();
 
     const second = createNodeAdapter({ path });
-    expect(await getSyncState(second)).toMatchObject({ lastPulledSeq: 99 });
+    // The theme choice too: it must not reset to Auto on every launch.
+    expect(await getSyncState(second)).toMatchObject({ lastPulledSeq: 99, theme: 'light' });
     await second.close();
 
     await rm(directory, { recursive: true, force: true });

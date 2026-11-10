@@ -2,6 +2,13 @@ import type { SqlValue, Transaction } from '../adapter';
 
 export const SYNC_STATE_TABLES = ['sync_state'] as const;
 
+/** 'auto' follows the phone's setting; the others pin the app to one theme. */
+export const THEME_PREFERENCES = ['auto', 'light', 'dark'] as const;
+export type ThemePreference = (typeof THEME_PREFERENCES)[number];
+
+const isThemePreference = (value: unknown): value is ThemePreference =>
+  THEME_PREFERENCES.some((theme) => theme === value);
+
 /**
  * Where this device is up to. One row, created by the first migration.
  *
@@ -19,6 +26,8 @@ export type SyncState = {
   catalogVersion: number;
   /** The account this library belongs to; null until the first sign-in claims it. */
   ownerUserId: string | null;
+  /** The player's theme choice (migration 006). */
+  theme: ThemePreference;
 };
 
 export type SyncStatePatch = Partial<SyncState>;
@@ -30,6 +39,7 @@ type SyncStateRow = {
   schema_version: number;
   catalog_version: number;
   owner_user_id: string | null;
+  theme: string;
 };
 
 const COLUMNS: Record<keyof SyncState, string> = {
@@ -39,12 +49,14 @@ const COLUMNS: Record<keyof SyncState, string> = {
   schemaVersion: 'schema_version',
   catalogVersion: 'catalog_version',
   ownerUserId: 'owner_user_id',
+  theme: 'theme',
 };
 
 /** Takes a transaction too, so a write can read and advance the clock atomically. */
 export const getSyncState = async (adapter: Transaction): Promise<SyncState> => {
   const rows = await adapter.execute<SyncStateRow>(
-    `SELECT node_id, last_pulled_seq, hlc_last, schema_version, catalog_version, owner_user_id
+    `SELECT node_id, last_pulled_seq, hlc_last, schema_version, catalog_version, owner_user_id,
+            theme
      FROM sync_state WHERE id = 1`,
   );
   const row = rows[0];
@@ -60,6 +72,8 @@ export const getSyncState = async (adapter: Transaction): Promise<SyncState> => 
     schemaVersion: row.schema_version,
     catalogVersion: row.catalog_version,
     ownerUserId: row.owner_user_id,
+    // Only updateSyncState writes it, and it refuses anything else; 'auto' is the safe reading.
+    theme: isThemePreference(row.theme) ? row.theme : 'auto',
   };
 };
 
@@ -77,6 +91,12 @@ export const updateSyncState = async (
     if (value !== undefined && (!Number.isSafeInteger(value) || value < 0)) {
       throw new Error(`${field} must be a whole number of 0 or more, got ${String(value)}`);
     }
+  }
+
+  if (patch.theme !== undefined && !isThemePreference(patch.theme)) {
+    throw new Error(
+      `theme must be one of ${THEME_PREFERENCES.join(', ')}, got ${String(patch.theme)}`,
+    );
   }
 
   const entries = Object.entries(patch).filter(([, value]) => value !== undefined);

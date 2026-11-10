@@ -31,6 +31,9 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
+# Claude Code: the shared settings and hooks are versioned; personal ones are not
+.claude/settings.local.json
+
 # Editors
 .vscode/
 .idea/
@@ -44,6 +47,8 @@ coverage/
 *.md
 # ...except the agent instructions, which are shared
 !CLAUDE.md
+# ...and the README, how to run the project and why it is built this way
+!README.md
 # ...and measured numbers, which belong with the code they describe
 !PERFORMANCE.md
 !**/PERFORMANCE.md

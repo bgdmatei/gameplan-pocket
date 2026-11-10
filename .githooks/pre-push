@@ -1,0 +1,10 @@
+#!/bin/sh
+# main advances only through a pull request (CLAUDE.md, Git). GitHub's branch
+# protection refuses a direct push too; this stops it before it leaves.
+
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "pre-push: never push to main; open a pull request from dev (CLAUDE.md, Git)." >&2
+    exit 1
+  fi
+done

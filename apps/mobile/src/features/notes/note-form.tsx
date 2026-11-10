@@ -36,7 +36,7 @@ export const NoteForm = ({ draft, onChange, autoFocus = false }: Props) => {
       </View>
 
       <View style={styles.field}>
-        <Text style={[type.caption, { color: colors.muted }]}>Note</Text>
+        <Text style={[type.label, { color: colors.muted }]}>NOTE</Text>
         <TextInput
           value={draft.text}
           onChangeText={(text) => onChange({ ...draft, text })}
@@ -51,7 +51,7 @@ export const NoteForm = ({ draft, onChange, autoFocus = false }: Props) => {
       </View>
 
       <View style={styles.field}>
-        <Text style={[type.caption, { color: colors.muted }]}>Where (optional)</Text>
+        <Text style={[type.label, { color: colors.muted }]}>WHERE (OPTIONAL)</Text>
         <TextInput
           value={draft.location}
           onChangeText={(location) => onChange({ ...draft, location })}
@@ -60,7 +60,7 @@ export const NoteForm = ({ draft, onChange, autoFocus = false }: Props) => {
           maxLength={NOTE_LOCATION_MAX_LENGTH}
           returnKeyType="done"
           accessibilityLabel="Where"
-          style={[type.body, ...input]}
+          style={[type.body, ...input, styles.pill]}
         />
       </View>
     </View>
@@ -70,13 +70,14 @@ export const NoteForm = ({ draft, onChange, autoFocus = false }: Props) => {
 const styles = StyleSheet.create({
   form: { gap: space.lg },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  field: { gap: space.xs },
+  field: { gap: space.sm },
   input: {
     minHeight: minTouchTarget,
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-    borderWidth: 1,
-    borderRadius: radius.small,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  text: { minHeight: 160, textAlignVertical: 'top' },
+  // The note is a soft card to write in; the one-line location a pill, like the search field.
+  text: { minHeight: 160, textAlignVertical: 'top', borderRadius: radius.card },
+  pill: { borderRadius: radius.pill },
 });

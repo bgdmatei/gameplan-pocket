@@ -1,0 +1,106 @@
+# Screenshots of every in-scope screen, for the visual-design reviews.
+#
+# Needs a library with games and notes (Debug > Seed 5,000 real games), and the
+# local API for Search. Run once per theme; the flow sets the theme itself
+# through the Account theme button and prefixes every screenshot with it:
+#   maestro --device <simulator id> test -e THEME=Dark \
+#     --test-output-dir <dir> apps/mobile/e2e/screens.yaml
+#   maestro --device <simulator id> test -e THEME=Light \
+#     --test-output-dir <dir> apps/mobile/e2e/screens.yaml
+#
+# It leaves the app on that theme. Debug screens are out of scope.
+appId: com.bgdmatei.gameplan
+name: Screenshots of every in-scope screen
+---
+- launchApp
+- extendedWaitUntil:
+    visible: 'Status'
+    timeout: 20000
+
+# Theme first, so every screen below is in it.
+- tapOn: 'Account'
+- repeat:
+    times: 3
+    while:
+      notVisible: 'Theme: ${THEME}'
+    commands:
+      - tapOn: 'Theme: .*'
+- waitForAnimationToEnd
+- takeScreenshot: ${THEME}-01-account
+- tapOn:
+    point: '9%,10%'
+
+- extendedWaitUntil:
+    visible: 'Status'
+    timeout: 10000
+- tapOn: 'Completed'
+- takeScreenshot: ${THEME}-02-library
+- tapOn: 'See all .* playing'
+- extendedWaitUntil:
+    visible: 'Done'
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: ${THEME}-03-now-playing-sheet
+- tapOn: 'Done'
+
+# A game with open notes, so the notes screens have something to show.
+# Low in the grid the floating tab bar takes the tap, so the cell is moved to
+# mid-screen first. Not with centerElement: that scrolls it up under the
+# status chips, and the tap changes the filter instead.
+- scrollUntilVisible:
+    element: '.*, \d+ open notes'
+- swipe:
+    start: '50%,75%'
+    end: '50%,45%'
+    duration: 1500
+- waitForAnimationToEnd
+- tapOn: '.*, \d+ open notes'
+- extendedWaitUntil:
+    visible: 'Notes · \d+ open'
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: ${THEME}-04-game
+- tapOn: 'Notes · \d+ open'
+- waitForAnimationToEnd
+- takeScreenshot: ${THEME}-05-notes
+- tapOn: '[A-Z]+ · OPEN, .*'
+- waitForAnimationToEnd
+- takeScreenshot: ${THEME}-06-note
+- tapOn:
+    point: '9%,10%'
+- tapOn: 'Add note'
+- waitForAnimationToEnd
+- takeScreenshot: ${THEME}-07-note-new
+# Back without adding: the flow leaves the library as it found it.
+- tapOn:
+    point: '9%,10%'
+- tapOn:
+    point: '9%,10%'
+- scroll
+- waitForAnimationToEnd
+- takeScreenshot: ${THEME}-08-game-scrolled
+- tapOn:
+    point: '9%,10%'
+
+- scroll
+- waitForAnimationToEnd
+- takeScreenshot: ${THEME}-09-library-scrolled
+
+- tapOn: 'Archive'
+- waitForAnimationToEnd
+- takeScreenshot: ${THEME}-10-archive
+- tapOn:
+    point: '9%,10%'
+
+- tapOn: 'Search'
+- waitForAnimationToEnd
+- takeScreenshot: ${THEME}-11-search-empty
+- tapOn: 'Search games'
+- inputText: 'Hollow'
+- extendedWaitUntil:
+    visible: 'Hollow Knight.*'
+    timeout: 30000
+# Keyboard left up: on iOS hideKeyboard taps the screen, which opens a result.
+- waitForAnimationToEnd
+- takeScreenshot: ${THEME}-12-search-results
+- tapOn: 'Library'

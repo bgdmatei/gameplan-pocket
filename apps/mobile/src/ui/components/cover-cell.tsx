@@ -3,7 +3,7 @@ import type { LibraryGridRow } from '@gameplan/storage';
 import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { STATUS_LABEL } from '../labels';
-import { radius, space, statusDot, tabularNumbers, type } from '../theme';
+import { radius, space, tabularNumbers, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { Cover } from './cover';
 import { PressableScale } from './pressable-scale';
@@ -11,8 +11,6 @@ import { PressableScale } from './pressable-scale';
 type Props = {
   row: LibraryGridRow;
   onPress: (gameId: number) => void;
-  /** False when the grid is filtered to one status: every cell would say the same. */
-  showStatus: boolean;
   /** The entry's platform as a short label ("PS5"), or null when it has none. */
   platform: string | null;
   /** Its full name, for VoiceOver ("PlayStation 5"). */
@@ -24,8 +22,8 @@ type Props = {
  * stable callback (plan §12.3), so scrolling 5,000 covers re-renders only the
  * cells that change.
  */
-export const CoverCell = memo(({ row, onPress, showStatus, platform, platformName }: Props) => {
-  const { colors, status } = useTheme();
+export const CoverCell = memo(({ row, onPress, platform, platformName }: Props) => {
+  const { colors } = useTheme();
   const label = [
     row.name,
     platformName,
@@ -57,29 +55,22 @@ export const CoverCell = memo(({ row, onPress, showStatus, platform, platformNam
             </Text>
           </View>
         ) : null}
+        {/* A gold banner across the cover's foot, so favourites stand out in the grid. */}
+        {row.favourite ? (
+          <View style={[styles.banner, { backgroundColor: colors.accentFill }]}>
+            <Ionicons name="star" size={12} color={colors.onAccent} />
+          </View>
+        ) : null}
       </View>
       <Text style={[type.caption, { color: colors.text }]} numberOfLines={2}>
         {row.name}
       </Text>
-      {showStatus || row.favourite ? (
-        <View style={styles.status}>
-          {showStatus ? (
-            <>
-              <View style={[styles.dot, { backgroundColor: status[row.status] }]} />
-              <Text style={[type.caption, styles.label, { color: colors.muted }]} numberOfLines={1}>
-                {STATUS_LABEL[row.status]}
-              </Text>
-            </>
-          ) : null}
-          {row.favourite ? <Ionicons name="star" size={12} color={colors.accent} /> : null}
-        </View>
-      ) : null}
     </PressableScale>
   );
 });
 
 const styles = StyleSheet.create({
-  cell: { flex: 1, gap: space.xs, padding: space.xs },
+  cell: { flex: 1, gap: space.xs, padding: space.xs, paddingBottom: space.md },
   badge: {
     position: 'absolute',
     top: space.xs,
@@ -99,7 +90,15 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: radius.small,
   },
-  status: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
-  label: { flexShrink: 1 },
-  dot: { width: statusDot, height: statusDot, borderRadius: statusDot / 2 },
+  banner: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    paddingVertical: 3,
+    // The cover's own bottom corners.
+    borderBottomLeftRadius: radius.cover,
+    borderBottomRightRadius: radius.cover,
+  },
 });

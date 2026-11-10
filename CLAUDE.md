@@ -19,7 +19,9 @@ Offline-first, multi-device game logbook: Expo (React Native) + Hono API + a cus
 
 Work follows spec → plan → tasks → implement, with a human review gate between phases. Don't start a module without an approved spec, and don't overwrite a plan that still has unchecked tasks — archive it instead.
 
-`*.md` is gitignored (see `.gitignore`), so specs and plans stay local. `CLAUDE.md` is the exception and is versioned.
+`*.md` is gitignored (see `.gitignore`), so specs and plans stay local. `CLAUDE.md` and `README.md` are the exceptions and are versioned.
+
+**Keep `README.md` current.** It is the versioned record of how to run the project and the tests, the decisions behind it, and what is done. When a change touches any of those (a command, a setup step, a decision revisited, a module finished), update the README in the same commit.
 
 ## Commands
 
@@ -40,6 +42,8 @@ pnpm exec prettier --check <paths>
 ## Definition of done
 
 A task is done when `pnpm typecheck && pnpm lint && pnpm lint:boundaries && pnpm test` pass and Prettier is clean on changed files.
+
+**Review before committing.** Run `/code-review medium` on the diff before each commit, and `/security-review` before each module PR. Fix what's real; log each rejected finding with its reason in `review-log.md` (local, gitignored), so false positives become visible over time.
 
 **Never judge a command by truncated output.** `| tail -3` once hid a typecheck failure behind a success-looking summary. Grep for `error`, `Failed`, `ERROR`, or check the exit code.
 
@@ -108,6 +112,7 @@ Practices that still hold:
 
 ## Git
 
+- **The rules below are enforced, not just written.** `.claude/hooks/guard-bash.mjs` (a PreToolUse hook, tested in `guard-bash.test.mjs`) blocks a blanket `git add` or `git commit -a`, `--no-verify` and hook overrides, force pushes, pushes to `main`, relative `cd` and AI attribution; `.githooks/` repeats the commit-time checks for commits made outside Claude. A block means change the command, never work around the hook.
 - Work on `dev`. `main` only via pull request, after a module's success criteria are met.
 - Commit only when asked.
 - **Stage explicit paths, never `git add -A`.** A blanket add swept an unrelated `CLAUDE.md` edit into an op-sqlite commit unnoticed, and it reached `main` unreviewed. Check `git status` and add only what the commit is about.

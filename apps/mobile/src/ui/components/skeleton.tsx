@@ -35,7 +35,32 @@ export const CoverGridSkeleton = () => (
   </View>
 );
 
+/** Rows shaped like `GameRow`, while a list of games is on its way. */
+export const GameRowsSkeleton = ({ count = 8 }: { count?: number }) => (
+  <View accessible accessibilityLabel="Loading games" accessibilityState={{ busy: true }}>
+    {Array.from({ length: count }, (_, index) => (
+      <View key={index} style={styles.row}>
+        <SkeletonBlock width={52} aspectRatio={3 / 4} round={radius.cover} />
+        <View style={styles.lines}>
+          <SkeletonBlock width="70%" height={14} round={radius.pill} />
+          <SkeletonBlock width="35%" height={12} round={radius.pill} />
+        </View>
+      </View>
+    ))}
+  </View>
+);
+
 const styles = StyleSheet.create({
+  // GameRow's insets, so the real rows land where the placeholders were.
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingVertical: space.sm,
+    marginHorizontal: space.sm,
+    paddingHorizontal: space.sm,
+  },
+  lines: { flex: 1, gap: space.sm },
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: space.md },
   cell: { width: '33.333%', padding: space.xs, gap: space.sm },
 });

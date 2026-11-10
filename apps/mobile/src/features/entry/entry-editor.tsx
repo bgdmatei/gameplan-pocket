@@ -14,12 +14,13 @@ import { useDatabase } from '@/data/database';
 import { syncEnv, today } from '@/data/env';
 import { startTimer } from '@/data/perf';
 import { Chip } from '@/ui/components/chip';
-import { HeaderIconButton } from '@/ui/components/header-button';
 import { orderPlatforms, platformLabel } from '@/ui/platforms';
+import { RoundButton } from '@/ui/components/pill-button';
 import { StarRating } from '@/ui/components/star-rating';
 import { StatusChips } from '@/ui/components/status-chips';
 import { useToast } from '@/ui/components/toast';
 import { minTouchTarget, radius, space, tabularNumbers, type } from '@/ui/theme';
+import type { Colors } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 import { editEntry } from './edit-entry';
 
@@ -88,18 +89,24 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
       toast.show('Archived. It’s in the Archive, with its rating and notes.');
   };
 
+  const archiveButton = (
+    <RoundButton icon="archive-outline" label="Archive this game" onPress={() => void archive()} />
+  );
+
   return (
     <View style={styles.editor}>
-      {/* Archiving is an action on the whole game, so it sits in the header, not mid-page. */}
+      {/*
+       * Archiving is an action on the whole game, so it sits in the header, not
+       * mid-page. A frosted round button like Library's Archive: gold sank into
+       * the cover behind the header. On iOS 26 the bar's own glass pill is
+       * hidden so the two don't stack (headerRightItems is how to ask for that).
+       */}
       <Stack.Screen
         options={{
-          headerRight: () => (
-            <HeaderIconButton
-              icon="archive-outline"
-              label="Archive this game"
-              onPress={() => void archive()}
-            />
-          ),
+          headerRight: () => archiveButton,
+          unstable_headerRightItems: () => [
+            { type: 'custom', element: archiveButton, hidesSharedBackground: true },
+          ],
         }}
       />
       <Section label="STATUS">
@@ -145,7 +152,7 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
         />
       </Section>
 
-      <View style={[styles.switchRow, styles.rule, { borderTopColor: colors.line }]}>
+      <View style={[styles.switchRow, styles.card, cardColours(colors)]}>
         <Text style={[type.body, { color: colors.text }]}>Favourite</Text>
         <Switch
           value={shown.favourite}
@@ -158,10 +165,15 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
   );
 };
 
+const cardColours = (colors: Colors) => ({
+  backgroundColor: colors.surface,
+  borderColor: colors.line,
+});
+
 const Section = ({ label, children }: { label: string; children: ReactNode }) => {
   const { colors } = useTheme();
   return (
-    <View style={[styles.section, styles.rule, { borderTopColor: colors.line }]}>
+    <View style={[styles.section, styles.card, cardColours(colors)]}>
       <Text style={[type.label, { color: colors.muted }]}>{label}</Text>
       {children}
     </View>
@@ -238,10 +250,10 @@ const Playtime = ({
 };
 
 const styles = StyleSheet.create({
-  editor: { gap: space.lg },
+  editor: { gap: space.md },
   section: { gap: space.sm },
-  /** Sections sit on the screen's ground, divided by hairlines rather than boxed. */
-  rule: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: space.lg },
+  /** Each section is a soft card on the ground, like the references' panels. */
+  card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.card, padding: space.lg },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   fields: { flexDirection: 'row', gap: space.md },
   field: { width: 128, gap: space.xs },
@@ -256,5 +268,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     minHeight: minTouchTarget,
+    paddingVertical: space.sm,
   },
 });

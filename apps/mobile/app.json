@@ -39,7 +39,16 @@
       ],
       "expo-image",
       "./plugins/with-scene-lifecycle",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Fraunces72ptSoft-SemiBold.otf",
+            "./assets/fonts/Fraunces72ptSoft-Regular.otf"
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

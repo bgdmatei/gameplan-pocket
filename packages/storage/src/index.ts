@@ -57,7 +57,12 @@ export {
   listPendingOps,
 } from './repositories/pending-ops';
 export type { ListPendingOptions } from './repositories/pending-ops';
-export { SYNC_STATE_TABLES, getSyncState, updateSyncState } from './repositories/sync-state';
-export type { SyncState, SyncStatePatch } from './repositories/sync-state';
+export {
+  SYNC_STATE_TABLES,
+  THEME_PREFERENCES,
+  getSyncState,
+  updateSyncState,
+} from './repositories/sync-state';
+export type { SyncState, SyncStatePatch, ThemePreference } from './repositories/sync-state';
 export { SYNCED_ROWS, readSyncedRow } from './repositories/synced-rows';
 export type { RowMeta, StoredRow, SyncedRowCodec } from './repositories/synced-rows';

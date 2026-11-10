@@ -1,5 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { Link } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,8 +8,9 @@ import { DEFAULT_GRID_STATUS, FilterBar } from '@/ui/components/filter-bar';
 import type { LibraryFilters } from '@/ui/components/filter-bar';
 import { LibraryGrid } from '@/ui/components/library-grid';
 import { STATUS_LABEL } from '@/ui/labels';
-import { PressableScale } from '@/ui/components/pressable-scale';
-import { minTouchTarget, space, type } from '@/ui/theme';
+import { RoundButton } from '@/ui/components/pill-button';
+import { useTabBarSpace } from '@/ui/components/tab-bar';
+import { displayMaxScale, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 /** Newest release counts from this year: a game due next year isn't "newest" yet. */
@@ -18,6 +18,7 @@ const endOfThisYear = (): string => `${String(new Date().getFullYear())}-12-31`;
 
 const LibraryScreen = () => {
   const { colors } = useTheme();
+  const tabBarSpace = useTabBarSpace();
   const [filters, setFilters] = useState<LibraryFilters>({
     status: DEFAULT_GRID_STATUS,
     sort: 'released',
@@ -36,51 +37,49 @@ const LibraryScreen = () => {
   return (
     <SafeAreaView edges={['top']} style={styles.page}>
       <View style={styles.head}>
-        <Text style={[type.largeTitle, { color: colors.text }]} accessibilityRole="header">
+        <Text
+          maxFontSizeMultiplier={displayMaxScale}
+          style={[type.display, { color: colors.text }]}
+          accessibilityRole="header"
+        >
           Library
         </Text>
         <View style={styles.actions}>
-          <Link href="/account" asChild>
-            <PressableScale
-              accessibilityRole="button"
-              accessibilityLabel="Account"
-              style={styles.icon}
-            >
-              <Ionicons name="person-circle-outline" size={26} color={colors.accent} />
-            </PressableScale>
-          </Link>
-          <Link href="/archive" asChild>
-            <PressableScale
-              accessibilityRole="button"
-              accessibilityLabel="Archive"
-              style={styles.icon}
-            >
-              <Ionicons name="archive-outline" size={24} color={colors.accent} />
-            </PressableScale>
-          </Link>
-          <Link href="/debug" asChild>
-            <PressableScale
-              accessibilityRole="button"
-              accessibilityLabel="Debug"
-              style={styles.icon}
-            >
-              <Ionicons name="construct-outline" size={22} color={colors.muted} />
-            </PressableScale>
-          </Link>
+          <RoundButton
+            icon="person-outline"
+            label="Account"
+            onPress={() => router.push('/account')}
+          />
+          <RoundButton
+            icon="archive-outline"
+            label="Archive"
+            onPress={() => router.push('/archive')}
+          />
+          <RoundButton
+            icon="construct-outline"
+            label="Debug"
+            onPress={() => router.push('/debug')}
+          />
         </View>
       </View>
 
-      <NowPlayingShelf />
-
-      <FilterBar filters={filters} onChange={changeFilters} />
-
       <LibraryGrid
+        bottomInset={tabBarSpace}
         onShown={onShown}
         filters={{ ...filters, releasedBy: endOfThisYear() }}
+        // Scrolls away with the grid, so the covers get the whole screen.
+        header={
+          <View style={styles.header}>
+            <NowPlayingShelf />
+            <FilterBar filters={filters} onChange={changeFilters} />
+          </View>
+        }
         empty={
           <View style={styles.empty}>
             <Text style={[type.body, { color: colors.muted }]}>
-              {`Nothing in ${STATUS_LABEL[filters.status]} yet. Find a game in Search, or change a game’s status.`}
+              {filters.status === undefined
+                ? 'No favourites yet. Turn on Favourite on a game to keep it here.'
+                : `Nothing in ${STATUS_LABEL[filters.status]} yet. Find a game in Search, or change a game’s status.`}
             </Text>
           </View>
         }
@@ -96,14 +95,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: space.lg,
+    paddingBottom: space.sm,
   },
-  actions: { flexDirection: 'row', gap: space.xs },
-  icon: {
-    minWidth: minTouchTarget,
-    minHeight: minTouchTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  actions: { flexDirection: 'row', gap: space.sm },
+  // Out to the screen edges: the grid's own inset would double the shelf's.
+  header: { marginHorizontal: -space.md, paddingBottom: space.sm },
   empty: { padding: space.lg },
 });
 

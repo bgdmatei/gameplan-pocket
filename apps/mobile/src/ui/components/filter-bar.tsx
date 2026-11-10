@@ -10,7 +10,8 @@ export type GridStatus = Exclude<EntryStatus, 'playing'>;
 
 /**
  * The status chips, in the order players reach for them, and the one the
- * library opens on: always one status, never All (spec decision 21).
+ * library opens on: one status, never All (spec decision 21), or else
+ * Favourites, which spans every status (Playing included; owner, 2026-11-03).
  */
 export const GRID_STATUSES: readonly GridStatus[] = [
   'completed',
@@ -27,7 +28,8 @@ export const DEFAULT_GRID_STATUS: GridStatus = 'completed';
  * (`library-options.tsx`).
  */
 export type LibraryFilters = {
-  status: GridStatus;
+  /** Absent only for Favourites, which shows every status. */
+  status?: GridStatus;
   favourite?: boolean;
   genreId?: number;
   sort: LibrarySort;
@@ -38,13 +40,23 @@ export type LibraryFilters = {
 type Props = { filters: LibraryFilters; onChange: (filters: LibraryFilters) => void };
 
 /**
- * One row of small status chips, one always selected, scrolling sideways when
+ * One row of status pills, one always selected, scrolling sideways when
  * it runs past the screen. Filtering happens in SQL (plan §12.2); this only says what
  * to ask for.
  */
 export const FilterBar = ({ filters, onChange }: Props) => {
+  const favourites = filters.favourite === true;
   const choose = (status: GridStatus) => {
-    if (status !== filters.status) onChange({ ...filters, status });
+    if (status === filters.status && !favourites) return;
+    const next = { ...filters, status };
+    delete next.favourite;
+    onChange(next);
+  };
+  const chooseFavourites = () => {
+    if (favourites) return;
+    const next = { ...filters, favourite: true };
+    delete next.status;
+    onChange(next);
   };
 
   return (
@@ -55,12 +67,12 @@ export const FilterBar = ({ filters, onChange }: Props) => {
       contentContainerStyle={styles.row}
       accessibilityLabel="Status"
     >
+      <Chip label="Favourites" icon="star" selected={favourites} onPress={chooseFavourites} />
       {GRID_STATUSES.map((status) => (
         <Chip
           key={status}
           label={STATUS_LABEL[status]}
-          size="small"
-          selected={filters.status === status}
+          selected={!favourites && filters.status === status}
           onPress={() => choose(status)}
         />
       ))}
