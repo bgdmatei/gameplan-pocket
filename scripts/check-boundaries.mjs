@@ -27,6 +27,9 @@ const fixtures = [
   'packages/storage/tests/fixtures/storage-imports-sync.ts',
   // contracts → anything but domain
   'packages/contracts/tests/fixtures/contracts-imports-storage.ts',
+  // sync may import contracts, never the other way: contracts stay importable
+  // by the server without pulling in the client's storage.
+  'packages/contracts/tests/fixtures/contracts-imports-sync.ts',
   // mobile → sync-server (only the API may use it)
   'apps/mobile/tests/fixtures/mobile-imports-sync-server.ts',
   // sync-server → the API's database code

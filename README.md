@@ -131,10 +131,11 @@ Node's SQLite is more forgiving than the phone's: FTS5 is built into Node but ha
 ```
 apps/
   mobile/       Expo Router app (SDK 57): screens, features, UI kit
-  api/          Hono API: IGDB proxy with a Postgres cache, email-code auth
+  api/          Hono API: IGDB proxy with a Postgres cache, email-code auth, sync push
 packages/
   domain/       Entities and rules. Pure TypeScript: no React, no I/O, no clock
-  sync/         Hybrid logical clock, ops, per-field merges, the local write path
+  sync/         Hybrid logical clock, ops, per-field merges, the local write path, the sync loop
+  sync-server/  The server's door checks and merge, plus an in-memory server for tests
   storage/      StorageAdapter interface; op-sqlite on the phone, Node SQLite in tests
   db-schema/    The phone's SQLite schema and numbered migrations
   contracts/    The wire format shared by the API and the app (zod)
@@ -143,7 +144,7 @@ packages/
 docs/adr/       Architecture decision records
 ```
 
-Dependencies only point inward: `apps → packages`, never the reverse, and `domain` imports nothing from the other packages. ESLint enforces this (`eslint-plugin-boundaries`). `pnpm lint:boundaries` keeps fixtures that break the rules on purpose and fails if lint ever stops flagging them, so a rule can't be switched off by accident.
+Dependencies only point inward: `apps → packages`, never the reverse, and `domain` imports nothing from the other packages. Only the API may import `sync-server`, so server logic never ships in the app. ESLint enforces this (`eslint-plugin-boundaries`). `pnpm lint:boundaries` keeps fixtures that break the rules on purpose and fails if lint ever stops flagging them, so a rule can't be switched off by accident.
 
 **How a write flows.** A screen calls a commit function in `sync`. It checks the change against the domain rules, stamps each changed field with a hybrid logical clock, and in one SQLite transaction writes both the row and an op describing the change into an outbox. Screens subscribe to reactive queries, so the database's copy re-renders on its own. Screens have no other way to write: storage's own write functions were removed.
 

@@ -15,6 +15,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@gameplan/contracts": "workspace:*",
     "@gameplan/domain": "workspace:*",
     "@gameplan/storage": "workspace:*",
     "uuid": "^14.0.2",

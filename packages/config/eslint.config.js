@@ -101,6 +101,8 @@ export default tseslint.config(
                 { to: { element: { type: 'sync' } } },
                 { to: { element: { type: 'domain' } } },
                 { to: { element: { type: 'storage' } } },
+                // The sync loop speaks the API's wire shapes (owner, 2026-11-10).
+                { to: { element: { type: 'contracts' } } },
               ],
             },
             // sync-server is the server's door checks and merge, built on the
