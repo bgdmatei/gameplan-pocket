@@ -9,6 +9,8 @@ import { createCatalogService } from './catalog/service';
 import { createDb } from './db/client';
 import { loadDotEnv, readEnv } from './env';
 import { consoleLogger } from './logger';
+import { createSyncRepository } from './sync/repository';
+import { createSyncService } from './sync/service';
 
 // Refuses to start without its configuration, naming what is missing.
 loadDotEnv();
@@ -39,10 +41,17 @@ const auth = createAuthService({
   now: () => Date.now(),
 });
 
+const sync = createSyncService({
+  repository: createSyncRepository(db),
+  logger,
+  now: () => Date.now(),
+});
+
 serve({
   fetch: createApp({
     catalog,
     auth,
+    sync,
     corsOrigins: env.CORS_ORIGINS,
     logger,
     apiKey: env.CATALOG_API_KEY,

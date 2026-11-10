@@ -32,6 +32,16 @@ describe('checkOp', () => {
     { label: 'an unknown entity', raw: op({ entity: 'users' }), reason: 'invalid_op' },
     { label: 'an over-long row id', raw: op({ entityId: 'x'.repeat(65) }), reason: 'invalid_op' },
     {
+      label: 'a NUL character, which Postgres cannot store',
+      raw: op({ entity: 'list', fields: { name: 'a\u0000b' } }),
+      reason: 'invalid_op',
+    },
+    {
+      label: 'half an emoji, which Postgres cannot store',
+      raw: op({ entity: 'list', fields: { name: 'a\uD83Db' } }),
+      reason: 'invalid_op',
+    },
+    {
       label: 'an entity the server does not sync yet',
       raw: op({ entity: 'note_conflict', fields: { resolved: true } }),
       reason: 'unsupported_entity',
@@ -43,6 +53,13 @@ describe('checkOp', () => {
     },
   ])('refuses $label, naming the op', ({ raw, reason }) => {
     expect(checkOp(raw, NOW)).toEqual({ ok: false, reason, opId: op().id });
+  });
+
+  // Review finding: the first NUL check searched the op's JSON, so a literal
+  // backslash-u0000 typed in a note was refused too.
+  it('lets in text that only looks like an escape, and whole emoji', () => {
+    const fine = op({ entity: 'list', fields: { name: 'use \\u0000 to end 🎮' } });
+    expect(checkOp(fine, NOW)).toEqual({ ok: true, op: fine });
   });
 
   it('refuses something that is not an op without inventing an id for it', () => {

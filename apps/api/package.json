@@ -19,6 +19,8 @@
   "dependencies": {
     "@gameplan/contracts": "workspace:*",
     "@gameplan/domain": "workspace:*",
+    "@gameplan/sync": "workspace:*",
+    "@gameplan/sync-server": "workspace:*",
     "@hono/node-server": "^1.13.7",
     "hono": "^4.6.14",
     "kysely": "^0.29.6",
@@ -27,6 +29,7 @@
   },
   "devDependencies": {
     "@gameplan/config": "workspace:*",
+    "@gameplan/storage": "workspace:*",
     "@testcontainers/postgresql": "^12.1.0",
     "@types/node": "^22.10.2",
     "@types/pg": "^8.23.1",

@@ -41,6 +41,12 @@ importers:
       '@gameplan/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@gameplan/sync':
+        specifier: workspace:*
+        version: link:../../packages/sync
+      '@gameplan/sync-server':
+        specifier: workspace:*
+        version: link:../../packages/sync-server
       '@hono/node-server':
         specifier: ^1.13.7
         version: 1.19.17(hono@4.13.8)
@@ -60,6 +66,9 @@ importers:
       '@gameplan/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@gameplan/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@testcontainers/postgresql':
         specifier: ^12.1.0
         version: 12.1.0
@@ -269,6 +278,9 @@ importers:
 
   packages/sync:
     dependencies:
+      '@gameplan/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@gameplan/domain':
         specifier: workspace:*
         version: link:../domain

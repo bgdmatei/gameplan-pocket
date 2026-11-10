@@ -1,3 +1,5 @@
+import { createSyncRepository } from '../sync/repository';
+import { createSyncService } from '../sync/service';
 import { HEADERS } from '@gameplan/contracts';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../app';
@@ -33,7 +35,8 @@ const setup = async (answer: (url: string) => Response) => {
   const db = await createTestDb();
   const catalog = createCatalogService({ repository: createCatalogRepository(db), igdb, logger });
   const { auth } = await createTestAuth(db);
-  const app = createApp({ catalog, auth, corsOrigins: [], logger, apiKey: API_KEY });
+  const sync = createSyncService({ repository: createSyncRepository(db), logger, now: Date.now });
+  const app = createApp({ catalog, auth, sync, corsOrigins: [], logger, apiKey: API_KEY });
   const request = (path: string) => app.request(path, { headers: { [HEADERS.apiKey]: API_KEY } });
   return { request, lines, db };
 };

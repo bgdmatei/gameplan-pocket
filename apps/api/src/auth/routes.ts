@@ -1,23 +1,8 @@
 import { codeRequestSchema, refreshRequestSchema, verifyRequestSchema } from '@gameplan/contracts';
 import type { ErrorResponse, RefreshResponse, VerifyResponse } from '@gameplan/contracts';
-import type { Context } from 'hono';
 import { Hono } from 'hono';
-import type { z } from 'zod';
+import { parseBody } from '../parse-body';
 import type { AuthService } from './service';
-
-type Parsed<T> = { ok: true; data: T } | { ok: false; error: ErrorResponse };
-
-/**
- * The body, parsed with a contract schema. A failure names the fields only,
- * never what was sent: auth bodies hold emails, codes and tokens.
- */
-const parseBody = async <T>(c: Context, schema: z.ZodType<T>): Promise<Parsed<T>> => {
-  const raw: unknown = await c.req.json().catch(() => undefined);
-  const parsed = schema.safeParse(raw);
-  if (parsed.success) return { ok: true, data: parsed.data };
-  const fields = [...new Set(parsed.error.issues.map((issue) => String(issue.path[0] ?? 'body')))];
-  return { ok: false, error: { error: 'invalid_request', fields } };
-};
 
 /** The auth HTTP surface (SPEC-auth-identity.md §API). */
 export const createAuthRoutes = (service: AuthService): Hono => {

@@ -9,10 +9,13 @@ import { createCatalogRoutes } from './catalog/routes';
 import type { CatalogService } from './catalog/service';
 import { createCors } from './cors';
 import type { Logger } from './logger';
+import { createSyncRoutes } from './sync/routes';
+import type { SyncService } from './sync/service';
 
 export type AppDependencies = {
   catalog: CatalogService;
   auth: AuthService;
+  sync: SyncService;
   /** Origins browsers may call from (`CORS_ORIGINS`); empty until the web app exists. */
   corsOrigins: readonly string[];
   logger: Logger;
@@ -37,6 +40,7 @@ const sameKey = (given: string, expected: string): boolean => {
 export const createApp = ({
   catalog,
   auth,
+  sync,
   corsOrigins,
   logger,
   apiKey,
@@ -54,6 +58,7 @@ export const createApp = ({
   });
   app.route('/catalog', createCatalogRoutes(catalog));
   app.route('/auth', createAuthRoutes(auth));
+  app.route('/sync', createSyncRoutes(sync, auth));
   app.get('/me', requireUser(auth), async (c) => {
     const me = await auth.me(c.get('user'));
     if (me === null) return c.json({ error: 'unauthorized' } satisfies ErrorResponse, 401);
