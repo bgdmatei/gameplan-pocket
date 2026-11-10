@@ -171,8 +171,6 @@ The full reasoning is in [`docs/adr/`](docs/adr). In short:
 
 The project is planned as 15 modules (foundation → domain → storage → sync core → catalog → mobile library → auth → visual design → sync transport → realtime → conflicts → schema evolution → Steam import → stats → web).
 
-**Done:** the foundation, domain model, storage adapter, offline sync core, catalog service, the mobile library app (search, library grid and filters, game detail, notes, archive), and auth. A staging API runs on Render with Neon Postgres.
-
-**In progress:** a visual redesign of every screen, in light and dark.
+**Done:** the foundation, domain model, storage adapter, offline sync core, catalog service, the mobile library app (search, library grid and filters, favourites, game detail, notes, archive), auth, and the visual design: image-led covers, Fraunces headlines, frosted chrome, a floating tab bar, and light and dark themes with a switch in Account. A staging API runs on Render with Neon Postgres.
 
 **Not yet:** syncing between devices (the transport, the server's op log, realtime pokes and the conflict UI for notes). Each device already records everything sync will need. Steam import, stats, and the web app are not started either.
