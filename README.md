@@ -41,12 +41,14 @@ git config core.hooksPath .githooks   # the repo's git hooks, once per clone
 cd apps/api
 cp .env.example .env          # then fill it in, see below
 docker compose up -d          # Postgres 17 on :5432
-pnpm migrate                  # create the tables
+pnpm db:roles                 # the two database roles, once per database
+pnpm migrate                  # create the tables, as gameplan_migrator
 pnpm dev                      # Hono on http://localhost:3000, check /health
 ```
 
 In `apps/api/.env`:
 
+- `DATABASE_URL`, `MIGRATION_DATABASE_URL` and `ADMIN_DATABASE_URL`: keep the example's values locally. The API runs as `gameplan_app`, which can read and write rows but not change the schema; migrations run as `gameplan_migrator`, which owns it. `pnpm db:roles` creates both, using the passwords in those two URLs, and is safe to run again.
 - `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET`: from a Twitch developer application ([dev.twitch.tv/console](https://dev.twitch.tv/console)). The API uses them to talk to IGDB.
 - `CATALOG_API_KEY`: any long random string (`openssl rand -hex 24`). The app sends it with every catalog request.
 - `JWT_SECRET` and `CODE_SECRET`: `openssl rand -hex 32` each.

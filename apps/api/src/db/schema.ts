@@ -102,6 +102,81 @@ export type RefreshTokensTable = {
   created_at: CreatedAt;
 };
 
+/** JSON in and out: pg parses jsonb on read; writes pass `JSON.stringify`'d text. */
+type Json = ColumnType<unknown, string, string>;
+type MaybeJson = ColumnType<unknown, string | null | undefined, string | null>;
+
+export type UserSyncTable = {
+  user_id: string;
+  /** BIGINT, read as a number by `db/client.ts`. */
+  last_seq: ColumnType<number, number | undefined, number>;
+};
+
+/** One accepted op. Append-only: never updated or deleted by the API. */
+export type OpsTable = {
+  user_id: string;
+  seq: number;
+  op_id: string;
+  entity: string;
+  entity_id: string;
+  type: string;
+  /** Null for a delete. */
+  fields: MaybeJson;
+  hlc: string;
+  schema_version: number;
+  received_at: CreatedAt;
+};
+
+/**
+ * Columns every materialised table shares. Synced columns are nullable: a
+ * merged row can be partial, and `field_hlc` says which fields are set.
+ */
+type MaterialisedRow = {
+  user_id: string;
+  id: string;
+  /** Field name → clock of its last write, plus the merge's delete clock. */
+  field_hlc: Json;
+  deleted: ColumnType<boolean, boolean | undefined, boolean>;
+};
+
+type Nullable<T> = {
+  [K in keyof T]: ColumnType<T[K] | null, T[K] | null | undefined, T[K] | null>;
+};
+
+export type LibraryEntriesTable = MaterialisedRow &
+  Nullable<{
+    game_id: number;
+    status: string;
+    rating: number;
+    platform_id: number;
+    playtime_minutes: number;
+    /** `YYYY-MM-DD`, read as text by `db/client.ts`. */
+    started_on: string;
+    finished_on: string;
+    favourite: boolean;
+    shelved: boolean;
+    archived: boolean;
+    created_at: string;
+  }> & { progress: MaybeJson };
+
+export type EntryTagsTable = MaterialisedRow & Nullable<{ entry_id: string; tag: string }>;
+
+export type NoteItemsTable = MaterialisedRow &
+  Nullable<{
+    entry_id: string;
+    type: string;
+    text: string;
+    location: string;
+    resolved: boolean;
+    created_at: string;
+  }>;
+
+export type ListsTable = MaterialisedRow &
+  Nullable<{ name: string; description: string; created_at: string }>;
+
+export type ListItemsTable = MaterialisedRow &
+  Nullable<{ list_id: string; game_id: number; added_at: string }>;
+
 export type Database = {
   games: GamesTable;
   genres: GenresTable;
@@ -113,4 +188,11 @@ export type Database = {
   auth_failures: AuthFailuresTable;
   devices: DevicesTable;
   refresh_tokens: RefreshTokensTable;
+  user_sync: UserSyncTable;
+  ops: OpsTable;
+  library_entries: LibraryEntriesTable;
+  entry_tags: EntryTagsTable;
+  note_items: NoteItemsTable;
+  lists: ListsTable;
+  list_items: ListItemsTable;
 };

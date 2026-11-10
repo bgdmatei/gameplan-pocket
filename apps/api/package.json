@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "migrate": "tsx src/db/migrate-cli.ts",
+    "db:roles": "tsx src/scripts/bootstrap-roles.ts",
     "build": "node build.mjs",
     "start": "node --enable-source-maps dist/index.mjs",
     "migrate:built": "node --enable-source-maps dist/migrate.mjs",
