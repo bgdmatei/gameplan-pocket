@@ -10,6 +10,8 @@ import { phaseOf, syncActivity } from './status';
 import type { SyncPhase } from './status';
 
 export type SyncStatus = {
+  /** False until the stored half has been read: show nothing rather than a guess. */
+  loaded: boolean;
   phase: SyncPhase;
   /** Null until this database first synced. */
   lastSyncedAt: string | null;
@@ -35,5 +37,11 @@ export const useSyncStatus = (): SyncStatus => {
   );
   const { lastSyncedAt, pending } =
     stored.status === 'ready' ? stored.data : { lastSyncedAt: null, pending: 0 };
-  return { phase: phaseOf(activity), lastError: activity.lastError, lastSyncedAt, pending };
+  return {
+    loaded: stored.status === 'ready',
+    phase: phaseOf(activity),
+    lastError: activity.lastError,
+    lastSyncedAt,
+    pending,
+  };
 };

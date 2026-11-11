@@ -1,14 +1,15 @@
-type Listener = () => void;
+/** `byPlayer`: a tap on the sync icon, whose run shows even while an error holds. */
+type Listener = (request: { byPlayer: boolean }) => void;
 
 const listeners = new Set<Listener>();
 
 /**
  * Asks for a sync now, from code that can't reach the scheduler (it lives in
- * `SyncTriggers`, one per database), such as signing in. Nothing listening,
- * nothing happens: the next trigger syncs anyway.
+ * `SyncTriggers`, one per database): signing in, or the sync icon. Nothing
+ * listening, nothing happens: the next trigger syncs anyway.
  */
-export const requestSync = (): void => {
-  for (const listener of listeners) listener();
+export const requestSync = (request: { byPlayer: boolean } = { byPlayer: false }): void => {
+  for (const listener of listeners) listener(request);
 };
 
 /** For `SyncTriggers`; returns the function that stops listening. */

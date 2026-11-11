@@ -8,6 +8,7 @@ const started: SyncEvent = { type: 'started' };
 const succeeded: SyncEvent = { type: 'succeeded' };
 const offline: SyncEvent = { type: 'went_offline' };
 const online: SyncEvent = { type: 'came_online' };
+const tapped: SyncEvent = { type: 'requested' };
 
 const after = (events: readonly SyncEvent[]) => events.reduce(reduceSyncActivity, INITIAL_ACTIVITY);
 
@@ -45,6 +46,25 @@ describe('sync activity', () => {
     {
       case: 'an error, then a network flap',
       events: [failed('failed'), offline, online],
+      phase: 'error',
+    },
+    // Owner, #23: automatic retries after an error don't flicker to syncing;
+    // a tap does show its run, and only that one.
+    { case: 'a quiet retry after an error', events: [failed('failed'), started], phase: 'error' },
+    {
+      case: 'a retry the player tapped',
+      events: [failed('failed'), tapped, started],
+      phase: 'syncing',
+    },
+    // Review of #23: a tap whose sync never ran mustn't mark a later quiet retry.
+    {
+      case: 'a tap that never ran, then a quiet retry',
+      events: [failed('failed'), tapped, { type: 'skipped' }, started],
+      phase: 'error',
+    },
+    {
+      case: 'a tapped retry that fails, then a quiet one',
+      events: [failed('failed'), tapped, started, failed('failed'), started],
       phase: 'error',
     },
     // Review of #22: a session ending is not an error that lingers.

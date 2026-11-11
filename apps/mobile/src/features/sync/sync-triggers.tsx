@@ -1,4 +1,4 @@
-import { PENDING_OP_TABLES, getSyncState, latestPendingSeq } from '@gameplan/storage';
+import { PENDING_OP_TABLES, latestPendingSeq } from '@gameplan/storage';
 import { addNetworkStateListener, getNetworkStateAsync } from 'expo-network';
 import type { NetworkState } from 'expo-network';
 import { useEffect } from 'react';
@@ -8,8 +8,8 @@ import { catalogApi } from '@/data/catalog-api';
 import { useDatabase } from '@/data/database';
 import { syncEnv } from '@/data/env';
 import { SyncRequestError } from '@/data/sync-api';
-import { session } from '@/features/account/auth-client';
 import { useToast } from '@/ui/components/toast';
+import { ownsDatabase } from './owns-database';
 import { createReconnectNotices } from './reconnect-notices';
 import { runSync } from './run-sync';
 import { createSyncScheduler } from './scheduler';
@@ -36,11 +36,7 @@ const isForeground = (state: AppStateStatus): boolean => state !== 'background';
  * the foreground, when the network returns, 2 s after local edits, every 5
  * minutes while open, and when asked (after signing in); in the background,
  * nothing. One per database, so an erase starts a fresh one. Renders nothing.
- *
- * "Signed in" means this database belongs to the session's account, not just
- * that tokens exist: signing out erases the database before it ends the
- * session (sign-out.ts), and syncing the fresh one in between would bring the
- * library back onto the phone being signed out of (review of #21).
+ * Only while this database belongs to the session's account (`ownsDatabase`).
  */
 export const SyncTriggers = () => {
   const adapter = useDatabase();
@@ -49,11 +45,7 @@ export const SyncTriggers = () => {
 
   useEffect(() => {
     const notices = createReconnectNotices(show);
-    const signedIn = async () => {
-      const current = await session.current();
-      if (current === null) return false;
-      return (await getSyncState(adapter)).ownerUserId === current.user.id;
-    };
+    const signedIn = () => ownsDatabase(adapter);
     let mounted = true;
     // Status follows each real run, not each caller sharing one (single
     // flight), and stops once this database is gone: a run left over from
@@ -75,7 +67,10 @@ export const SyncTriggers = () => {
       },
       signedIn,
       onSuccess: notices.synced,
-      onSkip: notices.skipped,
+      onSkip: () => {
+        report({ type: 'skipped' });
+        notices.skipped();
+      },
       // The kind only ('offline', 'failed', …): a failure never carries op data.
       onFailure: (kind, retrying) => {
         console.warn(`Sync failed: ${kind}`);
@@ -122,7 +117,9 @@ export const SyncTriggers = () => {
     const network = addNetworkStateListener((state) => {
       const now = isOnline(state);
       report({ type: now ? 'came_online' : 'went_offline' });
-      if (online === true && !now) {
+      // Unknown before (the launch read not back yet) counts as online: the
+      // first drop is still a drop worth telling (review of #23).
+      if (online !== false && !now) {
         void signedIn()
           .then((yes) => yes && notices.wentOffline())
           .catch(() => undefined);
@@ -145,7 +142,11 @@ export const SyncTriggers = () => {
       foreground = now;
     });
 
-    const requests = onSyncRequest(() => void scheduler.syncNow());
+    const requests = onSyncRequest(({ byPlayer }) => {
+      // Marked first, so a tapped run shows even while an error holds.
+      if (byPlayer) report({ type: 'requested' });
+      void scheduler.syncNow();
+    });
 
     if (foreground) void scheduler.start();
 

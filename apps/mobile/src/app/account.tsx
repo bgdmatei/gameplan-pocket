@@ -24,7 +24,7 @@ type Step =
   | { kind: 'loading' }
   | { kind: 'email' }
   | { kind: 'code'; email: string }
-  | { kind: 'signed_in'; session: Session; online: boolean | null };
+  | { kind: 'signed_in'; session: Session };
 
 const OFFLINE = 'You’re offline. Try again when you’re connected.';
 
@@ -57,7 +57,8 @@ const AccountScreen = () => {
         toast.show('Your sign-in ended. Sign in again to keep this library.');
         return;
       }
-      setStep({ kind: 'signed_in', session: current, online: status === 'online' });
+      // Reachability shows in the sync line (#23), live, not as of this check.
+      setStep({ kind: 'signed_in', session: current });
     },
     [toast],
   );
@@ -72,7 +73,7 @@ const AccountScreen = () => {
         setStep({ kind: 'email' });
         return;
       }
-      setStep({ kind: 'signed_in', session: current, online: null });
+      setStep({ kind: 'signed_in', session: current });
       await check(current);
     })();
   }, [adapter, check]);
@@ -206,7 +207,6 @@ const AccountScreen = () => {
         {step.kind === 'signed_in' && (
           <SignedInCard
             session={step.session}
-            online={step.online}
             busy={busy}
             onSignOut={() => void confirmErase('Sign out?', null, 'Erase and sign out')}
           />

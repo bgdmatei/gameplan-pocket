@@ -12,11 +12,16 @@ export type SyncActivity = {
   running: boolean;
   /** The last run failed for a reason a retry may fix (not a session that ended). */
   failing: boolean;
+  /** The player tapped to sync: their run shows, where a quiet retry wouldn't. */
+  requested: boolean;
   /** The last failure's kind ('failed', 'ended', …) and when; never its contents. */
   lastError: { kind: string; at: string } | null;
 };
 
 export type SyncEvent =
+  | { type: 'requested' }
+  /** A sync asked for didn't run (signed out, backgrounded): a tap's flag goes with it. */
+  | { type: 'skipped' }
   | { type: 'started' }
   | { type: 'succeeded' }
   | { type: 'failed'; kind: string; at: string }
@@ -27,6 +32,7 @@ export const INITIAL_ACTIVITY: SyncActivity = {
   connected: true,
   running: false,
   failing: false,
+  requested: false,
   lastError: null,
 };
 
@@ -40,14 +46,19 @@ const NOT_ERRORS = new Set(['signed_out', 'ended']);
 
 export const reduceSyncActivity = (state: SyncActivity, event: SyncEvent): SyncActivity => {
   switch (event.type) {
+    case 'requested':
+      return state.requested ? state : { ...state, requested: true };
+    case 'skipped':
+      return state.requested ? { ...state, requested: false } : state;
     case 'started':
       return state.running ? state : { ...state, running: true };
     case 'succeeded':
-      return { ...state, running: false, failing: false };
+      return { ...state, running: false, failing: false, requested: false };
     case 'failed':
       return {
         ...state,
         running: false,
+        requested: false,
         failing: !NOT_ERRORS.has(event.kind),
         lastError: { kind: event.kind, at: event.at },
       };
@@ -60,12 +71,15 @@ export const reduceSyncActivity = (state: SyncActivity, event: SyncEvent): SyncA
 
 /**
  * Offline wins (nothing can sync); then a run in progress; then an error a
- * retry is working on. "synced" means idle with nothing wrong: whether it
- * ever synced is `lastSyncedAt`'s to say (`useSyncStatus`).
+ * retry is working on. While failing, automatic retries stay quiet: the
+ * error holds until one succeeds, and only a run the player asked for shows
+ * as syncing (owner, 2026-11-11: the icon flickered on every retry).
+ * "synced" means idle with nothing wrong: whether it ever synced is
+ * `lastSyncedAt`'s to say (`useSyncStatus`).
  */
 export const phaseOf = (state: SyncActivity): SyncPhase => {
   if (!state.connected) return 'offline';
-  if (state.running) return 'syncing';
+  if (state.running && (!state.failing || state.requested)) return 'syncing';
   return state.failing ? 'error' : 'synced';
 };
 

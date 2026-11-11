@@ -9,6 +9,7 @@ import type { LibraryFilters } from '@/ui/components/filter-bar';
 import { LibraryGrid } from '@/ui/components/library-grid';
 import { STATUS_LABEL } from '@/ui/labels';
 import { RoundButton } from '@/ui/components/pill-button';
+import { SyncStatusButton } from '@/features/sync/sync-status';
 import { useTabBarSpace } from '@/ui/components/tab-bar';
 import { displayMaxScale, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
@@ -45,6 +46,7 @@ const LibraryScreen = () => {
           Library
         </Text>
         <View style={styles.actions}>
+          <SyncStatusButton />
           <RoundButton
             icon="person-outline"
             label="Account"

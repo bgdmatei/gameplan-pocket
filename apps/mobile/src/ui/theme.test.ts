@@ -19,6 +19,9 @@ const pairs = (scheme: ColorScheme): Pair[] => {
     ['text on frostedFill', c.text, c.frostedFill, BODY],
     ['danger on frostedFill', c.danger, c.frostedFill, BODY],
     ['accent on frostedFill', c.accent, c.frostedFill, BODY],
+    // The Library sync icon (#23) on its frosted button.
+    ['success on frostedFill', c.success, c.frostedFill, BODY],
+    ['warning on frostedFill', c.warning, c.frostedFill, BODY],
     ['muted on background', c.muted, c.background, BODY],
     ['muted on surface', c.muted, c.surface, BODY],
     ['muted on raised', c.muted, c.raised, BODY],
@@ -80,6 +83,9 @@ describe('theme contrast', () => {
         expect(contrastRatio(c.accent, ground)).toBeGreaterThanOrEqual(BODY);
         // A problem toast's icon, frosted over the screen.
         expect(contrastRatio(c.danger, ground)).toBeGreaterThanOrEqual(BODY);
+        // The Library sync icon's other tones (#23).
+        expect(contrastRatio(c.success, ground)).toBeGreaterThanOrEqual(BODY);
+        expect(contrastRatio(c.warning, ground)).toBeGreaterThanOrEqual(BODY);
       }
     },
   );
