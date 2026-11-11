@@ -32,7 +32,8 @@ export type SyncApi = {
 
 export type SyncDeps = { adapter: StorageAdapter; env: SyncEnv; api: SyncApi };
 
-export type SyncResult = { pushed: number; rejected: number; pulled: number };
+/** `skipped`: server changes to rows this device couldn't complete (#26); counts only. */
+export type SyncResult = { pushed: number; rejected: number; pulled: number; skipped: number };
 
 const entityOf = (op: unknown): string =>
   typeof op === 'object' && op !== null && 'entity' in op && typeof op.entity === 'string'
@@ -84,7 +85,7 @@ const pushOutbox = async ({ adapter, env, api }: SyncDeps) => {
 };
 
 /** Reads every snapshot page first, so one transaction applies them all. */
-const bootstrap = async ({ adapter, env, api }: SyncDeps): Promise<void> => {
+const bootstrap = async ({ adapter, env, api }: SyncDeps): Promise<number> => {
   const rows: SnapshotRow[] = [];
   let cursor: string | undefined;
   let seq: number | undefined;
@@ -101,27 +102,30 @@ const bootstrap = async ({ adapter, env, api }: SyncDeps): Promise<void> => {
     cursor = page.nextCursor ?? undefined;
   } while (cursor !== undefined);
 
-  await applySnapshot(adapter, env, rows, { seq: seq ?? 0 });
+  const { skipped } = await applySnapshot(adapter, env, rows, { seq: seq ?? 0 });
+  return skipped;
 };
 
 /** Pulls pages of the log until caught up; each page commits with its cursor. */
-const pullLog = async ({ adapter, env, api }: SyncDeps): Promise<number> => {
+const pullLog = async ({ adapter, env, api }: SyncDeps) => {
   let after = (await getSyncState(adapter)).lastPulledSeq;
   let pulled = 0;
+  let skipped = 0;
 
   for (;;) {
     const page = await api.pull({ after, limit: SYNC_LIMITS.pullMaxLimit });
     if (page.ops.length > 0 || page.lastSeq !== after) {
-      await applyRemoteOps(
+      const applied = await applyRemoteOps(
         adapter,
         env,
         page.ops.map(({ op }) => opSchema.parse(op)),
         { lastPulledSeq: page.lastSeq },
       );
+      skipped += applied.skipped;
     }
     pulled += page.ops.length;
     after = page.lastSeq;
-    if (!page.hasMore) return pulled;
+    if (!page.hasMore) return { pulled, skipped };
   }
 };
 
@@ -132,10 +136,11 @@ const pullLog = async ({ adapter, env, api }: SyncDeps): Promise<number> => {
  */
 export const syncOnce = async (deps: SyncDeps): Promise<SyncResult> => {
   const { pushed, rejected } = await pushOutbox(deps);
-  if (!(await getSyncState(deps.adapter)).bootstrapped) await bootstrap(deps);
-  const pulled = await pullLog(deps);
+  const unbootstrapped = !(await getSyncState(deps.adapter)).bootstrapped;
+  const skippedAtBootstrap = unbootstrapped ? await bootstrap(deps) : 0;
+  const { pulled, skipped } = await pullLog(deps);
   await updateSyncState(deps.adapter, { lastSyncedAt: isoAt(deps.env.now()) });
-  return { pushed, rejected, pulled };
+  return { pushed, rejected, pulled, skipped: skippedAtBootstrap + skipped };
 };
 
 /** `syncOnce`, one at a time: a call made mid-sync shares one run after it. */

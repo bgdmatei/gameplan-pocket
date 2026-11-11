@@ -1,3 +1,4 @@
+import type { SnapshotRow } from '@gameplan/contracts';
 import { createList } from '@gameplan/domain';
 import {
   SYNCED_ROWS,
@@ -119,5 +120,70 @@ describe('syncOnce', () => {
     expect(
       await adapter.transaction((tx) => readSyncedRow(tx, SYNCED_ROWS.lists, 'gone')),
     ).toBeNull();
+  });
+
+  // #26: rows whose create never reached the log (the Debug seed wrote some)
+  // made a second device's bootstrap throw on every sync. They're skipped and
+  // counted; the complete rows beside them land, and the device moves on.
+  it('bootstraps and pulls past rows it cannot complete', async () => {
+    const adapter = await createMigratedNodeAdapter();
+    const env = fakeEnv();
+    const hlc = formatHlc({ wallMs: env.now(), counter: 0, nodeId: '3f9a2c1b7d4e8f60' });
+    const listFields = {
+      name: 'Co-op',
+      description: null,
+      createdAt: '2026-09-23T10:00:00.000Z',
+    };
+    const rows: SnapshotRow[] = [
+      {
+        entity: 'library_entry',
+        id: 'entry-30151665',
+        fields: { rating: 7 },
+        fieldHlc: { rating: hlc },
+        deleted: false,
+      },
+      {
+        entity: 'list',
+        id: 'l-1',
+        fields: listFields,
+        fieldHlc: { name: hlc, description: hlc, createdAt: hlc },
+        deleted: false,
+      },
+    ];
+    const { api } = emptyServer({
+      snapshot: async () => ({ rows, seq: 2, nextCursor: null }),
+      pull: async ({ after }) =>
+        after === 2
+          ? {
+              ops: [
+                {
+                  seq: 3,
+                  op: {
+                    id: '01890a5d-ac96-774b-bcce-b302099a8057',
+                    entity: 'library_entry',
+                    entityId: 'entry-20001528',
+                    type: 'set',
+                    fields: { platformId: 6 },
+                    hlc,
+                    schemaVersion: 1,
+                  },
+                },
+              ],
+              lastSeq: 3,
+              hasMore: false,
+            }
+          : { ops: [], lastSeq: after, hasMore: false },
+    });
+
+    expect(await syncOnce({ adapter, env, api })).toMatchObject({ pulled: 1, skipped: 2 });
+
+    expect(await getSyncState(adapter)).toMatchObject({ bootstrapped: true, lastPulledSeq: 3 });
+    const read = (id: string) =>
+      adapter.transaction((tx) => readSyncedRow(tx, SYNCED_ROWS.library_entries, id));
+    expect(await read('entry-30151665')).toBeNull();
+    expect(await read('entry-20001528')).toBeNull();
+    expect(
+      (await adapter.transaction((tx) => readSyncedRow(tx, SYNCED_ROWS.lists, 'l-1')))?.value,
+    ).toMatchObject({ name: 'Co-op' });
   });
 });

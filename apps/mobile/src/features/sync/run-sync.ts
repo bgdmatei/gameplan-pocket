@@ -47,6 +47,11 @@ export const runSync = async (
   deps: SyncDeps & { catalog: GameSource },
 ): Promise<SyncResult & { games: number }> => {
   const result = await syncOnce(deps);
+  // A count only, never the rows: a skip means a create that never reached
+  // the log (#26), worth seeing in the device log.
+  if (result.skipped > 0) {
+    console.warn(`Sync skipped ${String(result.skipped)} changes to rows this device lacks.`);
+  }
   const fetchedAt = new Date(deps.env.now()).toISOString();
   try {
     return { ...result, games: await fetchUncachedGames(deps.adapter, deps.catalog, fetchedAt) };
