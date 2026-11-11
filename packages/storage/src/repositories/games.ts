@@ -312,3 +312,27 @@ export const pruneCatalog = async (
 
   return rows[0]?.count ?? 0;
 };
+
+/**
+ * Games the library or a list names but this phone has not cached, as after
+ * a pull brings another device's entries. Their rows stay hidden until the
+ * game arrives (`listLibraryGrid`), so sync fetches these next. Keyset-paged
+ * by id from `after`, so ids the server doesn't know never hide the rest.
+ */
+export const listUncachedGameIds = async (
+  adapter: StorageAdapter,
+  { after = 0, limit }: { after?: number; limit: number },
+): Promise<number[]> => {
+  const rows = await adapter.execute<{ game_id: number }>(
+    `SELECT game_id FROM (
+       SELECT game_id FROM library_entries WHERE deleted = 0
+       UNION
+       SELECT game_id FROM list_items WHERE deleted = 0
+     )
+     WHERE game_id > ? AND game_id NOT IN (SELECT id FROM games)
+     ORDER BY game_id
+     LIMIT ?`,
+    [after, limit],
+  );
+  return rows.map((row) => row.game_id);
+};

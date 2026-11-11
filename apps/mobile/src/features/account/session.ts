@@ -139,11 +139,20 @@ export const checkSession = async (
   if (renewed.kind !== 'ok') return statusWithout(renewed);
   const retried = await ask(renewed.token);
   if (retried !== 'refused') return retried;
-  // A fresh token refused too: the account or device is gone. The refresh
-  // just handed us a live family, so it is revoked, best effort, as it goes;
-  // a 401 from refresh needs none, the server already refused it.
+  await endRefusedSession(session, logout);
+  return 'ended';
+};
+
+/**
+ * A fresh token refused too: the account or device is gone. The refresh just
+ * handed us a live family, so it is revoked, best effort, as it goes; a 401
+ * from refresh needs none, the server already refused it.
+ */
+export const endRefusedSession = async (
+  session: SessionManager,
+  logout: (refreshToken: string) => Promise<AuthResult<void>>,
+): Promise<void> => {
   const current = await session.current();
   await session.end();
   if (current !== null) void logout(current.refreshToken);
-  return 'ended';
 };

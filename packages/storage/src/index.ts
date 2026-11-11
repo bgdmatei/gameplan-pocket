@@ -43,6 +43,7 @@ export {
   getGame,
   getGamesByIds,
   getReference,
+  listUncachedGameIds,
   pruneCatalog,
   searchGames,
   upsertGames,

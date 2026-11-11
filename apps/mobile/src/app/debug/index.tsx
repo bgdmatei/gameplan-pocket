@@ -207,7 +207,7 @@ const DebugScreen = () => {
 
       {link('/debug/outbox', 'Outbox')}
       {link('/debug/storage-check', 'Run the storage contract')}
-      {link('/debug/sync-check', 'Commit one op on a throwaway database')}
+      {link('/debug/sync-check', 'Sync check: commit one op, then sync with the API')}
 
       {busy === null ? null : <Text style={[type.subhead, { color: colors.muted }]}>{busy}</Text>}
       {action('Seed 5,000 real games', () => void seedLibrary(), info?.empty === true)}

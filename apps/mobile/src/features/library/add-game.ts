@@ -22,39 +22,53 @@ export type ReferenceSource = Pick<CatalogApi, 'getReference'>;
  * fetched first and written in the same transaction. Returns `false` when that
  * fetch is needed and fails: the game is shown but not kept.
  */
-export const cacheGame = async (
+export const cacheGame = (
   adapter: StorageAdapter,
   source: ReferenceSource,
   game: Game,
+  fetchedAt: string,
+): Promise<boolean> => cacheGames(adapter, source, [game], fetchedAt);
+
+/**
+ * `cacheGame` for a batch, as after a sync: one reference fetch at most. When
+ * that fetch fails, the games that need none are still kept.
+ */
+export const cacheGames = async (
+  adapter: StorageAdapter,
+  source: ReferenceSource,
+  games: readonly Game[],
   fetchedAt: string,
 ): Promise<boolean> => {
   const known = await getReference(adapter);
   const genreIds = new Set(known.genres.map((genre) => genre.id));
   const platformIds = new Set(known.platforms.map((platform) => platform.id));
-  const complete =
-    game.genreIds.every((id) => genreIds.has(id)) &&
-    game.platformIds.every((id) => platformIds.has(id));
+  const complete = games.filter(
+    (game) =>
+      game.genreIds.every((id) => genreIds.has(id)) &&
+      game.platformIds.every((id) => platformIds.has(id)),
+  );
 
-  if (complete) {
-    await upsertGames(adapter, { games: [game], fetchedAt });
+  if (complete.length === games.length) {
+    await upsertGames(adapter, { games, fetchedAt });
     return true;
   }
 
   const fetched = await source.getReference();
-  if (fetched.kind !== 'ok') return false;
+  if (fetched.kind !== 'ok') {
+    if (complete.length > 0) await upsertGames(adapter, { games: complete, fetchedAt });
+    return false;
+  }
 
   // A game may still name an id the server's lists lack (IGDB added one since
   // the server cached them). Keep the ids we can store rather than lose the game.
   const genres = new Set(fetched.value.genres.map((genre) => genre.id));
   const platforms = new Set(fetched.value.platforms.map((platform) => platform.id));
   await upsertGames(adapter, {
-    games: [
-      {
-        ...game,
-        genreIds: game.genreIds.filter((id) => genres.has(id)),
-        platformIds: game.platformIds.filter((id) => platforms.has(id)),
-      },
-    ],
+    games: games.map((game) => ({
+      ...game,
+      genreIds: game.genreIds.filter((id) => genres.has(id)),
+      platformIds: game.platformIds.filter((id) => platforms.has(id)),
+    })),
     genres: fetched.value.genres,
     platforms: fetched.value.platforms,
     fetchedAt,
