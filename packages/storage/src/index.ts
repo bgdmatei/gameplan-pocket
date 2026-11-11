@@ -55,6 +55,7 @@ export {
   appendPendingOp,
   countPendingOps,
   deletePendingOps,
+  latestPendingSeq,
   listPendingOps,
 } from './repositories/pending-ops';
 export type { ListPendingOptions } from './repositories/pending-ops';

@@ -61,3 +61,15 @@ export const countPendingOps = async (adapter: StorageAdapter): Promise<number> 
   );
   return rows[0]?.count ?? 0;
 };
+
+/**
+ * The newest outbox position ever handed out, or 0. Sequence numbers are never
+ * reused (AUTOINCREMENT), so a higher answer than last time means a new local
+ * edit; a push emptying the outbox doesn't lower it into looking like one.
+ */
+export const latestPendingSeq = async (adapter: StorageAdapter): Promise<number> => {
+  const rows = await adapter.execute<{ seq: number | null }>(
+    "SELECT seq FROM sqlite_sequence WHERE name = 'pending_ops'",
+  );
+  return rows[0]?.seq ?? 0;
+};

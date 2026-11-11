@@ -31,6 +31,16 @@ const pairs = (scheme: ColorScheme): Pair[] => {
     ['muted on noteFill', c.muted, c.noteFill, BODY],
     ['danger on surface', c.danger, c.surface, BODY],
     ['danger on background', c.danger, c.background, BODY],
+    // Toasts: their text and icon on each tone's fill.
+    ...(['dangerFill', 'successFill', 'warningFill'] as const).map((fill): Pair => [
+      `text on ${fill}`,
+      c.text,
+      c[fill],
+      BODY,
+    ]),
+    ['danger on dangerFill', c.danger, c.dangerFill, BODY],
+    ['success on successFill', c.success, c.successFill, BODY],
+    ['warning on warningFill', c.warning, c.warningFill, BODY],
     ...statuses.flatMap((status): Pair[] => [
       [`status ${status} on surface`, status, c.surface, BODY],
       [`status ${status} on background`, status, c.background, BODY],

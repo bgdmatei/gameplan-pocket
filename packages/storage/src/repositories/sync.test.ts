@@ -5,7 +5,13 @@ import { migrate } from '@gameplan/db-schema';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StorageAdapter } from '../adapter';
 import { createNodeAdapter } from '../node/adapter';
-import { appendPendingOp, countPendingOps, deletePendingOps, listPendingOps } from './pending-ops';
+import {
+  appendPendingOp,
+  countPendingOps,
+  deletePendingOps,
+  latestPendingSeq,
+  listPendingOps,
+} from './pending-ops';
 import { listRejectedOps, rejectPendingOps } from './rejected-ops';
 import { getSyncState, updateSyncState } from './sync-state';
 
@@ -52,6 +58,19 @@ describe('outbox', () => {
 
     expect((await listPendingOps(adapter)).map((op) => op.id)).toEqual(['b']);
     expect(await countPendingOps(adapter)).toBe(1);
+  });
+
+  // Sync triggers (#21) read a higher position as a new local edit: a push
+  // emptying the outbox must not lower it, or the next edit would look old.
+  it('never hands out a lower position, even after the outbox empties', async () => {
+    expect(await latestPendingSeq(adapter)).toBe(0);
+    await appendPendingOp(adapter, { id: 'a', payload: '{}', createdAt: NOW });
+    await appendPendingOp(adapter, { id: 'b', payload: '{}', createdAt: NOW });
+    await deletePendingOps(adapter, ['a', 'b']);
+    expect(await latestPendingSeq(adapter)).toBe(2);
+
+    await appendPendingOp(adapter, { id: 'c', payload: '{}', createdAt: NOW });
+    expect(await latestPendingSeq(adapter)).toBe(3);
   });
 
   it('refuses a duplicate op id, so one edit cannot queue twice', async () => {

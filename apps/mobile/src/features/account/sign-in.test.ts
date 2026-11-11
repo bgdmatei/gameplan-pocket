@@ -30,12 +30,16 @@ describe('signIn', () => {
     const loggedOut: string[] = [];
     const sentNodeIds: string[] = [];
     const sentOwners: (string | undefined)[] = [];
+    let syncRequests = 0;
     const result = await signIn(
       {
         adapter,
         randomBytes: testEnv.randomBytes,
         platform: 'ios',
         appVersion: '1.0.0',
+        requestSync: () => {
+          syncRequests += 1;
+        },
         session: { start: async (session) => void started.push(session) },
         api: {
           verify: async ({ device, ownerUserId }) => {
@@ -55,7 +59,7 @@ describe('signIn', () => {
     const [{ games } = { games: -1 }] = await adapter.execute<{ games: number }>(
       'SELECT count(*) AS games FROM library_entries',
     );
-    return { result, started, loggedOut, sentNodeIds, sentOwners, state, games };
+    return { result, started, loggedOut, sentNodeIds, sentOwners, state, games, syncRequests };
   };
 
   // Decision 3 and 6: who owns the library decides; attack 14 is the last two.
@@ -112,6 +116,8 @@ describe('signIn', () => {
     // And names the library's owner, so the server refuses anyone else.
     expect(outcome.sentOwners).toEqual([owner ?? undefined]);
     expect(outcome.started).toHaveLength(result === 'signed_in' ? 1 : 0);
+    // Signed in, the library syncs at once (#21); refused, nothing may run.
+    expect(outcome.syncRequests).toBe(result === 'signed_in' ? 1 : 0);
     // The logout is fire-and-forget: let it run before counting it.
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(outcome.loggedOut).toEqual(revoked);

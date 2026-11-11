@@ -24,6 +24,8 @@ export type SignInDeps = {
   randomBytes: RandomBytes;
   platform: VerifyRequest['device']['platform'];
   appVersion: string;
+  /** Called once signed in, so the library syncs now rather than at the next trigger. */
+  requestSync: () => void;
 };
 
 /**
@@ -40,7 +42,7 @@ export type SignInDeps = {
  * check below is a second line, should the server ever answer otherwise.
  */
 export const signIn = async (
-  { adapter, api, session, randomBytes, platform, appVersion }: SignInDeps,
+  { adapter, api, session, randomBytes, platform, appVersion, requestSync }: SignInDeps,
   { email, code }: { email: string; code: string },
 ): Promise<SignInResult> => {
   const nodeId = await adapter.transaction((tx) => ensureNodeId(tx, randomBytes));
@@ -78,5 +80,6 @@ export const signIn = async (
     await updateSyncState(adapter, { ownerUserId: signedIn.user.id });
   }
   await session.start(signedIn);
+  requestSync();
   return { kind: 'signed_in', session: signedIn };
 };

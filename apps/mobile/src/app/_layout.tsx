@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { DatabaseProvider } from '@/data/database';
 // Evaluated first thing, so its clock starts as the app's JS does (cold start, T19).
 import '@/data/perf';
+import { SyncTriggers } from '@/features/sync/sync-triggers';
 import { KeyboardDismiss } from '@/ui/components/keyboard-dismiss';
 import { ToastProvider } from '@/ui/components/toast';
 import { useApplyStoredTheme } from '@/ui/theme-preference';
@@ -37,6 +38,8 @@ const RootLayout = () => {
     <DatabaseProvider>
       <StoredTheme />
       <ToastProvider>
+        {/* Inside the toasts: it announces going offline and catching up. */}
+        <SyncTriggers />
         <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
         <KeyboardDismiss>
           <Stack

@@ -14,6 +14,7 @@ import type { Session } from '@/features/account/session';
 import { SignedInCard } from '@/features/account/signed-in-card';
 import { signIn } from '@/features/account/sign-in';
 import { eraseWarning, libraryCounts, signOut } from '@/features/account/sign-out';
+import { requestSync } from '@/features/sync/sync-requests';
 import { ThemeButton } from '@/ui/components/theme-button';
 import { useToast } from '@/ui/components/toast';
 import { displayMaxScale, space, type } from '@/ui/theme';
@@ -132,6 +133,7 @@ const AccountScreen = () => {
         randomBytes: syncEnv.randomBytes,
         platform: Platform.OS === 'android' ? 'android' : 'ios',
         appVersion,
+        requestSync,
       },
       { email: address, code },
     );

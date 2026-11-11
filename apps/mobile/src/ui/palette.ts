@@ -44,6 +44,16 @@ export type Colors = {
   noteLabel: string;
   /** Destructive actions. Same hue as `dropped`. */
   danger: string;
+  /** Behind a problem toast; its icon is `danger`. */
+  dangerFill: string;
+  /** Something that went right: the icon on `successFill`. Same hue as `completed`. */
+  success: string;
+  /** Behind a success toast ("Sync completed"). */
+  successFill: string;
+  /** A state to know about, not a fault ("Offline"): the icon on `warningFill`. */
+  warning: string;
+  /** Behind a warning toast. */
+  warningFill: string;
   /** Text laid over cover art, always above the image gradient. */
   onImage: string;
   /** Secondary text over cover art: the uppercase label above a title. */
@@ -68,6 +78,11 @@ const dark: Colors = {
   noteFill: '#2B2518',
   noteLabel: '#F0BE62',
   danger: '#FF8A80',
+  dangerFill: '#3A1D1C',
+  success: '#6FD39A',
+  successFill: '#16301F',
+  warning: '#F2B544',
+  warningFill: '#33280F',
   onImage: '#FFFFFF',
   onImageMuted: '#EDE7DD',
   heroFadeFrom: 'rgba(14, 15, 20, 0)',
@@ -91,6 +106,11 @@ const light: Colors = {
   noteFill: '#F6ECD6',
   noteLabel: '#7A4F00',
   danger: '#B3261E',
+  dangerFill: '#FBE4E1',
+  success: '#1C7341',
+  successFill: '#E3F2E8',
+  warning: '#8A5200',
+  warningFill: '#FBEFD5',
   onImage: '#FFFFFF',
   onImageMuted: '#EFEAE2',
   heroFadeFrom: 'rgba(247, 243, 236, 0)',
