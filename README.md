@@ -74,6 +74,18 @@ Signing in is optional; the app works fully signed out. To try it, go to **Accou
 
 ---
 
+### Staging (Render and Neon)
+
+`render.yaml` describes the staging API; its secrets live in Render's dashboard. The database needs the same two roles as locally, created once per Neon database:
+
+1. Generate two passwords: `openssl rand -hex 24`, twice.
+2. From Neon's **Connect** dialog: the owner role's direct connection string (pooling off), and the pooled host (with `-pooler`).
+3. In a terminal, export three URLs, without writing them to a file: `ADMIN_DATABASE_URL` (the owner, direct), `MIGRATION_DATABASE_URL` (`gameplan_migrator`, the direct host) and `DATABASE_URL` (`gameplan_app`, the pooled host), each ending in `?sslmode=require`. Variables you don't export fall back to `apps/api/.env`, so check all three point at Neon first.
+4. `pnpm --filter api db:roles`, then `pnpm --filter api migrate`, then unset the three.
+5. In Render, set `DATABASE_URL` (app, pooled) and `MIGRATION_DATABASE_URL` (migrator, direct). `ADMIN_DATABASE_URL` never goes to Render.
+
+Each deploy migrates as `gameplan_migrator`, then starts the API without that credential in its environment.
+
 ## Running the tests
 
 ```sh

@@ -10,16 +10,25 @@ services:
     # Only the API and the workspace packages it uses; the mobile app's
     # dependencies are never installed on the server.
     buildCommand: pnpm install --frozen-lockfile --filter "api..." && pnpm --filter api build
-    # Migrations run first: Render's pre-deploy hook is a paid feature. If one
-    # fails, the new instance never passes the health check and Render keeps
-    # the previous deploy serving.
-    startCommand: pnpm --filter api migrate:built && pnpm --filter api start
+    # Migrations run first, as gameplan_migrator (MIGRATION_DATABASE_URL):
+    # Render's pre-deploy hook is a paid feature. If one fails, the new instance
+    # never passes the health check and Render keeps the previous deploy
+    # serving. The API itself then starts without the migrator credential in
+    # its environment, so a leak from the running server can't change the schema.
+    startCommand: pnpm --filter api migrate:built && env -u MIGRATION_DATABASE_URL pnpm --filter api start
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
         value: '24'
-      # Neon's pooled connection string, ending in ?sslmode=require.
+      # Neon's pooled connection string, ending in ?sslmode=require, as
+      # gameplan_app: rows only, no DDL (least-privilege roles).
       - key: DATABASE_URL
+        sync: false
+      # Neon's direct (unpooled) connection string, ending in ?sslmode=require,
+      # as gameplan_migrator, which owns the schema. Used only by migrate:built
+      # (startCommand). Debt: it still lives in this service's settings until
+      # migrations move to a separate deploy step. Setup: README, Staging.
+      - key: MIGRATION_DATABASE_URL
         sync: false
       - key: TWITCH_CLIENT_ID
         sync: false
