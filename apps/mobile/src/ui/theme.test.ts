@@ -87,6 +87,8 @@ describe('theme contrast', () => {
         // The Library sync icon's other tones (#23).
         expect(contrastRatio(c.success, ground)).toBeGreaterThanOrEqual(BODY);
         expect(contrastRatio(c.warning, ground)).toBeGreaterThanOrEqual(BODY);
+        // The favourite star on its frosted header button (#32).
+        expect(contrastRatio(c.favourite, ground)).toBeGreaterThanOrEqual(BODY);
       }
     },
   );

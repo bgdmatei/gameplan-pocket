@@ -21,6 +21,21 @@ export const NOTE_TYPE_LABEL: Record<NoteItemType, string> = {
 export const releaseYear = (isoDate: string | null): string | null =>
   isoDate === null ? null : isoDate.slice(0, 4);
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * A full release date ("12 Feb 2019"), for a game's About card. Read from the
+ * string, never through `Date`: a date-only ISO parses as UTC midnight, which
+ * shows as the day before anywhere west of Greenwich.
+ */
+export const releaseDate = (isoDate: string | null): string | null => {
+  if (isoDate === null) return null;
+  const [year, month, day] = isoDate.slice(0, 10).split('-');
+  const name = MONTHS[Number(month) - 1];
+  if (year === undefined || name === undefined || day === undefined) return isoDate;
+  return `${String(Number(day))} ${name} ${year}`;
+};
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const startOfDay = (time: number): number => new Date(time).setHours(0, 0, 0, 0);

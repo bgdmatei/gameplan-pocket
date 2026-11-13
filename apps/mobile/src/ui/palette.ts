@@ -49,6 +49,13 @@ export type Colors = {
   /** A destructive PrimaryButton's fill (Sign out, Erase), with `onDestructive` on it. */
   destructiveFill: string;
   onDestructive: string;
+  /**
+   * A favourite's filled star in the game header (#32). Dark mode: a brighter
+   * yellow than the accent. Light mode: no yellow bright enough to differ
+   * passes 4.5:1 on white, so it stays near the accent and the filled shape
+   * says it (owner, 2026-11-13).
+   */
+  favourite: string;
   /** Something that went right: the icon on `successFill`. Same hue as `completed`. */
   success: string;
   /** Behind a success toast ("Sync completed"). */
@@ -83,6 +90,7 @@ const dark: Colors = {
   danger: '#FF8A80',
   dangerFill: '#3A1D1C',
   destructiveFill: '#C62828',
+  favourite: '#FFD24A',
   onDestructive: '#FFFFFF',
   success: '#6FD39A',
   successFill: '#16301F',
@@ -113,6 +121,7 @@ const light: Colors = {
   danger: '#B3261E',
   dangerFill: '#FBE4E1',
   destructiveFill: '#B3261E',
+  favourite: '#8A6500',
   onDestructive: '#FFFFFF',
   success: '#1C7341',
   successFill: '#E3F2E8',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { timeSince } from './labels';
+import { releaseDate, timeSince } from './labels';
 
 describe('timeSince', () => {
   // Local times, so the cases hold in any time zone the suite runs in.
@@ -22,5 +22,17 @@ describe('timeSince', () => {
     [at(9, 29), 'Today'],
   ])('%s reads %s', (iso, expected) => {
     expect(timeSince(iso, now)).toBe(expected);
+  });
+});
+
+describe('releaseDate', () => {
+  // Read from the string: through Date, a date-only ISO is UTC midnight and
+  // shows the day before in any time zone west of Greenwich.
+  it.each([
+    ['2019-02-01', '1 Feb 2019'],
+    ['2019-12-31T00:00:00.000Z', '31 Dec 2019'],
+    [null, null],
+  ])('%s reads %s', (iso, expected) => {
+    expect(releaseDate(iso)).toBe(expected);
   });
 });

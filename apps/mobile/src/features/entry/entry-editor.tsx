@@ -9,7 +9,8 @@ import type { EntryPatch, LibraryEntry, Platform } from '@gameplan/domain';
 import { Stack, useNavigation } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useDatabase } from '@/data/database';
 import { syncEnv, today } from '@/data/env';
 import { startTimer } from '@/data/perf';
@@ -52,8 +53,13 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
   }, [entry]);
 
   // The header outlives this editor: once the game is archived (or the editor
-  // otherwise goes), take the archive button with it until it's restored.
-  useEffect(() => () => navigation.setOptions({ headerRight: undefined }), [navigation]);
+  // otherwise goes), take its buttons with it until it's restored. Both forms:
+  // iOS 26 reads the items, so clearing headerRight alone left a stale star (#32).
+  useEffect(
+    () => () =>
+      navigation.setOptions({ headerRight: undefined, unstable_headerRightItems: undefined }),
+    [navigation],
+  );
 
   const shown = { ...entry, ...pending };
   const statuses = ENTRY_STATUSES.filter(
@@ -89,6 +95,20 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
       toast.show('Archived. It’s in the Archive, with its rating and notes.');
   };
 
+  // A filled star while favourited, an outline when not (#32).
+  const favouriteButton = (
+    <RoundButton
+      glyph={
+        <Ionicons
+          name={shown.favourite ? 'star' : 'star-outline'}
+          size={20}
+          color={shown.favourite ? colors.favourite : colors.text}
+        />
+      }
+      label={shown.favourite ? 'Remove from favourites' : 'Favourite'}
+      onPress={() => void save({ favourite: !shown.favourite })}
+    />
+  );
   const archiveButton = (
     <RoundButton icon="archive-outline" label="Archive this game" onPress={() => void archive()} />
   );
@@ -96,15 +116,22 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
   return (
     <View style={styles.editor}>
       {/*
-       * Archiving is an action on the whole game, so it sits in the header, not
-       * mid-page. A frosted round button like Library's Archive: gold sank into
-       * the cover behind the header. On iOS 26 the bar's own glass pill is
-       * hidden so the two don't stack (headerRightItems is how to ask for that).
+       * Favouriting and archiving act on the whole game, so they sit in the
+       * header, not mid-page (#32). Frosted round buttons like Library's: gold
+       * sank into the cover behind the header. On iOS 26 each is its own item
+       * with the bar's glass pill hidden, so pill and button don't stack
+       * (headerRightItems is how to ask for that).
        */}
       <Stack.Screen
         options={{
-          headerRight: () => archiveButton,
+          headerRight: () => (
+            <View style={styles.headerButtons}>
+              {favouriteButton}
+              {archiveButton}
+            </View>
+          ),
           unstable_headerRightItems: () => [
+            { type: 'custom', element: favouriteButton, hidesSharedBackground: true },
             { type: 'custom', element: archiveButton, hidesSharedBackground: true },
           ],
         }}
@@ -151,16 +178,6 @@ export const EntryEditor = ({ entry, platforms }: Props) => {
           }}
         />
       </Section>
-
-      <View style={[styles.switchRow, styles.card, cardColours(colors)]}>
-        <Text style={[type.body, { color: colors.text }]}>Favourite</Text>
-        <Switch
-          value={shown.favourite}
-          onValueChange={(favourite) => void save({ favourite })}
-          trackColor={{ true: colors.accentFill, false: colors.line }}
-          accessibilityLabel="Favourite"
-        />
-      </View>
     </View>
   );
 };
@@ -263,11 +280,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.small,
   },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: minTouchTarget,
-    paddingVertical: space.sm,
-  },
+  headerButtons: { flexDirection: 'row', gap: space.sm },
 });
