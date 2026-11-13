@@ -22,7 +22,7 @@
     "@gameplan/sync": "workspace:*",
     "@gameplan/sync-server": "workspace:*",
     "@hono/node-server": "^1.13.7",
-    "hono": "^4.6.14",
+    "hono": "^4.13.16",
     "kysely": "^0.29.6",
     "pg": "^8.23.0",
     "zod": "^4.6.5"
