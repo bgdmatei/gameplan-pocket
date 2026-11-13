@@ -42,6 +42,7 @@ const pairs = (scheme: ColorScheme): Pair[] => {
       BODY,
     ]),
     ['danger on dangerFill', c.danger, c.dangerFill, BODY],
+    ['onDestructive on destructiveFill', c.onDestructive, c.destructiveFill, BODY],
     ['success on successFill', c.success, c.successFill, BODY],
     ['warning on warningFill', c.warning, c.warningFill, BODY],
     ...statuses.flatMap((status): Pair[] => [

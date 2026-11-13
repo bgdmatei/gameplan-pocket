@@ -70,7 +70,16 @@ const DebugScreen = () => {
   const [busy, setBusy] = useState<string | null>(null);
   // Samples live outside React: read them again whenever this screen shows.
   const [, setReadAt] = useState(0);
-  const refresh = useCallback(() => setReadAt(Date.now()), []);
+  // The server's registration of this phone, moved here from Account (#33).
+  // The session lives in the keychain, not SQLite, so it's read on focus.
+  const [deviceId, setDeviceId] = useState<string | null | undefined>(undefined);
+  const refresh = useCallback(() => {
+    setReadAt(Date.now());
+    session
+      .current()
+      .then((current) => setDeviceId(current?.device.id ?? null))
+      .catch(() => setDeviceId(undefined));
+  }, []);
   useFocusEffect(refresh);
   const summary = perfSummary();
   const heap = jsHeapBytes();
@@ -202,6 +211,7 @@ const DebugScreen = () => {
         <PillButton label="Share" icon="share-outline" onPress={() => undefined} />
       </View>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+        {row('Device id', deviceId === undefined ? '…' : (deviceId ?? 'not signed in'))}
         {row('Node id', info?.sync.nodeId ?? 'not yet (created at the first edit)')}
         {row('Last clock', info?.sync.hlcLast ?? 'none')}
         {row('Waiting to sync', info === null ? '…' : `${String(info.pending)} ops`)}

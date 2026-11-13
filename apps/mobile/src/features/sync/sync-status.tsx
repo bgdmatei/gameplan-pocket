@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { RoundButton } from '@/ui/components/pill-button';
-import { type } from '@/ui/theme';
+import { space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 import { describeSyncStatus } from './describe-status';
 import type { SyncStatusView } from './describe-status';
@@ -87,16 +87,28 @@ export const SyncStatusButton = () => {
   );
 };
 
-/** The Account screen's sync line, signed in only (SPEC-sync-transport.md). */
+/**
+ * The Account screen's sync line, signed in only (SPEC-sync-transport.md),
+ * with the Library's cloud before it (#33). The cloud is decorative here: the
+ * line says the same.
+ */
 export const SyncStatusLine = () => {
   const { colors } = useTheme();
   const view = useSyncStatusView();
   if (view === null) return null;
-  return <Text style={[type.subhead, { color: colors.muted }]}>{view.line}</Text>;
+  return (
+    <View style={styles.line}>
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <SyncGlyph view={view} />
+      </View>
+      <Text style={[type.headline, { color: colors.text }]}>{view.line}</Text>
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
   glyph: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
   // The cloud's body sits low in its box: the arrows sit there too.
   arrows: { position: 'absolute', top: 9 },
+  line: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
 });

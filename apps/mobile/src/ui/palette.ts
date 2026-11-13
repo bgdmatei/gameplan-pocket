@@ -46,6 +46,9 @@ export type Colors = {
   danger: string;
   /** Behind a problem toast; its icon is `danger`. */
   dangerFill: string;
+  /** A destructive PrimaryButton's fill (Sign out, Erase), with `onDestructive` on it. */
+  destructiveFill: string;
+  onDestructive: string;
   /** Something that went right: the icon on `successFill`. Same hue as `completed`. */
   success: string;
   /** Behind a success toast ("Sync completed"). */
@@ -79,6 +82,8 @@ const dark: Colors = {
   noteLabel: '#F0BE62',
   danger: '#FF8A80',
   dangerFill: '#3A1D1C',
+  destructiveFill: '#C62828',
+  onDestructive: '#FFFFFF',
   success: '#6FD39A',
   successFill: '#16301F',
   warning: '#F2B544',
@@ -107,6 +112,8 @@ const light: Colors = {
   noteLabel: '#7A4F00',
   danger: '#B3261E',
   dangerFill: '#FBE4E1',
+  destructiveFill: '#B3261E',
+  onDestructive: '#FFFFFF',
   success: '#1C7341',
   successFill: '#E3F2E8',
   warning: '#8A5200',

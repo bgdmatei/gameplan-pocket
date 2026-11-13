@@ -9,12 +9,22 @@ type Props = {
   busy?: boolean;
   /** Not ready yet, such as a required choice still unmade. */
   disabled?: boolean;
+  /** `destructive`: solid red, for an action that erases (Sign out, Erase; #33). */
+  tone?: 'accent' | 'destructive';
 };
 
 /** The screen's one main action, in the accent fill. Disabled while it runs, so a double tap can't repeat it. */
-export const PrimaryButton = ({ label, onPress, busy = false, disabled = false }: Props) => {
+export const PrimaryButton = ({
+  label,
+  onPress,
+  busy = false,
+  disabled = false,
+  tone = 'accent',
+}: Props) => {
   const { colors } = useTheme();
   const off = busy || disabled;
+  const fill = tone === 'accent' ? colors.accentFill : colors.destructiveFill;
+  const ink = tone === 'accent' ? colors.onAccent : colors.onDestructive;
 
   return (
     <PressableScale
@@ -23,15 +33,12 @@ export const PrimaryButton = ({ label, onPress, busy = false, disabled = false }
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ busy, disabled: off }}
-      style={[
-        styles.button,
-        { backgroundColor: colors.accentFill, opacity: disabled ? 0.4 : busy ? 0.7 : 1 },
-      ]}
+      style={[styles.button, { backgroundColor: fill, opacity: disabled ? 0.4 : busy ? 0.7 : 1 }]}
     >
       {busy ? (
-        <ActivityIndicator color={colors.onAccent} />
+        <ActivityIndicator color={ink} />
       ) : (
-        <Text style={[type.headline, { color: colors.onAccent }]}>{label}</Text>
+        <Text style={[type.headline, { color: ink }]}>{label}</Text>
       )}
     </PressableScale>
   );
