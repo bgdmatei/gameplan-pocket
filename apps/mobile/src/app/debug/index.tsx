@@ -14,6 +14,8 @@ import { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase, useEraseDatabase } from '@/data/database';
+import { authApi, session } from '@/features/account/auth-client';
+import { signOut } from '@/features/account/sign-out';
 import {
   BUDGETS,
   METRICS,
@@ -96,10 +98,32 @@ const DebugScreen = () => {
   };
 
   const confirmErase = (): void => {
-    Alert.alert('Erase everything on this phone?', 'Your library, notes and outbox are deleted.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Erase', style: 'destructive', onPress: () => void erase() },
-    ]);
+    Alert.alert(
+      'Erase everything on this phone?',
+      'Your library, notes and outbox are deleted, and you’re signed out.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        // Through sign-out, as on Account: an erase that kept the session left a
+        // signed-in phone whose fresh database had no owner, so sync never ran
+        // and its status stayed hidden (#24, on a real phone).
+        {
+          text: 'Erase',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              setBusy('Erasing…');
+              try {
+                await signOut({ session, api: authApi, erase });
+              } catch {
+                Alert.alert('Erasing didn’t finish. Try again.');
+              } finally {
+                setBusy(null);
+              }
+            })();
+          },
+        },
+      ],
+    );
   };
 
   const row = (label: string, value: string) => (

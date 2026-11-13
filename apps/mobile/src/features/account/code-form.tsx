@@ -28,7 +28,7 @@ export const CodeForm = ({
   return (
     <>
       <Text style={muted}>
-        If {email} can sign in, a 6-digit code is on its way. It works for 10 minutes.
+        If {email} can sign in, a 6-digit code is on its way. It's valid for 10 minutes.
       </Text>
       <TextInput
         value={code}

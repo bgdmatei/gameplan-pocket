@@ -73,10 +73,19 @@ type RoundProps = RoundIcon & {
   label: string;
   onPress: () => void;
   variant?: Variant;
+  /** A small dot on the corner: something here needs the player (Account, signed out). */
+  badge?: boolean;
 };
 
 /** A round icon button: 44 pt, frosted by default. */
-export const RoundButton = ({ icon, glyph, label, onPress, variant = 'frosted' }: RoundProps) => {
+export const RoundButton = ({
+  icon,
+  glyph,
+  label,
+  onPress,
+  variant = 'frosted',
+  badge = false,
+}: RoundProps) => {
   const { colors } = useTheme();
   const filled = variant === 'filled';
   const drawn = (color: string) =>
@@ -98,6 +107,7 @@ export const RoundButton = ({ icon, glyph, label, onPress, variant = 'frosted' }
           {drawn(colors.text)}
         </Frosted>
       )}
+      {badge ? <View style={[styles.badge, { backgroundColor: colors.warning }]} /> : null}
     </PressableScale>
   );
 };
@@ -123,4 +133,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: radius.pill,
   },
+  // Outside the frosted fill, which clips to its circle.
+  badge: { position: 'absolute', top: 2, right: 2, width: 10, height: 10, borderRadius: 5 },
 });
