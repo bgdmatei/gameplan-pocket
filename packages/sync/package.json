@@ -19,7 +19,7 @@
     "@gameplan/domain": "workspace:*",
     "@gameplan/storage": "workspace:*",
     "uuid": "^14.0.2",
-    "zod": "^4.6.5"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@gameplan/config": "workspace:*",
