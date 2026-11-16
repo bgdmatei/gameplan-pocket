@@ -74,6 +74,14 @@ The library starts empty. Either search for a game and add it, or open **Library
 
 Signing in is optional; the app works fully signed out. To try it, go to **Account**, enter any email, and copy the 6-digit code from the API's terminal.
 
+### 5. Sync two devices
+
+Run two simulators, or a simulator and a phone, against the same API, and sign in to the same email on both. Sync runs on its own: at launch and on returning to the app, when the network comes back, 2 s after an edit, and every 5 minutes while open. The cloud in the Library header shows its state; tap it to sync now. An edit on one device shows on the other once that one comes to the foreground.
+
+**Debug → Sync check** runs one sync by hand and prints what it pushed, pulled and skipped. **Debug → Outbox** lists ops waiting to go and ops the server refused. Don't sync a library filled by **Seed**: its entries don't use the ids sync expects.
+
+The iOS simulator passes on the Mac's network changes late or not at all, so check offline behaviour (airplane mode) on a phone.
+
 ---
 
 ### Staging (Render and Neon)
@@ -86,7 +94,7 @@ Signing in is optional; the app works fully signed out. To try it, go to **Accou
 4. `pnpm --filter api db:roles`, then `pnpm --filter api migrate`, then unset the three.
 5. In Render, set `DATABASE_URL` (app, pooled) and `MIGRATION_DATABASE_URL` (migrator, direct). `ADMIN_DATABASE_URL` never goes to Render.
 
-Each deploy migrates as `gameplan_migrator`, then starts the API without that credential in its environment.
+Each deploy migrates as `gameplan_migrator`, then starts the API without that credential in its environment. The API refuses to start unless `DATABASE_URL` connects as `gameplan_app`.
 
 ## Running the tests
 
@@ -188,8 +196,8 @@ The full reasoning is in [`docs/adr/`](docs/adr). In short:
 
 The project is planned as 15 modules (foundation → domain → storage → sync core → catalog → mobile library → auth → visual design → sync transport → realtime → conflicts → schema evolution → Steam import → stats → web).
 
-**Done:** the foundation, domain model, storage adapter, offline sync core, catalog service, the mobile library app (search, library grid and filters, favourites, game detail, notes, archive), auth, and the visual design: image-led covers, Fraunces headlines, frosted chrome, a floating tab bar, and light and dark themes with a switch in Account. A staging API runs on Render with Neon Postgres.
+**Done:** the foundation, domain model, storage adapter, offline sync core, catalog service, the mobile library app (search, library grid and filters, favourites, game detail, notes, archive), auth, the visual design (image-led covers, Fraunces headlines, frosted chrome, a floating tab bar, and light and dark themes with a switch in Account), and sync between devices: a server op log with push, pull and snapshot, per-field merges on the server with the client's own functions, sync triggers with backoff, and a sync status in the Library header and on Account. A staging API runs on Render with Neon Postgres, as a database role that can't change the schema.
 
 **How work is tracked:** each module starts from an approved spec; its tasks are GitHub Issues in a milestone named after it, and an issue is built only once the owner labels it `ready-for-agent` (`docs/agents/`). `CONTEXT.md` is the glossary.
 
-**Not yet:** syncing between devices (the transport, the server's op log, realtime pokes and the conflict UI for notes). Each device already records everything sync will need. Steam import, stats, and the web app are not started either.
+**Not yet:** realtime pokes (another device's edit currently arrives on the next sync trigger, not at once), the conflict UI for notes, schema evolution, Steam import, stats, and the web app.
