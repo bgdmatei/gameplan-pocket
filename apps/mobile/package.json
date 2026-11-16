@@ -10,6 +10,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "ios:staging": "set -a && . ./.env.staging && set +a && expo run:ios --configuration Release",
+    "ios:staging:dev": "rm -rf node_modules/.cache && set -a && . ./.env.staging && set +a && expo run:ios --device",
     "prebuild": "expo prebuild",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",

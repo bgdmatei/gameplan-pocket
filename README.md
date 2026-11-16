@@ -66,6 +66,8 @@ The first build takes a few minutes. After that, `pnpm dev` (Metro alone) is eno
 
 The simulator reaches your Mac as `localhost`. A physical phone needs the Mac's LAN address in `EXPO_PUBLIC_API_URL`.
 
+On a phone against staging, `pnpm --filter mobile ios:staging` is a Release build: the JavaScript is bundled in, so every change needs a rebuild. For Fast Refresh, `pnpm --filter mobile ios:staging:dev` builds a Debug app with the same `.env.staging` and serves JavaScript from Metro; the phone must be on the Mac's Wi-Fi. It clears Metro's cache first, since Metro would otherwise keep the previous env's `EXPO_PUBLIC_*` values.
+
 ### 4. Get some data in
 
 The library starts empty. Either search for a game and add it, or open **Library → Debug (wrench) → Seed 5,000 real games** to fill it with real catalog data: that is the data set the performance numbers were measured on.
