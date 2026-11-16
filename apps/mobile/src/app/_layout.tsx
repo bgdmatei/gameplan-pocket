@@ -55,7 +55,12 @@ const RootLayout = () => {
             {/* Over the cover hero: the screen colours it once its title is in it. */}
             <Stack.Screen
               name="game/[id]"
-              options={{ ...withHeader(''), headerTransparent: true }}
+              options={{
+                ...withHeader(''),
+                headerTransparent: true,
+                headerStyle: { backgroundColor: 'transparent' },
+                scrollEdgeEffects: { top: 'hidden' },
+              }}
             />
             <Stack.Screen name="game/[id]/notes" options={withHeader('Notes')} />
             <Stack.Screen name="note/new" options={withHeader('New note')} />

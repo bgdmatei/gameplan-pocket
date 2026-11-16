@@ -140,6 +140,7 @@ const GameScreen = () => {
         contentContainerStyle={{
           paddingBottom: space.xl + insets.bottom + (inLibrary ? BAR_ROOM : 0),
         }}
+        contentInsetAdjustmentBehavior="never"
         automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={100}

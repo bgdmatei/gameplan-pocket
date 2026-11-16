@@ -1,9 +1,9 @@
 /**
- * IGDB serves images by size template, so a grid can fetch thumbnails while a
- * detail screen fetches the large version. Bytes are never proxied through our
- * API; only the image id is stored (plan §8.2).
+ * IGDB serves images by size template, so each screen fetches the size it
+ * draws at. Bytes are never proxied through our API; only the image id is
+ * stored (plan §8.2).
  */
-export const COVER_SIZES = ['thumb', 'cover_small', 'cover_big', '720p'] as const;
+export const COVER_SIZES = ['thumb', 'cover_small', 'cover_big', '720p', '1080p'] as const;
 
 export type CoverSize = (typeof COVER_SIZES)[number];
 
