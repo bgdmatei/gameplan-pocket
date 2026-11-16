@@ -64,7 +64,7 @@ const SyncGlyph = ({ view }: { view: SyncStatusView }) => {
     <View style={styles.glyph}>
       <MaterialCommunityIcons name="cloud-outline" size={22} color={color} />
       <Animated.View style={[styles.arrows, turning]}>
-        <MaterialCommunityIcons name="sync" size={10} color={color} />
+        <MaterialCommunityIcons name="sync" size={9} color={color} />
       </Animated.View>
     </View>
   );
@@ -108,7 +108,7 @@ export const SyncStatusLine = () => {
 
 const styles = StyleSheet.create({
   glyph: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
-  // The cloud's body sits low in its box: the arrows sit there too.
-  arrows: { position: 'absolute', top: 9 },
+  // Centred in the cloud outline's hollow (about y 6.5–16.5 of the 22 box), not the box.
+  arrows: { position: 'absolute', top: 7 },
   line: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
 });
