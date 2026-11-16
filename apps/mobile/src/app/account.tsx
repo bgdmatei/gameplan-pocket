@@ -124,7 +124,7 @@ const AccountScreen = () => {
     ]);
   };
 
-  const submitCode = async (address: string): Promise<void> => {
+  const submitCode = async (address: string, entered: string): Promise<void> => {
     setBusy(true);
     const result = await signIn(
       {
@@ -136,7 +136,7 @@ const AccountScreen = () => {
         appVersion,
         requestSync,
       },
-      { email: address, code },
+      { email: address, code: entered },
     );
     setBusy(false);
 
@@ -198,7 +198,7 @@ const AccountScreen = () => {
             code={code}
             onChangeCode={setCode}
             busy={busy}
-            onSubmit={() => void submitCode(step.email)}
+            onSubmit={(entered) => void submitCode(step.email, entered)}
             onDifferentEmail={() => setStep({ kind: 'email' })}
             onResend={() => void sendCode()}
           />

@@ -46,6 +46,7 @@ export const EmailForm = ({
         autoComplete="email"
         autoCapitalize="none"
         autoCorrect={false}
+        clearButtonMode="while-editing"
         autoFocus
         returnKeyType="send"
         onSubmitEditing={onSend}
