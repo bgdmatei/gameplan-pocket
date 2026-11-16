@@ -30,6 +30,7 @@ type GameRow = {
   summary: string | null;
   first_release_date: string | null;
   cover_image_id: string | null;
+  developer: string | null;
   genre_ids: string | null;
   platform_ids: string | null;
 };
@@ -47,10 +48,11 @@ const toGame = (row: GameRow): Game =>
     coverImageId: row.cover_image_id,
     genreIds: idList(row.genre_ids),
     platformIds: idList(row.platform_ids),
+    developer: row.developer,
   });
 
 const SELECT_GAME = `
-  SELECT g.id, g.name, g.slug, g.summary, g.first_release_date, g.cover_image_id,
+  SELECT g.id, g.name, g.slug, g.summary, g.first_release_date, g.cover_image_id, g.developer,
          (SELECT group_concat(genre_id) FROM game_genres WHERE game_id = g.id) AS genre_ids,
          (SELECT group_concat(platform_id) FROM game_platforms WHERE game_id = g.id) AS platform_ids
   FROM games g
@@ -94,12 +96,12 @@ export const upsertGames = async (
     for (const game of validGames) {
       await tx.execute(
         `INSERT INTO games (id, name, slug, summary, first_release_date, cover_image_id,
-                            catalog_version, fetched_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            developer, catalog_version, fetched_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (id) DO UPDATE SET
            name = excluded.name, slug = excluded.slug, summary = excluded.summary,
            first_release_date = excluded.first_release_date,
-           cover_image_id = excluded.cover_image_id,
+           cover_image_id = excluded.cover_image_id, developer = excluded.developer,
            catalog_version = excluded.catalog_version, fetched_at = excluded.fetched_at`,
         [
           game.id,
@@ -108,6 +110,7 @@ export const upsertGames = async (
           game.summary,
           game.firstReleaseDate,
           game.coverImageId,
+          game.developer,
           catalogVersion,
           fetchedAt,
         ],
@@ -251,7 +254,7 @@ export const searchGames = async (
   if (expression === null) return [];
 
   const rows = await adapter.execute<SearchRow>(
-    `SELECT g.id, g.name, g.slug, g.summary, g.first_release_date, g.cover_image_id,
+    `SELECT g.id, g.name, g.slug, g.summary, g.first_release_date, g.cover_image_id, g.developer,
             (SELECT group_concat(genre_id) FROM game_genres WHERE game_id = g.id) AS genre_ids,
             (SELECT group_concat(platform_id) FROM game_platforms WHERE game_id = g.id) AS platform_ids,
             e.id AS e_id, e.game_id AS e_game_id, e.status AS e_status, e.rating AS e_rating,

@@ -17,6 +17,7 @@ const game = (id: number, coverImageId: string | null): Game => ({
   coverImageId,
   genreIds: [],
   platformIds: [],
+  developer: null,
 });
 
 const fakeStore = (initial: string[]) => {

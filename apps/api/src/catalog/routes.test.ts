@@ -28,6 +28,7 @@ const WITCHER_3: Game = {
   coverImageId: 'co1wyy',
   genreIds: [12],
   platformIds: [6],
+  developer: null,
 };
 
 const RPG = { id: 12, name: 'Role-playing (RPG)', slug: 'role-playing-rpg' };

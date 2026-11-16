@@ -12,6 +12,7 @@ const GAME: Game = {
   coverImageId: 'co1wyy',
   genreIds: [12],
   platformIds: [6],
+  developer: null,
 };
 
 const answering = (respond: (request: Request) => Response | Promise<Response>) => {

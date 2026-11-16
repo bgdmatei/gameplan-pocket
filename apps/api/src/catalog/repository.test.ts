@@ -13,6 +13,7 @@ const game = (id: number, name: string): Game => ({
   coverImageId: null,
   genreIds: [],
   platformIds: [],
+  developer: null,
 });
 
 describe('catalog repository', () => {

@@ -11,7 +11,8 @@ describe('IGDB queries', () => {
 
     expect(body).toBe(
       'search "witcher; fields *; where id = 1;"; ' +
-        'fields name,slug,summary,first_release_date,cover.image_id,genres,platforms; limit 20;',
+        'fields name,slug,summary,first_release_date,cover.image_id,genres,platforms,' +
+        'involved_companies.developer,involved_companies.company.name; limit 20;',
     );
   });
 });
@@ -31,6 +32,8 @@ describe('IGDB mapping', () => {
         coverImageId: 'co1wyy',
         genreIds: [12, 31],
         platformIds: [6, 48, 49, 130],
+        // The developer, not the publisher listed before it.
+        developer: 'CD Projekt RED',
       },
       {
         id: 119133,
@@ -41,6 +44,8 @@ describe('IGDB mapping', () => {
         coverImageId: null,
         genreIds: [],
         platformIds: [],
+        // Its company list is unreadable: the developer is lost, not the game.
+        developer: null,
       },
     ]);
     expect(skipped).toEqual([5]);

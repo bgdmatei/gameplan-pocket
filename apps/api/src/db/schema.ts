@@ -14,6 +14,9 @@ export type GamesTable = {
   cover_image_id: string | null;
   genre_ids: number[];
   platform_ids: number[];
+  developer: string | null;
+  /** The IGDB field set this row was fetched with (`CATALOG_FIELDS`). */
+  catalog_fields: Generated<number>;
   fetched_at: FetchedAt;
   /** Bumped on every upsert, so a later `/catalog/changes` can page by it. */
   catalog_version: Generated<number>;

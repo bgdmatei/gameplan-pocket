@@ -1,3 +1,4 @@
+import { gameSchema } from '@gameplan/domain';
 import {
   LIBRARY_ENTRY_TABLES,
   PENDING_OP_TABLES,
@@ -100,7 +101,8 @@ const DebugScreen = () => {
     setBusy('Seeding 5,000 games…');
     try {
       // Rows only, no ops: a fake library for measuring, never for syncing.
-      await seed(adapter, { catalog, entries: 5_000, tagId });
+      const games = gameSchema.array().parse(catalog.games);
+      await seed(adapter, { catalog: { ...catalog, games }, entries: 5_000, tagId });
     } finally {
       setBusy(null);
     }

@@ -13,6 +13,16 @@ const igdbGameSchema = z.object({
   cover: z.object({ image_id: z.string() }).optional(),
   genres: z.array(z.number().int()).optional(),
   platforms: z.array(z.number().int()).optional(),
+  involved_companies: z
+    .array(
+      z.object({
+        developer: z.boolean().optional(),
+        company: z.object({ name: z.string() }).optional(),
+      }),
+    )
+    .optional()
+    // Cosmetic: a malformed list loses the developer, never the game.
+    .catch(undefined),
 });
 
 const igdbGenreSchema = z.object({ id: z.number().int(), name: z.string(), slug: z.string() });
@@ -67,6 +77,10 @@ export const mapGames = (raw: unknown): Mapped<Game> =>
       coverImageId: data.cover?.image_id ?? null,
       genreIds: data.genres ?? [],
       platformIds: data.platforms ?? [],
+      developer:
+        data.involved_companies?.find(
+          (involved) => involved.developer === true && involved.company?.name,
+        )?.company?.name ?? null,
     });
     return game.success ? game.data : null;
   });

@@ -19,6 +19,7 @@ const game = (id: number, name: string): Game => ({
   coverImageId: null,
   genreIds: [],
   platformIds: [],
+  developer: null,
 });
 
 const WITCHER_3 = game(1942, 'The Witcher 3: Wild Hunt');
@@ -26,12 +27,14 @@ const WITCHER_2 = game(478, 'The Witcher 2: Assassins of Kings');
 const HOLLOW_KNIGHT = game(14593, 'Hollow Knight');
 
 describe('catalog service', () => {
+  let db: Awaited<ReturnType<typeof createTestDb>>;
   let repository: CatalogRepository;
   let igdb: FakeIgdb;
   let service: CatalogService;
 
   beforeEach(async () => {
-    repository = createCatalogRepository(await createTestDb());
+    db = await createTestDb();
+    repository = createCatalogRepository(db);
     igdb = createFakeIgdb([WITCHER_3, WITCHER_2, HOLLOW_KNIGHT]);
     service = createCatalogService({ repository, igdb: igdb.client, logger: { warn: () => {} } });
   });
@@ -75,5 +78,21 @@ describe('catalog service', () => {
     expect(getGames).toHaveBeenCalledTimes(1);
     expect(getGames).toHaveBeenCalledWith([WITCHER_2.id, HOLLOW_KNIGHT.id]);
     expect(result).toEqual({ games: [WITCHER_3, WITCHER_2, HOLLOW_KNIGHT], stale: false });
+  });
+
+  // A row cached before the developer was asked for would otherwise never
+  // get one. Proven by dropping the outdated check from getGames.
+  it('fetches a cached game again when it predates the current IGDB fields', async () => {
+    await repository.upsertGames([{ ...WITCHER_3, developer: null }]);
+    await db.updateTable('games').set({ catalog_fields: 0 }).execute();
+    igdb = createFakeIgdb([{ ...WITCHER_3, developer: 'CD Projekt RED' }]);
+    service = createCatalogService({ repository, igdb: igdb.client, logger: { warn: () => {} } });
+
+    const first = await service.getGames([WITCHER_3.id]);
+    const again = await service.getGames([WITCHER_3.id]);
+
+    expect(first.games[0]?.developer).toBe('CD Projekt RED');
+    expect(again.games[0]?.developer).toBe('CD Projekt RED');
+    expect(igdb.calls()).toBe(1);
   });
 });

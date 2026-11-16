@@ -16,6 +16,8 @@ export const gameSchema = z
     coverImageId: z.string().min(1).nullable(),
     genreIds: z.array(z.number().int().positive()),
     platformIds: z.array(z.number().int().positive()),
+    /** The first developer IGDB lists; the publisher is never shown. */
+    developer: z.string().min(1).nullable().default(null),
   })
   .strict();
 

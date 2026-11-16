@@ -25,6 +25,7 @@ const WITCHER: Game = {
   coverImageId: 'co1wyy',
   genreIds: [12],
   platformIds: [6],
+  developer: null,
 };
 
 const reference = () => {

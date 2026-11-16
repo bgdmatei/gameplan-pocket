@@ -104,6 +104,7 @@ const GameScreen = () => {
   // Everything known about the game, for its About card (owner, #32).
   const facts = [
     { label: 'Released', value: releaseDate(game.firstReleaseDate) },
+    { label: 'Developer', value: game.developer },
     { label: 'Genres', value: genreNames.length === 0 ? null : genreNames.join(', ') },
     {
       label: 'Platforms',

@@ -7,12 +7,17 @@
     "first_release_date": 1431993600,
     "cover": { "id": 89386, "image_id": "co1wyy" },
     "genres": [12, 31],
-    "platforms": [6, 48, 49, 130]
+    "platforms": [6, 48, 49, 130],
+    "involved_companies": [
+      { "id": 1, "developer": false, "company": { "id": 10, "name": "Bandai Namco" } },
+      { "id": 2, "developer": true, "company": { "id": 908, "name": "CD Projekt RED" } }
+    ]
   },
   {
     "id": 119133,
     "name": "Untitled Prototype",
-    "slug": "untitled-prototype"
+    "slug": "untitled-prototype",
+    "involved_companies": [{ "developer": true, "company": 70 }]
   },
   {
     "id": 5,
