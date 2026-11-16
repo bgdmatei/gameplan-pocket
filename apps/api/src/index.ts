@@ -7,6 +7,7 @@ import { createIgdbFromEnv } from './catalog/igdb/create';
 import { createCatalogRepository } from './catalog/repository';
 import { createCatalogService } from './catalog/service';
 import { createDb } from './db/client';
+import { assertAppRole } from './db/roles';
 import { loadDotEnv, readEnv } from './env';
 import { consoleLogger } from './logger';
 import { createSyncRepository } from './sync/repository';
@@ -18,6 +19,13 @@ const env = readEnv(process.env);
 
 const logger = consoleLogger;
 const db = createDb(env.DATABASE_URL);
+try {
+  await assertAppRole(db);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : 'The database role check failed.');
+  await db.destroy();
+  process.exit(1);
+}
 const igdb = createIgdbFromEnv(env, logger);
 const catalog = createCatalogService({
   repository: createCatalogRepository(db),

@@ -1,3 +1,5 @@
+import { sql } from 'kysely';
+import type { Kysely } from 'kysely';
 import type pg from 'pg';
 
 /**
@@ -65,4 +67,27 @@ export const grantRoles = async (admin: Admin, database: string): Promise<void> 
        GRANT USAGE, SELECT ON SEQUENCES TO ${APP_ROLE}`,
   ];
   for (const statement of statements) await admin.query(statement);
+};
+
+/**
+ * The API refuses to start unless it logged in as `gameplan_app` and can't
+ * change the schema: a DATABASE_URL pointing at the migrator or the owner
+ * (directly, or switched with SET ROLE) would otherwise run with DDL rights,
+ * and nothing would show it.
+ */
+export const assertAppRole = async <T>(db: Kysely<T>): Promise<void> => {
+  const { rows } = await sql<{ login: string; ddl: boolean }>`
+    SELECT session_user AS login,
+           has_schema_privilege('public', 'CREATE')
+             OR (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) AS ddl
+  `.execute(db);
+  const login = rows[0]?.login;
+  if (login !== APP_ROLE) {
+    throw new Error(
+      `DATABASE_URL connects as ${String(login)}, not ${APP_ROLE}. Refusing to start.`,
+    );
+  }
+  if (rows[0]?.ddl !== false) {
+    throw new Error(`${APP_ROLE} can change the schema. Refusing to start.`);
+  }
 };

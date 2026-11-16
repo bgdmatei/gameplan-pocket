@@ -1,6 +1,7 @@
 import { sql } from 'kysely';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createTestDatabase } from '../testing/database';
+import { assertAppRole } from './roles';
 
 const { app, migrator } = await createTestDatabase();
 afterAll(async () => {
@@ -15,6 +16,13 @@ describe('database roles', () => {
       /permission denied/,
     );
     await expect(sql`DROP TABLE ops`.execute(app)).rejects.toThrow(/must be owner/);
+  });
+
+  // Attack: a DATABASE_URL naming the migrator would run the API with DDL
+  // rights and no sign of it. Proven by making assertAppRole always pass.
+  it('refuses to start the API as any role but gameplan_app', async () => {
+    await expect(assertAppRole(app)).resolves.toBeUndefined();
+    await expect(assertAppRole(migrator)).rejects.toThrow(/gameplan_migrator, not gameplan_app/);
   });
 
   // Default privileges, not per-table grants, reach the tables a migration
