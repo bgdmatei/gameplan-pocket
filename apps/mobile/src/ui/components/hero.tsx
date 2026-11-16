@@ -1,4 +1,5 @@
 import { coverUrl } from '@gameplan/domain';
+import { localCoverUri } from '@/data/cover-store';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View } from 'react-native';
@@ -46,7 +47,7 @@ export const Hero = ({
   width = 0,
 }: Props) => {
   const { colors } = useTheme();
-  const uri = coverUrl(imageId, 'cover_big');
+  const uri = localCoverUri(imageId) ?? coverUrl(imageId, 'cover_big');
   const backdrop = variant === 'backdrop';
 
   return (

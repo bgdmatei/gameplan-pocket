@@ -3,6 +3,7 @@ import type { CoverSize } from '@gameplan/domain';
 import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 import type { DimensionValue } from 'react-native';
+import { localCoverUri } from '@/data/cover-store';
 import { radius } from '../theme';
 import { useTheme } from '../use-theme';
 
@@ -22,8 +23,11 @@ type Props = {
  */
 export const Cover = ({ imageId, gameId, size, placeholderSize, width }: Props) => {
   const { colors } = useTheme();
-  const uri = coverUrl(imageId, size);
-  const placeholder = placeholderSize === undefined ? null : coverUrl(imageId, placeholderSize);
+  // The stored copy, when there is one, is the same cover_big file (#27).
+  const fromPhone = (wanted: CoverSize) =>
+    (wanted === 'cover_big' ? localCoverUri(imageId) : null) ?? coverUrl(imageId, wanted);
+  const uri = fromPhone(size);
+  const placeholder = placeholderSize === undefined ? null : fromPhone(placeholderSize);
 
   return (
     <View

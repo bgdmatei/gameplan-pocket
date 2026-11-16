@@ -187,7 +187,7 @@ The full reasoning is in [`docs/adr/`](docs/adr). In short:
 - **Email codes, not passwords** (ADR-014). Short-lived JWTs, rotating refresh tokens with reuse detection, and tokens kept in the Keychain. Going offline never signs you out.
 - **Hono rather than Fastify** (ADR-022): small, built on the web-standard Request and Response, and routes can be tested in memory without a server. Moving to an edge runtime later would mostly be a change of adapter.
 - **pnpm and Turborepo** (ADR-001): strict dependency resolution, so packages can't use what they don't declare, plus cached task graphs.
-- **Privacy rules set early, because they're cheap now and hard to retrofit.** Note text never leaves the phone except through sync: it is kept out of logs and error reports. Signing out erases the local database rather than just closing it. The server will accept only allowlisted columns from a client, and the user id always comes from the token.
+- **Privacy rules set early, because they're cheap now and hard to retrofit.** Note text never leaves the phone except through sync: it is kept out of logs and error reports. Signing out erases the local database rather than just closing it, and the library covers stored for offline use with it. The server will accept only allowlisted columns from a client, and the user id always comes from the token.
 - **Few, meaningful tests** over a high count or a coverage target. Rules, invariants as property tests, attacks on every exposed surface, and every real bug pinned.
 
 ---
@@ -196,7 +196,7 @@ The full reasoning is in [`docs/adr/`](docs/adr). In short:
 
 The project is planned as 15 modules (foundation → domain → storage → sync core → catalog → mobile library → auth → visual design → sync transport → realtime → conflicts → schema evolution → Steam import → stats → web).
 
-**Done:** the foundation, domain model, storage adapter, offline sync core, catalog service, the mobile library app (search, library grid and filters, favourites, game detail, notes, archive), auth, the visual design (image-led covers, Fraunces headlines, frosted chrome, a floating tab bar, and light and dark themes with a switch in Account), and sync between devices: a server op log with push, pull and snapshot, per-field merges on the server with the client's own functions, sync triggers with backoff, and a sync status in the Library header and on Account. A staging API runs on Render with Neon Postgres, as a database role that can't change the schema.
+**Done:** the foundation, domain model, storage adapter, offline sync core, catalog service, the mobile library app (search, library grid and filters, favourites, game detail, notes, archive), auth, the visual design (image-led covers, Fraunces headlines, frosted chrome, a floating tab bar, and light and dark themes with a switch in Account), and sync between devices: a server op log with push, pull and snapshot, per-field merges on the server with the client's own functions, sync triggers with backoff, a sync status in the Library header and on Account, and library covers stored on the phone (on Wi-Fi, 50 per sync) so they show offline. A staging API runs on Render with Neon Postgres, as a database role that can't change the schema.
 
 **How work is tracked:** each module starts from an approved spec; its tasks are GitHub Issues in a milestone named after it, and an issue is built only once the owner labels it `ready-for-agent` (`docs/agents/`). `CONTEXT.md` is the glossary.
 

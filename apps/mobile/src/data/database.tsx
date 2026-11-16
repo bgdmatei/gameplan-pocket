@@ -6,6 +6,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ActivityIndicator, InteractionManager, StyleSheet, Text, View } from 'react-native';
 import { space, type } from '@/ui/theme';
+import { clearCovers } from './cover-store';
 import { useTheme } from '@/ui/use-theme';
 
 type Database = {
@@ -62,6 +63,13 @@ export const DatabaseProvider = ({ children }: { children: ReactNode }) => {
     const erase = async (): Promise<void> => {
       setState({ kind: 'opening' });
       await state.adapter.destroy();
+      try {
+        clearCovers();
+      } catch {
+        // The fresh database still opens; covers left behind are retried at
+        // the next erase rather than leaving the app on a spinner.
+        console.warn('Stored covers could not be cleared.');
+      }
       setGeneration((current) => current + 1);
     };
 

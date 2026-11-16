@@ -1,14 +1,16 @@
 import { PENDING_OP_TABLES, latestPendingSeq } from '@gameplan/storage';
-import { addNetworkStateListener, getNetworkStateAsync } from 'expo-network';
+import { NetworkStateType, addNetworkStateListener, getNetworkStateAsync } from 'expo-network';
 import type { NetworkState } from 'expo-network';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import type { AppStateStatus } from 'react-native';
 import { catalogApi } from '@/data/catalog-api';
+import { coverStore } from '@/data/cover-store';
 import { useDatabase } from '@/data/database';
 import { syncEnv } from '@/data/env';
 import { SyncRequestError } from '@/data/sync-api';
 import { useToast } from '@/ui/components/toast';
+import { fillCovers } from '../covers/fill-covers';
 import { ownsDatabase } from './owns-database';
 import { createReconnectNotices } from './reconnect-notices';
 import { runSync } from './run-sync';
@@ -45,6 +47,25 @@ export const SyncTriggers = () => {
 
   useEffect(() => {
     const notices = createReconnectNotices(show);
+    // After a sync, on Wi-Fi only, one batch at a time (#27). Stops as soon as
+    // this database is gone or the phone leaves Wi-Fi.
+    let storing = false;
+    const unmetered = async (): Promise<boolean> => {
+      const { type } = await getNetworkStateAsync();
+      return type === NetworkStateType.WIFI || type === NetworkStateType.ETHERNET;
+    };
+    const keepGoing = async (): Promise<boolean> => mounted && (await unmetered());
+    const storeCovers = async (): Promise<void> => {
+      if (storing) return;
+      storing = true;
+      try {
+        await fillCovers(adapter, coverStore, keepGoing);
+      } catch {
+        // Covers are a convenience: the next sync tries again.
+      } finally {
+        storing = false;
+      }
+    };
     const signedIn = () => ownsDatabase(adapter);
     let mounted = true;
     // Status follows each real run, not each caller sharing one (single
@@ -59,6 +80,7 @@ export const SyncTriggers = () => {
         try {
           await runSync({ adapter, env: syncEnv, api: syncApi, catalog: catalogApi });
           report({ type: 'succeeded' });
+          void storeCovers();
         } catch (error) {
           const kind = error instanceof SyncRequestError ? error.kind : 'error';
           report({ type: 'failed', kind, at: new Date().toISOString() });
