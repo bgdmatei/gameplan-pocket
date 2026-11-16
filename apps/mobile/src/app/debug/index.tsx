@@ -14,6 +14,8 @@ import { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase, useEraseDatabase } from '@/data/database';
+import { authApi, session } from '@/features/account/auth-client';
+import { signOut } from '@/features/account/sign-out';
 import {
   BUDGETS,
   METRICS,
@@ -68,7 +70,16 @@ const DebugScreen = () => {
   const [busy, setBusy] = useState<string | null>(null);
   // Samples live outside React: read them again whenever this screen shows.
   const [, setReadAt] = useState(0);
-  const refresh = useCallback(() => setReadAt(Date.now()), []);
+  // The server's registration of this phone, moved here from Account (#33).
+  // The session lives in the keychain, not SQLite, so it's read on focus.
+  const [deviceId, setDeviceId] = useState<string | null | undefined>(undefined);
+  const refresh = useCallback(() => {
+    setReadAt(Date.now());
+    session
+      .current()
+      .then((current) => setDeviceId(current?.device.id ?? null))
+      .catch(() => setDeviceId(undefined));
+  }, []);
   useFocusEffect(refresh);
   const summary = perfSummary();
   const heap = jsHeapBytes();
@@ -96,10 +107,32 @@ const DebugScreen = () => {
   };
 
   const confirmErase = (): void => {
-    Alert.alert('Erase everything on this phone?', 'Your library, notes and outbox are deleted.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Erase', style: 'destructive', onPress: () => void erase() },
-    ]);
+    Alert.alert(
+      'Erase everything on this phone?',
+      'Your library, notes and outbox are deleted, and you’re signed out.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        // Through sign-out, as on Account: an erase that kept the session left a
+        // signed-in phone whose fresh database had no owner, so sync never ran
+        // and its status stayed hidden (#24, on a real phone).
+        {
+          text: 'Erase',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              setBusy('Erasing…');
+              try {
+                await signOut({ session, api: authApi, erase });
+              } catch {
+                Alert.alert('Erasing didn’t finish. Try again.');
+              } finally {
+                setBusy(null);
+              }
+            })();
+          },
+        },
+      ],
+    );
   };
 
   const row = (label: string, value: string) => (
@@ -178,6 +211,7 @@ const DebugScreen = () => {
         <PillButton label="Share" icon="share-outline" onPress={() => undefined} />
       </View>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+        {row('Device id', deviceId === undefined ? '…' : (deviceId ?? 'not signed in'))}
         {row('Node id', info?.sync.nodeId ?? 'not yet (created at the first edit)')}
         {row('Last clock', info?.sync.hlcLast ?? 'none')}
         {row('Waiting to sync', info === null ? '…' : `${String(info.pending)} ops`)}
@@ -207,7 +241,7 @@ const DebugScreen = () => {
 
       {link('/debug/outbox', 'Outbox')}
       {link('/debug/storage-check', 'Run the storage contract')}
-      {link('/debug/sync-check', 'Commit one op on a throwaway database')}
+      {link('/debug/sync-check', 'Sync check: commit one op, then sync with the API')}
 
       {busy === null ? null : <Text style={[type.subhead, { color: colors.muted }]}>{busy}</Text>}
       {action('Seed 5,000 real games', () => void seedLibrary(), info?.empty === true)}

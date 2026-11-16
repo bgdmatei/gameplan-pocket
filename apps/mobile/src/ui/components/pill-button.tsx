@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { minTouchTarget, radius, space, type } from '../theme';
 import { useTheme } from '../use-theme';
@@ -62,18 +62,34 @@ export const PillButton = ({
   );
 };
 
-type RoundProps = {
-  icon: IconName;
+/**
+ * An Ionicons name, or a glyph drawn by the caller (the sync icon: another icon
+ * set, animated). A glyph brings its own colour, so it suits `frosted` only.
+ */
+type RoundIcon = { icon: IconName; glyph?: never } | { icon?: never; glyph: ReactNode };
+
+type RoundProps = RoundIcon & {
   /** Spoken, since the icon alone says nothing to VoiceOver. */
   label: string;
   onPress: () => void;
   variant?: Variant;
+  /** A small dot on the corner: something here needs the player (Account, signed out). */
+  badge?: boolean;
 };
 
 /** A round icon button: 44 pt, frosted by default. */
-export const RoundButton = ({ icon, label, onPress, variant = 'frosted' }: RoundProps) => {
+export const RoundButton = ({
+  icon,
+  glyph,
+  label,
+  onPress,
+  variant = 'frosted',
+  badge = false,
+}: RoundProps) => {
   const { colors } = useTheme();
   const filled = variant === 'filled';
+  const drawn = (color: string) =>
+    icon === undefined ? glyph : <Ionicons name={icon} size={20} color={color} />;
 
   return (
     <PressableScale
@@ -84,13 +100,14 @@ export const RoundButton = ({ icon, label, onPress, variant = 'frosted' }: Round
     >
       {filled ? (
         <View style={[styles.roundFill, { backgroundColor: colors.accentFill }]}>
-          <Ionicons name={icon} size={20} color={colors.onAccent} />
+          {drawn(colors.onAccent)}
         </View>
       ) : (
         <Frosted style={[styles.roundFill, styles.edge, { borderColor: colors.line }]}>
-          <Ionicons name={icon} size={20} color={colors.text} />
+          {drawn(colors.text)}
         </Frosted>
       )}
+      {badge ? <View style={[styles.badge, { backgroundColor: colors.warning }]} /> : null}
     </PressableScale>
   );
 };
@@ -116,4 +133,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: radius.pill,
   },
+  // Outside the frosted fill, which clips to its circle.
+  badge: { position: 'absolute', top: 2, right: 2, width: 10, height: 10, borderRadius: 5 },
 });

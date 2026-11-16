@@ -64,6 +64,20 @@ export const readEnv = (source: Readonly<Record<string, string | undefined>>): E
   );
 };
 
+/**
+ * What `migrate` reads: the migrator's credential, which the server never
+ * needs (SPEC-sync-transport.md, least-privilege roles).
+ */
+export const readMigrationEnv = (
+  source: Readonly<Record<string, string | undefined>>,
+): { MIGRATION_DATABASE_URL: string } => {
+  const parsed = z.object({ MIGRATION_DATABASE_URL: z.string().min(1) }).safeParse(source);
+  if (parsed.success) return parsed.data;
+  throw new Error(
+    'Missing or invalid environment variables: MIGRATION_DATABASE_URL. See apps/api/.env.example.',
+  );
+};
+
 /** Loads `apps/api/.env` when it exists; deployed environments set real variables instead. */
 export const loadDotEnv = (): void => {
   try {

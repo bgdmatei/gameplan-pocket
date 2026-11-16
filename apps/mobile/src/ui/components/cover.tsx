@@ -9,8 +9,9 @@ import { useTheme } from '../use-theme';
 type Props = {
   imageId: string | null;
   gameId: number;
-  /** `cover_small` in lists and the grid, `cover_big` on detail (plan §8.2). */
   size: CoverSize;
+  /** A smaller size, likely cached from the grid, shown until `size` loads. */
+  placeholderSize?: CoverSize;
   width: DimensionValue;
 };
 
@@ -19,9 +20,10 @@ type Props = {
  * game's name is always next to it. `recyclingKey` stops a recycled grid cell
  * flashing the previous game's cover while the next one loads.
  */
-export const Cover = ({ imageId, gameId, size, width }: Props) => {
+export const Cover = ({ imageId, gameId, size, placeholderSize, width }: Props) => {
   const { colors } = useTheme();
   const uri = coverUrl(imageId, size);
+  const placeholder = placeholderSize === undefined ? null : coverUrl(imageId, placeholderSize);
 
   return (
     <View
@@ -32,6 +34,8 @@ export const Cover = ({ imageId, gameId, size, width }: Props) => {
       {uri === null ? null : (
         <Image
           source={uri}
+          placeholder={placeholder}
+          placeholderContentFit="cover"
           recyclingKey={String(gameId)}
           style={StyleSheet.absoluteFill}
           contentFit="cover"

@@ -26,7 +26,7 @@ export const createResendTransport = ({
         from,
         to: [to],
         subject: `Your Gameplan code: ${code}`,
-        text: `Your sign-in code is ${code}. It works for 10 minutes.\n\nIf you didn't ask for it, ignore this email.`,
+        text: `Your sign-in code is ${code}. It's valid for 10 minutes.\n\nIf you didn't ask for it, ignore this email.`,
       }),
     });
     if (!response.ok) throw new Error(`Resend answered ${response.status}`);

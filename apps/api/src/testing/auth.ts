@@ -13,6 +13,8 @@ import { createFakeIgdb } from '../catalog/igdb/fake';
 import { createCatalogRepository } from '../catalog/repository';
 import { createCatalogService } from '../catalog/service';
 import type { Database } from '../db/schema';
+import { createSyncRepository } from '../sync/repository';
+import { createSyncService } from '../sync/service';
 import { createTestDb } from './database';
 
 export const TEST_SECRETS = { jwt: 'j'.repeat(32), code: 'c'.repeat(32) } as const;
@@ -81,9 +83,15 @@ export const createTestApp = async ({
     igdb: igdb.client,
     logger,
   });
+  const sync = createSyncService({
+    repository: createSyncRepository(testAuth.db),
+    logger,
+    now: testAuth.clock.now,
+  });
   const app = createApp({
     catalog,
     auth: testAuth.auth,
+    sync,
     corsOrigins,
     logger,
     apiKey: TEST_API_KEY,

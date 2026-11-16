@@ -28,6 +28,10 @@ export type SyncState = {
   ownerUserId: string | null;
   /** The player's theme choice (migration 006). */
   theme: ThemePreference;
+  /** When a sync last finished, ISO 8601; null until the first (migration 007). */
+  lastSyncedAt: string | null;
+  /** True once the server's snapshot has been applied (migration 007). */
+  bootstrapped: boolean;
 };
 
 export type SyncStatePatch = Partial<SyncState>;
@@ -40,6 +44,8 @@ type SyncStateRow = {
   catalog_version: number;
   owner_user_id: string | null;
   theme: string;
+  last_synced_at: string | null;
+  bootstrapped: number;
 };
 
 const COLUMNS: Record<keyof SyncState, string> = {
@@ -50,13 +56,15 @@ const COLUMNS: Record<keyof SyncState, string> = {
   catalogVersion: 'catalog_version',
   ownerUserId: 'owner_user_id',
   theme: 'theme',
+  lastSyncedAt: 'last_synced_at',
+  bootstrapped: 'bootstrapped',
 };
 
 /** Takes a transaction too, so a write can read and advance the clock atomically. */
 export const getSyncState = async (adapter: Transaction): Promise<SyncState> => {
   const rows = await adapter.execute<SyncStateRow>(
     `SELECT node_id, last_pulled_seq, hlc_last, schema_version, catalog_version, owner_user_id,
-            theme
+            theme, last_synced_at, bootstrapped
      FROM sync_state WHERE id = 1`,
   );
   const row = rows[0];
@@ -74,6 +82,8 @@ export const getSyncState = async (adapter: Transaction): Promise<SyncState> => 
     ownerUserId: row.owner_user_id,
     // Only updateSyncState writes it, and it refuses anything else; 'auto' is the safe reading.
     theme: isThemePreference(row.theme) ? row.theme : 'auto',
+    lastSyncedAt: row.last_synced_at,
+    bootstrapped: row.bootstrapped === 1,
   };
 };
 

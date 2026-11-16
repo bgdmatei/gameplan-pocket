@@ -25,3 +25,24 @@ export {
 } from './catalog';
 export type { ErrorResponse, GameResponse, GamesResponse, ReferenceResponse } from './catalog';
 export { HEADERS, PROTOCOL_VERSION } from './protocol';
+export {
+  REJECTION_REASONS,
+  SYNC_LIMITS,
+  pullQuerySchema,
+  pullResponseSchema,
+  pushRequestSchema,
+  pushResponseSchema,
+  rejectionReasonSchema,
+  snapshotQuerySchema,
+  snapshotResponseSchema,
+} from './sync';
+export type {
+  PullQuery,
+  PullResponse,
+  PushRequest,
+  PushResponse,
+  RejectionReason,
+  SnapshotQuery,
+  SnapshotResponse,
+  SnapshotRow,
+} from './sync';

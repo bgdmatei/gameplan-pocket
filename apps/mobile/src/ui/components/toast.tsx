@@ -1,18 +1,47 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { DomainValidationError } from '@gameplan/domain';
-import { useSegments } from 'expo-router';
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
-import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { ComponentProps, ReactNode } from 'react';
+import { AccessibilityInfo, PanResponder, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  FadeOut,
+  SlideInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { Colors } from '../palette';
 import { radius, space, type } from '../theme';
 import { useTheme } from '../use-theme';
-import { Frosted } from './frosted';
 
-type Toast = { lines: readonly string[]; tone: 'info' | 'problem' };
+/** Owner, 2026-11-11: colour-coded, so the kind of message reads at a glance. */
+export type ToastTone = 'info' | 'success' | 'warning' | 'problem';
+
+/** Each tone's tinted card and icon; the text stays `text`, AA on every fill. */
+const TONES: Record<
+  ToastTone,
+  { fill: keyof Colors; icon: keyof Colors; name: ComponentProps<typeof Ionicons>['name'] }
+> = {
+  info: { fill: 'surface', icon: 'accent', name: 'information-circle' },
+  success: { fill: 'successFill', icon: 'success', name: 'checkmark-circle' },
+  warning: { fill: 'warningFill', icon: 'warning', name: 'cloud-offline' },
+  problem: { fill: 'dangerFill', icon: 'danger', name: 'alert-circle' },
+};
+
+type Toast = { id: number; lines: readonly string[]; tone: ToastTone };
 
 type ToastApi = {
-  show: (message: string) => void;
+  show: (message: string, tone?: ToastTone) => void;
   /**
    * Lists every reason a write was rejected, and rethrows anything else.
    * The reasons come from domain codes and schema wording, never from the
@@ -24,22 +53,108 @@ type ToastApi = {
 const ToastContext = createContext<ToastApi | null>(null);
 
 const VISIBLE_MS = 4_000;
-/** Clears the tab bar on a tab screen; pushed screens and modals have none. */
-const ABOVE_TABS = 64;
+/** How far up, in points, a drag must go to dismiss; a flick upward also does. */
+const DISMISS_DRAG = 40;
+const DISMISS_VELOCITY = -0.5;
+const LEAVE_MS = 180;
 
-export const ToastProvider = ({ children }: { children: ReactNode }) => {
+/**
+ * Swiped up past the threshold, it leaves upward; a shorter drag springs back
+ * and its timer runs on. Only upward vertical drags are claimed: a tap does
+ * nothing, though it no longer reaches what is under the toast.
+ */
+const ToastCard = ({
+  toast,
+  top,
+  onDismiss,
+}: {
+  toast: Toast;
+  top: number;
+  onDismiss: () => void;
+}) => {
   const { colors } = useTheme();
+  const offset = useSharedValue(0);
+  const moved = useAnimatedStyle(() => ({ transform: [{ translateY: offset.value }] }));
+  const pan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => g.dy < -4 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderMove: (_, g) => {
+        offset.value = Math.min(0, g.dy);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy < -DISMISS_DRAG || g.vy < DISMISS_VELOCITY) {
+          offset.value = withTiming(-(top + 200), { duration: LEAVE_MS });
+          onDismiss();
+        } else {
+          offset.value = withSpring(0);
+        }
+      },
+      onPanResponderTerminate: () => {
+        offset.value = withSpring(0);
+      },
+    }),
+  ).current;
+
+  return (
+    <Animated.View
+      entering={SlideInUp}
+      exiting={FadeOut}
+      accessibilityLiveRegion="polite"
+      style={[styles.toast, { top }, moved]}
+      {...pan.panHandlers}
+    >
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: colors[TONES[toast.tone].fill], borderColor: colors.line },
+        ]}
+      >
+        <Ionicons name={TONES[toast.tone].name} size={20} color={colors[TONES[toast.tone].icon]} />
+        <View style={styles.lines}>
+          {toast.lines.map((line) => (
+            <Text key={line} style={[type.callout, { color: colors.text }]}>
+              {line}
+            </Text>
+          ))}
+        </View>
+      </View>
+    </Animated.View>
+  );
+};
+
+/**
+ * Drops in from the top (owner, 2026-11-11): at the bottom it sat over the
+ * tab bar and was easy to miss. Slides down, fades out; with Reduce Motion,
+ * Reanimated skips the movement.
+ */
+export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const insets = useSafeAreaInsets();
-  const onTabs = useSegments()[0] === '(tabs)';
   const [toast, setToast] = useState<Toast | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A new id only when none is showing: a toast replacing another swaps its
+  // content in place, rather than sliding in over the one fading out.
+  const nextId = useRef(0);
+  const visible = useRef(false);
 
-  const present = useCallback((next: Toast) => {
-    setToast(next);
+  const present = useCallback((content: Omit<Toast, 'id'>) => {
+    if (!visible.current) nextId.current += 1;
+    visible.current = true;
+    setToast({ ...content, id: nextId.current });
     // VoiceOver users hear it even though focus stays where it was.
-    AccessibilityInfo.announceForAccessibility(next.lines.join(' '));
+    AccessibilityInfo.announceForAccessibility(content.lines.join(' '));
     if (timer.current !== null) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setToast(null), VISIBLE_MS);
+    timer.current = setTimeout(() => {
+      visible.current = false;
+      setToast(null);
+    }, VISIBLE_MS);
+  }, []);
+
+  // Removed once it has flown off. Sharing the auto-hide timer means a toast
+  // shown in the meantime cancels the removal and gets a fresh card.
+  const dismiss = useCallback(() => {
+    if (timer.current !== null) clearTimeout(timer.current);
+    visible.current = false;
+    timer.current = setTimeout(() => setToast(null), LEAVE_MS);
   }, []);
 
   useEffect(
@@ -49,39 +164,23 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
     [],
   );
 
-  const api: ToastApi = {
-    show: (message) => present({ lines: [message], tone: 'info' }),
-    showRejected: (error) => {
-      if (!(error instanceof DomainValidationError)) throw error;
-      present({ lines: error.messages, tone: 'problem' });
-    },
-  };
+  // Stable, so a consumer can depend on it in an effect (SyncTriggers).
+  const api = useMemo<ToastApi>(
+    () => ({
+      show: (message, tone = 'info') => present({ lines: [message], tone }),
+      showRejected: (error) => {
+        if (!(error instanceof DomainValidationError)) throw error;
+        present({ lines: error.messages, tone: 'problem' });
+      },
+    }),
+    [present],
+  );
 
   return (
     <ToastContext.Provider value={api}>
       {children}
       {toast === null ? null : (
-        <View
-          pointerEvents="none"
-          accessibilityLiveRegion="polite"
-          style={[styles.toast, { bottom: insets.bottom + (onTabs ? ABOVE_TABS : space.lg) }]}
-        >
-          {/* Frosted like the tab bar it floats above; the icon carries the tone. */}
-          <Frosted style={[styles.card, { borderColor: colors.line }]}>
-            <Ionicons
-              name={toast.tone === 'problem' ? 'alert-circle' : 'information-circle'}
-              size={20}
-              color={toast.tone === 'problem' ? colors.danger : colors.accent}
-            />
-            <View style={styles.lines}>
-              {toast.lines.map((line) => (
-                <Text key={line} style={[type.callout, { color: colors.text }]}>
-                  {line}
-                </Text>
-              ))}
-            </View>
-          </Frosted>
-        </View>
+        <ToastCard key={toast.id} toast={toast} top={insets.top + space.sm} onDismiss={dismiss} />
       )}
     </ToastContext.Provider>
   );

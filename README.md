@@ -41,12 +41,14 @@ git config core.hooksPath .githooks   # the repo's git hooks, once per clone
 cd apps/api
 cp .env.example .env          # then fill it in, see below
 docker compose up -d          # Postgres 17 on :5432
-pnpm migrate                  # create the tables
+pnpm db:roles                 # the two database roles, once per database
+pnpm migrate                  # create the tables, as gameplan_migrator
 pnpm dev                      # Hono on http://localhost:3000, check /health
 ```
 
 In `apps/api/.env`:
 
+- `DATABASE_URL`, `MIGRATION_DATABASE_URL` and `ADMIN_DATABASE_URL`: keep the example's values locally. The API runs as `gameplan_app`, which can read and write rows but not change the schema; migrations run as `gameplan_migrator`, which owns it. `pnpm db:roles` creates both, using the passwords in those two URLs, and is safe to run again.
 - `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET`: from a Twitch developer application ([dev.twitch.tv/console](https://dev.twitch.tv/console)). The API uses them to talk to IGDB.
 - `CATALOG_API_KEY`: any long random string (`openssl rand -hex 24`). The app sends it with every catalog request.
 - `JWT_SECRET` and `CODE_SECRET`: `openssl rand -hex 32` each.
@@ -64,13 +66,35 @@ The first build takes a few minutes. After that, `pnpm dev` (Metro alone) is eno
 
 The simulator reaches your Mac as `localhost`. A physical phone needs the Mac's LAN address in `EXPO_PUBLIC_API_URL`.
 
+On a phone against staging, `pnpm --filter mobile ios:staging` is a Release build: the JavaScript is bundled in, so every change needs a rebuild. For Fast Refresh, `pnpm --filter mobile ios:staging:dev` builds a Debug app with the same `.env.staging` and serves JavaScript from Metro; the phone must be on the Mac's Wi-Fi. It clears Metro's cache first, since Metro would otherwise keep the previous env's `EXPO_PUBLIC_*` values.
+
 ### 4. Get some data in
 
 The library starts empty. Either search for a game and add it, or open **Library → Debug (wrench) → Seed 5,000 real games** to fill it with real catalog data: that is the data set the performance numbers were measured on.
 
 Signing in is optional; the app works fully signed out. To try it, go to **Account**, enter any email, and copy the 6-digit code from the API's terminal.
 
+### 5. Sync two devices
+
+Run two simulators, or a simulator and a phone, against the same API, and sign in to the same email on both. Sync runs on its own: at launch and on returning to the app, when the network comes back, 2 s after an edit, and every 5 minutes while open. The cloud in the Library header shows its state; tap it to sync now. An edit on one device shows on the other once that one comes to the foreground.
+
+**Debug → Sync check** runs one sync by hand and prints what it pushed, pulled and skipped. **Debug → Outbox** lists ops waiting to go and ops the server refused. Don't sync a library filled by **Seed**: its entries don't use the ids sync expects.
+
+The iOS simulator passes on the Mac's network changes late or not at all, so check offline behaviour (airplane mode) on a phone.
+
 ---
+
+### Staging (Render and Neon)
+
+`render.yaml` describes the staging API; its secrets live in Render's dashboard. The database needs the same two roles as locally, created once per Neon database:
+
+1. Generate two passwords: `openssl rand -hex 24`, twice.
+2. From Neon's **Connect** dialog: the owner role's direct connection string (pooling off), and the pooled host (with `-pooler`).
+3. In a terminal, export three URLs, without writing them to a file: `ADMIN_DATABASE_URL` (the owner, direct), `MIGRATION_DATABASE_URL` (`gameplan_migrator`, the direct host) and `DATABASE_URL` (`gameplan_app`, the pooled host), each ending in `?sslmode=require`. Variables you don't export fall back to `apps/api/.env`, so check all three point at Neon first.
+4. `pnpm --filter api db:roles`, then `pnpm --filter api migrate`, then unset the three.
+5. In Render, set `DATABASE_URL` (app, pooled) and `MIGRATION_DATABASE_URL` (migrator, direct). `ADMIN_DATABASE_URL` never goes to Render.
+
+Each deploy migrates as `gameplan_migrator`, then starts the API without that credential in its environment. The API refuses to start unless `DATABASE_URL` connects as `gameplan_app`.
 
 ## Running the tests
 
@@ -129,10 +153,11 @@ Node's SQLite is more forgiving than the phone's: FTS5 is built into Node but ha
 ```
 apps/
   mobile/       Expo Router app (SDK 57): screens, features, UI kit
-  api/          Hono API: IGDB proxy with a Postgres cache, email-code auth
+  api/          Hono API: IGDB proxy with a Postgres cache, email-code auth, sync push
 packages/
   domain/       Entities and rules. Pure TypeScript: no React, no I/O, no clock
-  sync/         Hybrid logical clock, ops, per-field merges, the local write path
+  sync/         Hybrid logical clock, ops, per-field merges, the local write path, the sync loop
+  sync-server/  The server's door checks and merge, plus an in-memory server for tests
   storage/      StorageAdapter interface; op-sqlite on the phone, Node SQLite in tests
   db-schema/    The phone's SQLite schema and numbered migrations
   contracts/    The wire format shared by the API and the app (zod)
@@ -141,7 +166,7 @@ packages/
 docs/adr/       Architecture decision records
 ```
 
-Dependencies only point inward: `apps → packages`, never the reverse, and `domain` imports nothing from the other packages. ESLint enforces this (`eslint-plugin-boundaries`). `pnpm lint:boundaries` keeps fixtures that break the rules on purpose and fails if lint ever stops flagging them, so a rule can't be switched off by accident.
+Dependencies only point inward: `apps → packages`, never the reverse, and `domain` imports nothing from the other packages. Only the API may import `sync-server`, so server logic never ships in the app. ESLint enforces this (`eslint-plugin-boundaries`). `pnpm lint:boundaries` keeps fixtures that break the rules on purpose and fails if lint ever stops flagging them, so a rule can't be switched off by accident.
 
 **How a write flows.** A screen calls a commit function in `sync`. It checks the change against the domain rules, stamps each changed field with a hybrid logical clock, and in one SQLite transaction writes both the row and an op describing the change into an outbox. Screens subscribe to reactive queries, so the database's copy re-renders on its own. Screens have no other way to write: storage's own write functions were removed.
 
@@ -171,6 +196,8 @@ The full reasoning is in [`docs/adr/`](docs/adr). In short:
 
 The project is planned as 15 modules (foundation → domain → storage → sync core → catalog → mobile library → auth → visual design → sync transport → realtime → conflicts → schema evolution → Steam import → stats → web).
 
-**Done:** the foundation, domain model, storage adapter, offline sync core, catalog service, the mobile library app (search, library grid and filters, favourites, game detail, notes, archive), auth, and the visual design: image-led covers, Fraunces headlines, frosted chrome, a floating tab bar, and light and dark themes with a switch in Account. A staging API runs on Render with Neon Postgres.
+**Done:** the foundation, domain model, storage adapter, offline sync core, catalog service, the mobile library app (search, library grid and filters, favourites, game detail, notes, archive), auth, the visual design (image-led covers, Fraunces headlines, frosted chrome, a floating tab bar, and light and dark themes with a switch in Account), and sync between devices: a server op log with push, pull and snapshot, per-field merges on the server with the client's own functions, sync triggers with backoff, and a sync status in the Library header and on Account. A staging API runs on Render with Neon Postgres, as a database role that can't change the schema.
 
-**Not yet:** syncing between devices (the transport, the server's op log, realtime pokes and the conflict UI for notes). Each device already records everything sync will need. Steam import, stats, and the web app are not started either.
+**How work is tracked:** each module starts from an approved spec; its tasks are GitHub Issues in a milestone named after it, and an issue is built only once the owner labels it `ready-for-agent` (`docs/agents/`). `CONTEXT.md` is the glossary.
+
+**Not yet:** realtime pokes (another device's edit currently arrives on the next sync trigger, not at once), the conflict UI for notes, schema evolution, Steam import, stats, and the web app.

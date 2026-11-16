@@ -77,7 +77,8 @@ export const Hero = ({
           <Cover
             imageId={imageId}
             gameId={gameId}
-            size="cover_big"
+            size="1080p"
+            placeholderSize="cover_big"
             width={backdropCoverWidth(width)}
           />
         </View>

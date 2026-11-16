@@ -45,6 +45,25 @@ export const mergeOp = (state: RowState, op: Op): RowState => {
 };
 
 /**
+ * Merges a whole row from elsewhere (a snapshot) into this one: per field,
+ * the newer clock wins, exactly as if every op behind `remote` were applied
+ * with `mergeOp`. Returns `local` itself when nothing is newer.
+ */
+export const mergeRow = (local: RowState, remote: RowState): RowState => {
+  const newer = Object.entries(remote.clocks).filter(([field, clock]) => {
+    const current = local.clocks[field];
+    return current === undefined || current < clock;
+  });
+  if (newer.length === 0) return local;
+
+  const fields = { ...local.fields };
+  for (const [field] of newer) {
+    if (field !== DELETE_CLOCK) fields[field] = remote.fields[field] ?? null;
+  }
+  return { fields, clocks: { ...local.clocks, ...Object.fromEntries(newer) } };
+};
+
+/**
  * A row is deleted when its latest delete is newer than every field's clock.
  * A delete beats every edit made before it; an edit made after it brings the
  * row back, because that edit was deliberate and dropping it would lose a

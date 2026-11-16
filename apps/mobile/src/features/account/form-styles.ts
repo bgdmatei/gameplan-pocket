@@ -16,17 +16,6 @@ export const useFormStyles = () => {
   };
 };
 
-/** An outlined, full-width pill for the screen's destructive actions, beside the filled one. */
-export const outlined = StyleSheet.create({
-  button: {
-    minHeight: minTouchTarget + 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.pill,
-  },
-});
-
 // A pill, like the search field and the note's location.
 const styles = StyleSheet.create({
   input: {

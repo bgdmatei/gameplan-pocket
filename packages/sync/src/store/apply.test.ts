@@ -102,7 +102,9 @@ describe('applyRemoteOps', () => {
     expect((await getSyncState(phone)).lastPulledSeq).toBe(6);
   });
 
-  it('refuses an edit for a row this device has never seen', async () => {
+  // #26: this used to throw (SPEC-sync-core.md decision 8), which stopped
+  // every later sync on the device. The row is skipped; the position moves on.
+  it('skips an edit for a row this device has never seen', async () => {
     const adapter = await createMigratedNodeAdapter();
     const op: Op = {
       id: '01890a5d-ac96-774b-bcce-b302099a8057',
@@ -114,9 +116,11 @@ describe('applyRemoteOps', () => {
       schemaVersion: 1,
     };
 
-    await expect(applyRemoteOps(adapter, fakeEnv(), [op], { lastPulledSeq: 1 })).rejects.toThrow(
-      /not on this device/,
-    );
-    expect((await getSyncState(adapter)).lastPulledSeq).toBe(0);
+    expect(await applyRemoteOps(adapter, fakeEnv(), [op], { lastPulledSeq: 1 })).toEqual({
+      applied: 0,
+      skipped: 1,
+    });
+    expect((await stored(adapter)).entry).toBeNull();
+    expect((await getSyncState(adapter)).lastPulledSeq).toBe(1);
   });
 });

@@ -1,6 +1,6 @@
 import { DomainValidationError, ENTRY_STATUSES } from '@gameplan/domain';
 import type { EntryStatus } from '@gameplan/domain';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -19,9 +19,9 @@ import { PrimaryButton } from '@/ui/components/primary-button';
 import { SkeletonBlock } from '@/ui/components/skeleton';
 import { StatusChips } from '@/ui/components/status-chips';
 import { useToast } from '@/ui/components/toast';
-import { releaseYear } from '@/ui/labels';
+import { releaseDate } from '@/ui/labels';
 import { platformLabel, playablePlatforms } from '@/ui/platforms';
-import { displayMaxScale, minTouchTarget, radius, space, tabularNumbers, type } from '@/ui/theme';
+import { displayMaxScale, minTouchTarget, radius, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 const UNAVAILABLE = {
@@ -41,8 +41,10 @@ const GameScreen = () => {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const heroHeight = backdropHeroHeight(width, insets.top + NAV_BAR);
-  // The name sits just below the hero; once it has gone under the header, the header takes it.
-  const titleGoneAt = heroHeight - insets.top - NAV_BAR + space.xl;
+  // Once the hero has scrolled out from under the status bar, the bar takes the
+  // theme's ink. The header stays clear throughout, buttons only (owner, #32):
+  // the layout's headerTransparent and empty title, never a bar with the name.
+  const heroGoneAt = heroHeight - insets.top;
   const toast = useToast();
   const { id } = useLocalSearchParams<{ id: string }>();
   const detail = useGameDetail(Number(id));
@@ -50,7 +52,7 @@ const GameScreen = () => {
   const [platformId, setPlatformId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   // Only flips at the threshold, so scrolling doesn't re-render per frame.
-  const [titleInHeader, setTitleInHeader] = useState(false);
+  const [pastHero, setPastHero] = useState(false);
 
   if (detail.kind === 'loading') {
     return (
@@ -99,7 +101,18 @@ const GameScreen = () => {
   const { game, entry, genres, platforms, cached } = detail;
   const genreNames = genres.filter((genre) => game.genreIds.includes(genre.id)).map((g) => g.name);
   const gamePlatforms = playablePlatforms(game.platformIds, platforms);
-  const platformNames = gamePlatforms.map(platformLabel);
+  // Everything known about the game, for its About card (owner, #32).
+  const facts = [
+    { label: 'Released', value: releaseDate(game.firstReleaseDate) },
+    { label: 'Genres', value: genreNames.length === 0 ? null : genreNames.join(', ') },
+    {
+      label: 'Platforms',
+      value:
+        gamePlatforms.length === 0
+          ? null
+          : gamePlatforms.map((platform) => platform.name).join(', '),
+    },
+  ].filter((fact): fact is { label: string; value: string } => fact.value !== null);
 
   const add = async (): Promise<void> => {
     setSaving(true);
@@ -127,23 +140,17 @@ const GameScreen = () => {
         contentContainerStyle={{
           paddingBottom: space.xl + insets.bottom + (inLibrary ? BAR_ROOM : 0),
         }}
+        contentInsetAdjustmentBehavior="never"
         automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={100}
         onScroll={(event) => {
-          const gone = event.nativeEvent.contentOffset.y > titleGoneAt;
-          if (gone !== titleInHeader) setTitleInHeader(gone);
+          const gone = event.nativeEvent.contentOffset.y > heroGoneAt;
+          if (gone !== pastHero) setPastHero(gone);
         }}
       >
-        <Stack.Screen
-          options={{
-            title: titleInHeader ? game.name : '',
-            // Clear over the hero; the ground's colour once the title is in it, so it reads.
-            headerStyle: { backgroundColor: titleInHeader ? colors.background : 'transparent' },
-          }}
-        />
-        {/* Light over the cover art, in either theme; the theme's own once the header is solid. */}
-        <StatusBar style={titleInHeader && scheme === 'light' ? 'dark' : 'light'} />
+        {/* Light over the cover art, in either theme; the theme's own once past it. */}
+        <StatusBar style={pastHero && scheme === 'light' ? 'dark' : 'light'} />
         <Hero
           imageId={game.coverImageId}
           gameId={game.id}
@@ -161,24 +168,6 @@ const GameScreen = () => {
             >
               {game.name}
             </Text>
-            {game.firstReleaseDate === null ? null : (
-              <Text style={[type.subhead, tabularNumbers, styles.centred, { color: colors.muted }]}>
-                {releaseYear(game.firstReleaseDate)}
-              </Text>
-            )}
-            {platformNames.length === 0 ? null : (
-              <Text
-                style={[type.subhead, styles.centred, { color: colors.muted }]}
-                accessibilityLabel={gamePlatforms.map((platform) => platform.name).join(', ')}
-              >
-                {platformNames.join(' · ')}
-              </Text>
-            )}
-            {genreNames.length === 0 ? null : (
-              <Text style={[type.subhead, styles.centred, { color: colors.text }]}>
-                {genreNames.join(', ')}
-              </Text>
-            )}
           </View>
 
           {inLibrary ? <EntryEditor entry={entry} platforms={gamePlatforms} /> : null}
@@ -246,8 +235,26 @@ const GameScreen = () => {
             </View>
           )}
 
-          {game.summary === null ? null : (
-            <Text style={[type.body, { color: colors.text }]}>{game.summary}</Text>
+          {/* In a card like the page's other sections, not loose at the foot (#32). */}
+          {game.summary === null && facts.length === 0 ? null : (
+            <View
+              style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}
+            >
+              <Text style={[type.label, { color: colors.muted }]}>ABOUT</Text>
+              {game.summary === null ? null : (
+                <Text style={[type.body, { color: colors.text }]}>{game.summary}</Text>
+              )}
+              {facts.map((fact) => (
+                <View key={fact.label} style={styles.fact}>
+                  <Text style={[type.subhead, styles.factLabel, { color: colors.muted }]}>
+                    {fact.label}
+                  </Text>
+                  <Text style={[type.subhead, styles.factValue, { color: colors.text }]}>
+                    {fact.value}
+                  </Text>
+                </View>
+              ))}
+            </View>
           )}
         </View>
       </ScrollView>
@@ -283,6 +290,10 @@ const styles = StyleSheet.create({
   },
   card: { borderWidth: 1, borderRadius: radius.card, padding: space.lg, gap: space.md },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  fact: { flexDirection: 'row', gap: space.md },
+  // A minimum, not a width: larger text sizes widen it rather than break words.
+  factLabel: { minWidth: 80 },
+  factValue: { flex: 1 },
 });
 
 export default GameScreen;

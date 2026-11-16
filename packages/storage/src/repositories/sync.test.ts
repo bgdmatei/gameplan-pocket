@@ -5,7 +5,14 @@ import { migrate } from '@gameplan/db-schema';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { StorageAdapter } from '../adapter';
 import { createNodeAdapter } from '../node/adapter';
-import { appendPendingOp, countPendingOps, deletePendingOps, listPendingOps } from './pending-ops';
+import {
+  appendPendingOp,
+  countPendingOps,
+  deletePendingOps,
+  latestPendingSeq,
+  listPendingOps,
+} from './pending-ops';
+import { listRejectedOps, rejectPendingOps } from './rejected-ops';
 import { getSyncState, updateSyncState } from './sync-state';
 
 const NOW = '2026-09-20T10:00:00Z';
@@ -53,12 +60,51 @@ describe('outbox', () => {
     expect(await countPendingOps(adapter)).toBe(1);
   });
 
+  // Sync triggers (#21) read a higher position as a new local edit: a push
+  // emptying the outbox must not lower it, or the next edit would look old.
+  it('never hands out a lower position, even after the outbox empties', async () => {
+    expect(await latestPendingSeq(adapter)).toBe(0);
+    await appendPendingOp(adapter, { id: 'a', payload: '{}', createdAt: NOW });
+    await appendPendingOp(adapter, { id: 'b', payload: '{}', createdAt: NOW });
+    await deletePendingOps(adapter, ['a', 'b']);
+    expect(await latestPendingSeq(adapter)).toBe(2);
+
+    await appendPendingOp(adapter, { id: 'c', payload: '{}', createdAt: NOW });
+    expect(await latestPendingSeq(adapter)).toBe(3);
+  });
+
   it('refuses a duplicate op id, so one edit cannot queue twice', async () => {
     await appendPendingOp(adapter, { id: 'op-1', payload: '{}', createdAt: NOW });
 
     await expect(
       appendPendingOp(adapter, { id: 'op-1', payload: '{}', createdAt: NOW }),
     ).rejects.toThrow();
+  });
+});
+
+describe('rejected ops', () => {
+  let adapter: StorageAdapter;
+
+  beforeEach(async () => {
+    adapter = createNodeAdapter();
+    await migrate(adapter);
+  });
+
+  // A refused op left in the outbox would be pushed and refused forever,
+  // holding up nothing but costing every sync; a lost one is a lost edit.
+  it('moves a refused op out of the outbox, keeping it, and a repeated report is harmless', async () => {
+    for (const id of ['a', 'b']) {
+      await appendPendingOp(adapter, { id, payload: `{"op":"${id}"}`, createdAt: NOW });
+    }
+    const rejection = { id: 'a', entity: 'list', reason: 'clock_ahead', rejectedAt: NOW };
+
+    await rejectPendingOps(adapter, [rejection]);
+    await rejectPendingOps(adapter, [rejection]);
+
+    expect((await listPendingOps(adapter)).map((op) => op.id)).toEqual(['b']);
+    expect(await listRejectedOps(adapter)).toEqual([{ ...rejection, createdAt: NOW }]);
+    const [kept] = await adapter.execute<{ payload: string }>('SELECT payload FROM rejected_ops');
+    expect(kept?.payload).toBe('{"op":"a"}');
   });
 });
 
@@ -76,6 +122,8 @@ describe('sync state', () => {
       lastPulledSeq: 0,
       ownerUserId: null,
       theme: 'auto',
+      lastSyncedAt: null,
+      bootstrapped: false,
     });
 
     await updateSyncState(adapter, {
@@ -83,15 +131,20 @@ describe('sync state', () => {
       lastPulledSeq: 42,
       ownerUserId: 'u-1',
       theme: 'dark',
+      lastSyncedAt: NOW,
+      bootstrapped: true,
     });
     await updateSyncState(adapter, { lastPulledSeq: 43 });
 
-    // The library's owner (005) and the theme (006) survive an unrelated update.
+    // The library's owner (005), the theme (006) and the sync bookkeeping
+    // (007) survive an unrelated update.
     expect(await getSyncState(adapter)).toMatchObject({
       nodeId: 'device-7',
       lastPulledSeq: 43,
       ownerUserId: 'u-1',
       theme: 'dark',
+      lastSyncedAt: NOW,
+      bootstrapped: true,
     });
   });
 

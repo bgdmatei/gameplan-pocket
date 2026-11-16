@@ -42,7 +42,7 @@ export const CoverCell = memo(({ row, onPress, platform, platformName }: Props) 
       style={styles.cell}
     >
       <View>
-        <Cover imageId={row.coverImageId} gameId={row.gameId} size="cover_small" width="100%" />
+        <Cover imageId={row.coverImageId} gameId={row.gameId} size="cover_big" width="100%" />
         {platform === null ? null : (
           <View style={[styles.platform, { backgroundColor: colors.surface }]}>
             <Text style={[type.label, { color: colors.text }]}>{platform}</Text>

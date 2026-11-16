@@ -1,7 +1,8 @@
+import { useRef } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { PrimaryButton } from '@/ui/components/primary-button';
 import { PressableScale } from '@/ui/components/pressable-scale';
-import { tabularNumbers, type } from '@/ui/theme';
+import { displayMaxScale, minTouchTarget, space, type } from '@/ui/theme';
 import { useFormStyles } from './form-styles';
 
 type CodeFormProps = {
@@ -9,12 +10,18 @@ type CodeFormProps = {
   code: string;
   onChangeCode: (code: string) => void;
   busy: boolean;
-  onSubmit: () => void;
+  onSubmit: (code: string) => void;
   onDifferentEmail: () => void;
   onResend: () => void;
 };
 
-/** The six digits sent to `email`. */
+const LENGTH = 6;
+
+/**
+ * The six digits sent to `email`. One transparent input lies over six
+ * underlined slots, so one-time-code autofill, paste and VoiceOver ("Code")
+ * see a single field. The sixth digit signs in.
+ */
 export const CodeForm = ({
   email,
   code,
@@ -24,26 +31,59 @@ export const CodeForm = ({
   onDifferentEmail,
   onResend,
 }: CodeFormProps) => {
-  const { colors, field, muted } = useFormStyles();
+  const { colors, muted } = useFormStyles();
+  // Autofill can fire onChangeText twice before a render; one code signs in once.
+  const submitted = useRef<string | null>(null);
+  const change = (text: string) => {
+    const digits = text.replace(/\D/g, '').slice(0, LENGTH);
+    onChangeCode(digits);
+    if (digits.length === LENGTH && digits !== submitted.current && !busy) {
+      submitted.current = digits;
+      onSubmit(digits);
+    }
+  };
   return (
     <>
       <Text style={muted}>
-        If {email} can sign in, a 6-digit code is on its way. It works for 10 minutes.
+        If {email} can sign in, a 6-digit code is on its way. It's valid for 10 minutes.
       </Text>
-      <TextInput
-        value={code}
-        onChangeText={(text) => onChangeCode(text.replace(/\D/g, '').slice(0, 6))}
-        placeholder="123456"
-        placeholderTextColor={colors.muted}
-        keyboardType="number-pad"
-        textContentType="oneTimeCode"
-        autoComplete="one-time-code"
-        autoFocus
-        maxLength={6}
-        accessibilityLabel="Code"
-        style={[field, tabularNumbers, styles.code]}
+      <View style={styles.slots}>
+        {Array.from({ length: LENGTH }, (_, index) => (
+          <View
+            key={index}
+            style={[styles.slot, { borderBottomColor: colors.line }]}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <Text
+              maxFontSizeMultiplier={displayMaxScale}
+              style={[type.title, styles.digit, { color: colors.text }]}
+            >
+              {code[index] ?? ''}
+            </Text>
+          </View>
+        ))}
+        <TextInput
+          value={code}
+          onChangeText={change}
+          keyboardType="number-pad"
+          textContentType="oneTimeCode"
+          autoComplete="one-time-code"
+          autoFocus
+          caretHidden
+          selection={{ start: code.length, end: code.length }}
+          selectionColor="transparent"
+          maxLength={LENGTH}
+          accessibilityLabel="Code"
+          style={styles.input}
+        />
+      </View>
+      <PrimaryButton
+        label="Sign in"
+        busy={busy}
+        disabled={code.length !== LENGTH}
+        onPress={() => onSubmit(code)}
       />
-      <PrimaryButton label="Sign in" busy={busy} disabled={code.length !== 6} onPress={onSubmit} />
       <View style={styles.links}>
         <PressableScale accessibilityRole="button" onPress={onDifferentEmail}>
           <Text style={[type.callout, { color: colors.accent }]}>Use a different email</Text>
@@ -57,6 +97,9 @@ export const CodeForm = ({
 };
 
 const styles = StyleSheet.create({
-  code: { letterSpacing: 8, textAlign: 'center' },
+  slots: { flexDirection: 'row', gap: space.md, minHeight: minTouchTarget + 4 },
+  slot: { flex: 1, justifyContent: 'flex-end', paddingBottom: space.xs, borderBottomWidth: 2 },
+  digit: { textAlign: 'center', fontVariant: ['tabular-nums'] },
+  input: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, color: 'transparent' },
   links: { flexDirection: 'row', justifyContent: 'space-between' },
 });

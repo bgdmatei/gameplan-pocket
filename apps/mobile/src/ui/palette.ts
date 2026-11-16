@@ -44,6 +44,26 @@ export type Colors = {
   noteLabel: string;
   /** Destructive actions. Same hue as `dropped`. */
   danger: string;
+  /** Behind a problem toast; its icon is `danger`. */
+  dangerFill: string;
+  /** A destructive PrimaryButton's fill (Sign out, Erase), with `onDestructive` on it. */
+  destructiveFill: string;
+  onDestructive: string;
+  /**
+   * A favourite's filled star in the game header (#32). Dark mode: a brighter
+   * yellow than the accent. Light mode: no yellow bright enough to differ
+   * passes 4.5:1 on white, so it stays near the accent and the filled shape
+   * says it (owner, 2026-11-13).
+   */
+  favourite: string;
+  /** Something that went right: the icon on `successFill`. Same hue as `completed`. */
+  success: string;
+  /** Behind a success toast ("Sync completed"). */
+  successFill: string;
+  /** A state to know about, not a fault ("Offline"): the icon on `warningFill`. */
+  warning: string;
+  /** Behind a warning toast. */
+  warningFill: string;
   /** Text laid over cover art, always above the image gradient. */
   onImage: string;
   /** Secondary text over cover art: the uppercase label above a title. */
@@ -68,6 +88,14 @@ const dark: Colors = {
   noteFill: '#2B2518',
   noteLabel: '#F0BE62',
   danger: '#FF8A80',
+  dangerFill: '#3A1D1C',
+  destructiveFill: '#C62828',
+  favourite: '#FFD24A',
+  onDestructive: '#FFFFFF',
+  success: '#6FD39A',
+  successFill: '#16301F',
+  warning: '#F2B544',
+  warningFill: '#33280F',
   onImage: '#FFFFFF',
   onImageMuted: '#EDE7DD',
   heroFadeFrom: 'rgba(14, 15, 20, 0)',
@@ -91,6 +119,14 @@ const light: Colors = {
   noteFill: '#F6ECD6',
   noteLabel: '#7A4F00',
   danger: '#B3261E',
+  dangerFill: '#FBE4E1',
+  destructiveFill: '#B3261E',
+  favourite: '#8A6500',
+  onDestructive: '#FFFFFF',
+  success: '#1C7341',
+  successFill: '#E3F2E8',
+  warning: '#8A5200',
+  warningFill: '#FBEFD5',
   onImage: '#FFFFFF',
   onImageMuted: '#EFEAE2',
   heroFadeFrom: 'rgba(247, 243, 236, 0)',

@@ -1,8 +1,6 @@
 import { Text, TextInput } from 'react-native';
 import { PrimaryButton } from '@/ui/components/primary-button';
-import { PressableScale } from '@/ui/components/pressable-scale';
-import { type } from '@/ui/theme';
-import { outlined, useFormStyles } from './form-styles';
+import { useFormStyles } from './form-styles';
 
 type EmailFormProps = {
   email: string;
@@ -48,6 +46,7 @@ export const EmailForm = ({
         autoComplete="email"
         autoCapitalize="none"
         autoCorrect={false}
+        clearButtonMode="while-editing"
         autoFocus
         returnKeyType="send"
         onSubmitEditing={onSend}
@@ -56,15 +55,13 @@ export const EmailForm = ({
       />
       <PrimaryButton label="Send code" busy={busy} onPress={onSend} />
       {canErase && (
-        <PressableScale
-          accessibilityRole="button"
-          accessibilityState={{ busy }}
+        // Dimmed, not spinning, while a code is being sent: busy is that request's.
+        <PrimaryButton
+          label="Erase this phone’s library"
+          tone="destructive"
           disabled={busy}
           onPress={onErase}
-          style={[outlined.button, { borderColor: colors.line }]}
-        >
-          <Text style={[type.headline, { color: colors.danger }]}>Erase this phone’s library</Text>
-        </PressableScale>
+        />
       )}
     </>
   );

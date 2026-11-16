@@ -1,3 +1,5 @@
+import { createSyncRepository } from '../sync/repository';
+import { createSyncService } from '../sync/service';
 import {
   HEADERS,
   errorResponseSchema,
@@ -44,6 +46,7 @@ describe('catalog routes', () => {
     app = createApp({
       catalog: createCatalogService({ repository, igdb: igdb.client, logger }),
       auth: (await createTestAuth(db)).auth,
+      sync: createSyncService({ repository: createSyncRepository(db), logger, now: Date.now }),
       corsOrigins: [],
       logger,
       apiKey: API_KEY,

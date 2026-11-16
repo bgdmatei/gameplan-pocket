@@ -9,12 +9,32 @@ import type { LibraryFilters } from '@/ui/components/filter-bar';
 import { LibraryGrid } from '@/ui/components/library-grid';
 import { STATUS_LABEL } from '@/ui/labels';
 import { RoundButton } from '@/ui/components/pill-button';
+import { SyncStatusButton } from '@/features/sync/sync-status';
+import { useSyncsHere } from '@/features/sync/use-syncs-here';
 import { useTabBarSpace } from '@/ui/components/tab-bar';
 import { displayMaxScale, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 /** Newest release counts from this year: a game due next year isn't "newest" yet. */
 const endOfThisYear = (): string => `${String(new Date().getFullYear())}-12-31`;
+
+/**
+ * Its own component: the sign-in state follows every sync event, which would
+ * otherwise re-render the whole Library screen (review).
+ */
+const AccountButton = () => {
+  // Not signed in (or signed out by an erase): a dot says so (owner,
+  // 2026-11-13). Unknown while first read, so it never flashes.
+  const signedOut = useSyncsHere() === false;
+  return (
+    <RoundButton
+      icon="person-outline"
+      label={signedOut ? 'Account, not signed in' : 'Account'}
+      badge={signedOut}
+      onPress={() => router.push('/account')}
+    />
+  );
+};
 
 const LibraryScreen = () => {
   const { colors } = useTheme();
@@ -45,11 +65,8 @@ const LibraryScreen = () => {
           Library
         </Text>
         <View style={styles.actions}>
-          <RoundButton
-            icon="person-outline"
-            label="Account"
-            onPress={() => router.push('/account')}
-          />
+          <SyncStatusButton />
+          <AccountButton />
           <RoundButton
             icon="archive-outline"
             label="Archive"
