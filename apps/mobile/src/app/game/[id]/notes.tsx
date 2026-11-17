@@ -77,8 +77,19 @@ const NotesScreen = () => {
       </View>
     );
   }
+  const filters = { shown, onShown: setShown, noteType, onNoteType: setNoteType };
   if (state.status === 'failed') {
-    return <LoadFailed message="These notes couldn’t be read." onRetry={state.retry} />;
+    return (
+      <FlatList
+        data={[]}
+        contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}
+        ListHeaderComponent={<NotesHeader title="Notes" {...filters} />}
+        ListEmptyComponent={
+          <LoadFailed message="These notes couldn’t be read." onRetry={state.retry} />
+        }
+        renderItem={() => null}
+      />
+    );
   }
   if (state.data === null) {
     return (
@@ -107,39 +118,7 @@ const NotesScreen = () => {
         keyExtractor={(note) => note.id}
         contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}
         ListHeaderComponent={
-          <View style={styles.header}>
-            <Text
-              maxFontSizeMultiplier={displayMaxScale}
-              style={[type.displaySmall, { color: colors.text }]}
-              accessibilityRole="header"
-            >
-              {open === 0 ? 'Nothing open' : `${String(open)} open`}
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.row}
-            >
-              {SHOWN.map(({ value, label }) => (
-                <Chip
-                  key={value}
-                  label={label}
-                  selected={shown === value}
-                  onPress={() => setShown(value)}
-                />
-              ))}
-              {/* Two filters in one row: which notes, then what kind. */}
-              <View style={[styles.divider, { backgroundColor: colors.line }]} />
-              {NOTE_ITEM_TYPES.map((value) => (
-                <Chip
-                  key={value}
-                  label={NOTE_TYPE_LABEL[value]}
-                  selected={noteType === value}
-                  onPress={() => setNoteType(noteType === value ? undefined : value)}
-                />
-              ))}
-            </ScrollView>
-          </View>
+          <NotesHeader title={open === 0 ? 'Nothing open' : `${String(open)} open`} {...filters} />
         }
         ListEmptyComponent={
           shown === 'open' && noteType === undefined ? (
@@ -154,6 +133,53 @@ const NotesScreen = () => {
         renderItem={({ item }) => <NoteRow note={item} />}
       />
     </>
+  );
+};
+
+type NotesHeaderProps = {
+  title: string;
+  shown: Shown;
+  onShown: (shown: Shown) => void;
+  noteType: NoteItemType | undefined;
+  onNoteType: (noteType: NoteItemType | undefined) => void;
+};
+
+const NotesHeader = ({ title, shown, onShown, noteType, onNoteType }: NotesHeaderProps) => {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.header}>
+      <Text
+        maxFontSizeMultiplier={displayMaxScale}
+        style={[type.displaySmall, { color: colors.text }]}
+        accessibilityRole="header"
+      >
+        {title}
+      </Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.row}
+      >
+        {SHOWN.map(({ value, label }) => (
+          <Chip
+            key={value}
+            label={label}
+            selected={shown === value}
+            onPress={() => onShown(value)}
+          />
+        ))}
+        {/* Two filters in one row: which notes, then what kind. */}
+        <View style={[styles.divider, { backgroundColor: colors.line }]} />
+        {NOTE_ITEM_TYPES.map((value) => (
+          <Chip
+            key={value}
+            label={NOTE_TYPE_LABEL[value]}
+            selected={noteType === value}
+            onPress={() => onNoteType(noteType === value ? undefined : value)}
+          />
+        ))}
+      </ScrollView>
+    </View>
   );
 };
 

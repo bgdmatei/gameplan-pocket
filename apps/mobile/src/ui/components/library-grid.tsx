@@ -54,7 +54,7 @@ export const LibraryGrid = ({ filters, header, empty, bottomInset = 0, onShown }
 
   if (state.status !== 'ready') {
     return (
-      <View style={styles.placeholder}>
+      <View style={[styles.placeholder, styles.content]}>
         {header}
         {state.status === 'loading' ? (
           <CoverGridSkeleton />

@@ -22,6 +22,8 @@ export type GameDetail =
       platforms: Platform[];
       /** False when the game came from the server but could not be kept on this phone. */
       cached: boolean;
+      /** This phone's database failed, but the server had the game: a retry for the library part. */
+      libraryFailed: (() => void) | null;
     }
   /** This phone's database could not be read. */
   | { kind: 'failed'; retry: () => void }
@@ -58,7 +60,9 @@ export const useGameDetail = (gameId: number): GameDetail => {
       if (!current) return;
       if (result.kind === 'ok') {
         setFetched({ kind: 'game', game: result.value });
-        await cacheGame(adapter, catalogApi, result.value, new Date().toISOString());
+        await cacheGame(adapter, catalogApi, result.value, new Date().toISOString()).catch(
+          () => undefined,
+        );
       } else if (result.kind !== 'superseded') {
         setFetched({ kind: 'unavailable', reason: result.kind });
       }
@@ -68,15 +72,42 @@ export const useGameDetail = (gameId: number): GameDetail => {
     };
   }, [adapter, gameId, attempt]);
 
-  if (local.status === 'failed') return { kind: 'failed', retry: local.retry };
+  if (local.status === 'failed') {
+    if (fetched.kind === 'waiting') return { kind: 'loading' };
+    if (fetched.kind !== 'game') {
+      return {
+        kind: 'failed',
+        retry: () => {
+          local.retry();
+          setAttempt((current) => current + 1);
+        },
+      };
+    }
+    return {
+      kind: 'ready',
+      game: fetched.game,
+      entry: null,
+      cached: false,
+      genres: [],
+      platforms: [],
+      libraryFailed: local.retry,
+    };
+  }
   if (local.status !== 'ready') return { kind: 'loading' };
   const { game, entry, reference } = local.data;
 
   if (game !== null) {
-    return { kind: 'ready', game, entry, cached: true, ...reference };
+    return { kind: 'ready', game, entry, cached: true, ...reference, libraryFailed: null };
   }
   if (fetched.kind === 'game') {
-    return { kind: 'ready', game: fetched.game, entry, cached: false, ...reference };
+    return {
+      kind: 'ready',
+      game: fetched.game,
+      entry,
+      cached: false,
+      ...reference,
+      libraryFailed: null,
+    };
   }
   if (fetched.kind === 'unavailable') {
     return {
