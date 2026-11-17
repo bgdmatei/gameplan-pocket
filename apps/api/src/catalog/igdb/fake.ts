@@ -11,7 +11,8 @@ export type FakeIgdb = {
 
 /**
  * IGDB for tests: answers from the games it was given, counts requests, and
- * can be told to fail. Search matches every word of the text in the name.
+ * can be told to fail. Search matches whole words, as IGDB's does; finding by
+ * name matches the text anywhere in it.
  */
 export const createFakeIgdb = (
   games: readonly Game[],
@@ -29,13 +30,25 @@ export const createFakeIgdb = (
   return {
     client: {
       searchGames: (text, limit) => {
-        const words = text.toLowerCase().split(/\s+/);
+        const words = text
+          .toLowerCase()
+          .split(/[^a-z0-9]+/)
+          .filter(Boolean);
         return answer(() =>
           games
-            .filter((game) => words.every((w) => game.name.toLowerCase().includes(w)))
+            .filter((game) => {
+              const named = game.name.toLowerCase().split(/[^a-z0-9]+/);
+              return words.every((word) => named.includes(word));
+            })
             .slice(0, limit),
         );
       },
+      findGamesByName: (text, limit) =>
+        answer(() =>
+          games
+            .filter((game) => game.name.toLowerCase().includes(text.toLowerCase()))
+            .slice(0, limit),
+        ),
       getGames: (ids) => answer(() => games.filter((game) => ids.includes(game.id))),
       getGenres: () => answer(() => reference.genres ?? []),
       getPlatforms: () => answer(() => reference.platforms ?? []),

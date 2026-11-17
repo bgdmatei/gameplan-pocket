@@ -25,6 +25,7 @@ const game = (id: number, name: string): Game => ({
 const WITCHER_3 = game(1942, 'The Witcher 3: Wild Hunt');
 const WITCHER_2 = game(478, 'The Witcher 2: Assassins of Kings');
 const HOLLOW_KNIGHT = game(14593, 'Hollow Knight');
+const SILKSONG = game(115289, 'Hollow Knight: Silksong');
 
 describe('catalog service', () => {
   let db: Awaited<ReturnType<typeof createTestDb>>;
@@ -35,7 +36,7 @@ describe('catalog service', () => {
   beforeEach(async () => {
     db = await createTestDb();
     repository = createCatalogRepository(db);
-    igdb = createFakeIgdb([WITCHER_3, WITCHER_2, HOLLOW_KNIGHT]);
+    igdb = createFakeIgdb([WITCHER_3, WITCHER_2, HOLLOW_KNIGHT, SILKSONG]);
     service = createCatalogService({ repository, igdb: igdb.client, logger: { warn: () => {} } });
   });
 
@@ -68,6 +69,20 @@ describe('catalog service', () => {
       });
     },
   );
+
+  // Found on the simulator: "silkson" stayed empty after Silksong was cached,
+  // and IGDB's whole-word search never matched a word half-typed.
+  it('finds a game from part of a word, even over a stored empty answer', async () => {
+    expect(await service.search('silkson', 20)).toEqual({ games: [SILKSONG], stale: false });
+    expect(igdb.calls()).toBe(2);
+
+    await repository.saveSearch('silksong hollow', []);
+    expect(await service.search('silksong hollow', 20)).toEqual({
+      games: [SILKSONG],
+      stale: false,
+    });
+    expect(igdb.calls()).toBe(2);
+  });
 
   it('fetches only the missing games, in one request', async () => {
     await repository.upsertGames([WITCHER_3]);
