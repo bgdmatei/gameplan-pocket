@@ -119,6 +119,7 @@ There are deliberately few tests, and each one pins a rule that could actually b
 - **Sync convergence as property tests** (fast-check). Random sequences of edits, applied in any order on any number of simulated devices, must end in the same state. Merges are idempotent and commutative, and a delete beats a concurrent edit only when it should.
 - **A storage contract**: one suite that any `StorageAdapter` must pass. It runs against Node's SQLite in CI and against op-sqlite on the phone (next section).
 - **The API against real Postgres**, including attacks rather than just the happy path. A known and an unknown email get exactly the same answer. A code sent to one address can't sign in another. Another account's device id is refused. A replayed refresh token revokes its whole family. No log line contains an email, a code or a token.
+- **The previous app against the current server** (ADR-017). `apps/api/src/sync/compat/client-v1.bundle.js` is the phone's sync code as an earlier commit built it. A test signs it and today's client in to one account and checks they stay in step. It is generated, and only re-pinned on purpose: `node scripts/pin-client.mjs <commit> <protocol>`.
 - **Regressions**: a test that a real bug once caused says so in a comment.
 
 Things the tests don't cover: the libraries themselves (zod, SQLite), every field of every schema, or rendering.
