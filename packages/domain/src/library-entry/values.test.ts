@@ -22,7 +22,7 @@ const entry = {
 
 describe('rating and stars', () => {
   it('round-trips, and refuses anything that is not a half step', () => {
-    for (let rating = 0; rating <= 10; rating += 1) {
+    for (let rating = 0; rating <= 100; rating += 10) {
       expect(starsToRating(ratingToStars(rating))).toBe(rating);
     }
     expect(() => starsToRating(2.25)).toThrow(DomainValidationError);

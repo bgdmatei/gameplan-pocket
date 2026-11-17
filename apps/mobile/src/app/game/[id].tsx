@@ -98,12 +98,13 @@ const GameScreen = () => {
     );
   }
 
-  const { game, entry, genres, platforms, cached } = detail;
+  const { game, entry, genres, platforms, cached, libraryFailed } = detail;
   const genreNames = genres.filter((genre) => game.genreIds.includes(genre.id)).map((g) => g.name);
   const gamePlatforms = playablePlatforms(game.platformIds, platforms);
   // Everything known about the game, for its About card (owner, #32).
   const facts = [
     { label: 'Released', value: releaseDate(game.firstReleaseDate) },
+    { label: 'Developer', value: game.developer },
     { label: 'Genres', value: genreNames.length === 0 ? null : genreNames.join(', ') },
     {
       label: 'Platforms',
@@ -170,9 +171,13 @@ const GameScreen = () => {
             </Text>
           </View>
 
+          {libraryFailed !== null ? (
+            <LoadFailed message="Your library couldn’t be read." onRetry={libraryFailed} />
+          ) : null}
+
           {inLibrary ? <EntryEditor entry={entry} platforms={gamePlatforms} /> : null}
 
-          {inLibrary ? null : (
+          {inLibrary || libraryFailed !== null ? null : (
             <View
               style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}
             >

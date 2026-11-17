@@ -1,6 +1,6 @@
 # ADR-020: Rating stored as an integer 0–10
 
-Status: Accepted (2026-09-18, module `domain-model`, decision 3). Written up 2026-10-06, at the close of Phase 1.
+Status: Accepted (2026-09-18, module `domain-model`, decision 3). Written up 2026-10-06, at the close of Phase 1. Scale superseded by ADR-017 (2026-11-17): the rating moves to 0–100 in `schema-evolution`, with the same stars.
 
 ## Context
 

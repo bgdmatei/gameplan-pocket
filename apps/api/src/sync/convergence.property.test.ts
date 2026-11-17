@@ -6,7 +6,9 @@ import {
   commitLocalCreate,
   commitLocalDelete,
   commitLocalEdit,
+  downcastOp,
   entryId,
+  opSchema,
   syncOnce,
 } from '@gameplan/sync';
 import type { SyncApi, SyncEnv } from '@gameplan/sync';
@@ -25,6 +27,7 @@ import { describe, expect, it } from 'vitest';
  * Lives in apps/api because it needs both the client loop and the server's
  * core, and packages/sync can't import sync-server (owner, 2026-11-10).
  * Proven by breaking the server's merge: the property then fails.
+
  */
 
 const START = Date.UTC(2026, 10, 10, 9);
@@ -37,7 +40,10 @@ type Device = { adapter: StorageAdapter; env: SyncEnv & { nowMs: number }; api: 
 /** JSON in and out, as over HTTP: nothing passes by reference. */
 const wire = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
-const deviceOf = async (server: MemoryServer, seed: number): Promise<Device> => {
+const asV1 = (ops: readonly unknown[]): unknown[] =>
+  ops.map((op) => downcastOp(opSchema.parse(op), 1) ?? op);
+
+const deviceOf = async (server: MemoryServer, seed: number, v1: boolean): Promise<Device> => {
   let drawn = 0;
   const env = {
     nowMs: START,
@@ -46,7 +52,7 @@ const deviceOf = async (server: MemoryServer, seed: number): Promise<Device> => 
       Uint8Array.from({ length }, () => (drawn++ * 97 + 13 + seed * 7_919) % 256),
   };
   const api: SyncApi = {
-    push: async (ops) => wire(server.push(USER, wire(ops))),
+    push: async (ops) => wire(server.push(USER, wire(v1 ? asV1(ops) : ops))),
     pull: async (query) => wire(server.pull(USER, query)),
     snapshot: async (query) => wire(server.snapshot(USER, query)),
   };
@@ -60,7 +66,8 @@ type Action =
   | { device: number; kind: 'renameList'; list: number; name: string }
   | { device: number; kind: 'deleteList'; list: number }
   | { device: number; kind: 'createEntry'; game: number; status: 'playing' | 'backlog' }
-  | { device: number; kind: 'favourite'; game: number; value: boolean };
+  | { device: number; kind: 'favourite'; game: number; value: boolean }
+  | { device: number; kind: 'rate'; game: number; rating: number | null };
 
 /*
  * Tiny pools, so devices keep editing the same field of the same row: a
@@ -84,6 +91,15 @@ const actionArb = (devices: number): fc.Arbitrary<Action> => {
       status: fc.constantFrom('playing' as const, 'backlog' as const),
     }),
     fc.record({ device, kind: fc.constant('favourite' as const), game, value: fc.boolean() }),
+    {
+      weight: 3,
+      arbitrary: fc.record({
+        device,
+        kind: fc.constant('rate' as const),
+        game,
+        rating: fc.constantFrom(null, 40, 80),
+      }),
+    },
   );
 };
 
@@ -162,6 +178,19 @@ const run = async (device: Device, action: Action): Promise<void> => {
       });
       return;
     }
+    case 'rate': {
+      const id = entryId(GAMES[action.game] ?? 1942);
+      if (!(await exists(device, 'library_entries', id))) return;
+      await commitLocalEdit(adapter, env, {
+        entity: 'library_entry',
+        id,
+        update: (current) => ({
+          next: { ...current, rating: action.rating },
+          changed: { rating: action.rating },
+        }),
+      });
+      return;
+    }
   }
 };
 
@@ -204,19 +233,25 @@ describe('sync through the server', () => {
   it('brings every device and the server to the same rows', async () => {
     await fc.assert(
       fc.asyncProperty(
-        fc
-          .integer({ min: 2, max: 4 })
-          .chain((count) =>
-            fc.tuple(fc.constant(count), fc.array(actionArb(count), { maxLength: 40 })),
+        fc.integer({ min: 2, max: 4 }).chain((count) =>
+          fc.tuple(
+            fc.constant(count),
+            fc
+              .array(fc.boolean(), { minLength: count, maxLength: count })
+              .map((v1) => (v1.includes(true) ? v1 : [true, ...v1.slice(1)])),
+            fc.array(actionArb(count), { maxLength: 40 }),
           ),
-        async ([count, actions]) => {
+        ),
+        async ([count, v1, actions]) => {
           // The server's clock is the latest of the devices', so no device is
           // ever too far ahead of it.
           const devices: Device[] = [];
           const server = createMemoryServer({
             now: () => Math.max(...devices.map((d) => d.env.nowMs)),
           });
-          for (let seed = 1; seed <= count; seed += 1) devices.push(await deviceOf(server, seed));
+          for (let seed = 1; seed <= count; seed += 1) {
+            devices.push(await deviceOf(server, seed, v1[seed - 1] ?? false));
+          }
 
           for (const action of actions) {
             const device = devices[action.device];

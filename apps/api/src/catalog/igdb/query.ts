@@ -4,7 +4,9 @@
  */
 export type IgdbQuery = { endpoint: 'games' | 'genres' | 'platforms'; body: string };
 
-const GAME_FIELDS = 'name,slug,summary,first_release_date,cover.image_id,genres,platforms';
+const GAME_FIELDS =
+  'name,slug,summary,first_release_date,cover.image_id,genres,platforms,' +
+  'involved_companies.developer,involved_companies.company.name';
 
 /** IGDB's largest page. */
 export const IGDB_MAX_LIMIT = 500;

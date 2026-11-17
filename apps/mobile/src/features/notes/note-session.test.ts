@@ -31,6 +31,7 @@ const setUp = async (): Promise<StorageAdapter> => {
         coverImageId: null,
         genreIds: [],
         platformIds: [],
+        developer: null,
       },
     ],
     fetchedAt: '2026-09-29T18:00:00Z',

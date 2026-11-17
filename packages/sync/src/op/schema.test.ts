@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { opSchema } from './schema';
+import { opSchema, readPulledOp } from './schema';
 
 const envelope = {
   id: '01890a5d-ac96-774b-bcce-b302099a8057',
   entityId: '9b385207-54aa-5778-81a4-815107b15eb0',
   hlc: '000001790000000:00000:3f9a2c1b7d4e8f60',
-  schemaVersion: 1,
+  schemaVersion: 2,
 };
 
 describe('op schema', () => {
@@ -72,5 +72,24 @@ describe('op schema', () => {
     { label: 'an empty set', op: { entity: 'list', type: 'set', fields: {} } },
   ])('rejects $label', ({ op }) => {
     expect(opSchema.safeParse({ ...envelope, ...op }).success).toBe(false);
+  });
+
+  // Review of #38: only an op whose fields are all unknown is passed over; a
+  // malformed one from the server still surfaces.
+  it('reads a pulled op leniently, and nothing else', () => {
+    const op = (fields: Record<string, unknown>) => ({
+      ...envelope,
+      entity: 'list',
+      type: 'set',
+      fields,
+    });
+    expect(readPulledOp(op({ name: 'RPG', colour: 'red' }))).toMatchObject({
+      fields: { name: 'RPG' },
+    });
+    expect(readPulledOp(op({ colour: 'red' }))).toBeNull();
+    expect(() => readPulledOp(op({}))).toThrow();
+    expect(() =>
+      readPulledOp({ ...envelope, entity: 'list', type: 'delete', fields: {} }),
+    ).toThrow();
   });
 });

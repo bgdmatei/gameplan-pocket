@@ -9,8 +9,7 @@ import {
 import { z } from 'zod';
 import { isHlc } from '../clock/hlc';
 
-/** Bumped only by `schema-evolution` (module 11), which also upcasts old ops. */
-export const OP_SCHEMA_VERSION = 1;
+export const OP_SCHEMA_VERSION = 2;
 
 /**
  * Every field a `set` op may name, per entity, written out by hand.
@@ -67,7 +66,7 @@ export const SYNCED_ENTITIES = Object.keys(SYNCED_FIELDS) as SyncedEntity[];
  * *rules* (status transitions, cross-field checks) are not applied: a merge
  * must accept whatever state it produces (SPEC-domain-model.md §Merge safety).
  */
-const FIELD_SCHEMAS = {
+export const FIELD_SCHEMAS = {
   library_entry: libraryEntrySchema.pick(SYNCED_FIELDS.library_entry),
   entry_tag: entryTagSchema.pick(SYNCED_FIELDS.entry_tag),
   note_item: noteItemSchema.pick(SYNCED_FIELDS.note_item),
@@ -76,14 +75,9 @@ const FIELD_SCHEMAS = {
   list_item: listItemSchema.pick(SYNCED_FIELDS.list_item),
 };
 
-const hlcSchema = z.string().refine(isHlc, { message: 'Not a clock value.' });
+export type FieldSchemas = typeof FIELD_SCHEMAS;
 
-const envelope = {
-  id: z.uuid(),
-  entityId: z.string().min(1),
-  hlc: hlcSchema,
-  schemaVersion: z.literal(OP_SCHEMA_VERSION),
-};
+const hlcSchema = z.string().refine(isHlc, { message: 'Not a clock value.' });
 
 /** A `set` names at least one field; an empty change is never sent. */
 const changedFields = <T extends z.ZodObject>(fields: T) =>
@@ -94,40 +88,87 @@ const changedFields = <T extends z.ZodObject>(fields: T) =>
       message: 'A set op must name at least one field.',
     });
 
-const setOp = <E extends SyncedEntity>(entity: E) =>
-  z
-    .object({
-      ...envelope,
-      entity: z.literal(entity),
-      type: z.literal('set'),
-      fields: changedFields(FIELD_SCHEMAS[entity]),
-    })
-    .strict();
+export const buildOpSchema = <V extends number>(version: V, fieldSchemas: FieldSchemas) => {
+  const envelope = {
+    id: z.uuid(),
+    entityId: z.string().min(1),
+    hlc: hlcSchema,
+    schemaVersion: z.literal(version),
+  };
 
-const deleteOp = <E extends SyncedEntity>(entity: E) =>
-  z.object({ ...envelope, entity: z.literal(entity), type: z.literal('delete') }).strict();
+  const setOp = <E extends SyncedEntity>(entity: E) =>
+    z
+      .object({
+        ...envelope,
+        entity: z.literal(entity),
+        type: z.literal('set'),
+        fields: changedFields(fieldSchemas[entity]),
+      })
+      .strict();
+
+  const deleteOp = <E extends SyncedEntity>(entity: E) =>
+    z.object({ ...envelope, entity: z.literal(entity), type: z.literal('delete') }).strict();
+
+  return z.union([
+    setOp('library_entry'),
+    setOp('entry_tag'),
+    // Only note text edits carry `baseHlc`: the clock of the text the edit
+    // started from, used by `notes-conflicts` (module 10) to spot concurrent
+    // edits. Carried from day one so queued ops never need rewriting.
+    setOp('note_item').extend({ baseHlc: hlcSchema.optional() }).strict(),
+    setOp('note_conflict'),
+    setOp('list'),
+    setOp('list_item'),
+    // Library entries are archived, never deleted (SPEC-domain-model.md
+    // decision 12), so no delete op exists for them.
+    deleteOp('entry_tag'),
+    deleteOp('note_item'),
+    deleteOp('note_conflict'),
+    deleteOp('list'),
+    deleteOp('list_item'),
+  ]);
+};
 
 /**
  * One edit, as it travels between devices. Ops describe changed fields, never
  * whole rows, so concurrent edits to different fields both survive.
  */
-export const opSchema = z.union([
-  setOp('library_entry'),
-  setOp('entry_tag'),
-  // Only note text edits carry `baseHlc`: the clock of the text the edit
-  // started from, used by `notes-conflicts` (module 10) to spot concurrent
-  // edits. Carried from day one so queued ops never need rewriting.
-  setOp('note_item').extend({ baseHlc: hlcSchema.optional() }).strict(),
-  setOp('note_conflict'),
-  setOp('list'),
-  setOp('list_item'),
-  // Library entries are archived, never deleted (SPEC-domain-model.md
-  // decision 12), so no delete op exists for them.
-  deleteOp('entry_tag'),
-  deleteOp('note_item'),
-  deleteOp('note_conflict'),
-  deleteOp('list'),
-  deleteOp('list_item'),
-]);
+export const opSchema = buildOpSchema(OP_SCHEMA_VERSION, FIELD_SCHEMAS);
 
 export type Op = z.output<typeof opSchema>;
+
+export const isSyncedEntity = (entity: string): entity is SyncedEntity =>
+  SYNCED_ENTITIES.some((known) => known === entity);
+
+/**
+ * Only the fields this build syncs for `entity` (ADR-017, additive changes):
+ * a field a newer app adds is ignored here, not refused, or one new field
+ * would stop every older phone syncing. The push door stays strict.
+ */
+export const knownFields = <T>(
+  entity: SyncedEntity,
+  record: Readonly<Record<string, T>>,
+): Record<string, T> =>
+  Object.fromEntries(
+    Object.entries(record).filter(([field]) => Object.hasOwn(SYNCED_FIELDS[entity], field)),
+  );
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+/**
+ * An op from a pull, with fields this build doesn't know dropped; null when
+ * it named fields and none of them are known, as there is nothing to apply.
+ * Anything else wrong with it, an empty set included, still throws.
+ */
+export const readPulledOp = (raw: unknown): Op | null => {
+  if (!isRecord(raw) || raw.type !== 'set' || typeof raw.entity !== 'string') {
+    return opSchema.parse(raw);
+  }
+  const { entity, fields } = raw;
+  if (!isSyncedEntity(entity) || !isRecord(fields) || Object.keys(fields).length === 0) {
+    return opSchema.parse(raw);
+  }
+  const known = knownFields(entity, fields);
+  return Object.keys(known).length === 0 ? null : opSchema.parse({ ...raw, fields: known });
+};

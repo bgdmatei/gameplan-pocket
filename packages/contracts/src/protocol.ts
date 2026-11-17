@@ -1,9 +1,5 @@
-/**
- * The wire protocol's version, separate from any entity's schema version
- * (plan §11). Every request carries it, so the server can serve old clients
- * once `schema-evolution` (module 11) needs to.
- */
-export const PROTOCOL_VERSION = 1;
+/** What this app reads, sent on every request; separate from an op's schema version (ADR-017). */
+export const PROTOCOL_VERSION = 2;
 
 /** Header names, spelled once for both ends. */
 export const HEADERS = {

@@ -1,6 +1,6 @@
 import type { RejectionReason } from '@gameplan/contracts';
 import { SYNC_LIMITS } from '@gameplan/contracts';
-import { isTooFarAhead, opSchema } from '@gameplan/sync';
+import { isTooFarAhead, toCurrentOp } from '@gameplan/sync';
 import type { Op, SyncedEntity } from '@gameplan/sync';
 
 /**
@@ -51,10 +51,9 @@ const idOf = (raw: unknown): string | undefined => {
  * Nothing here says whose op it is: the caller takes the user from the token.
  */
 export const checkOp = (raw: unknown, nowMs: number): CheckResult => {
-  const parsed = opSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false, reason: 'invalid_op', opId: idOf(raw) };
+  const op = toCurrentOp(raw);
+  if (op === null) return { ok: false, reason: 'invalid_op', opId: idOf(raw) };
 
-  const op = parsed.data;
   // The op schema allows any row id; the server stores and snapshots it, and
   // the snapshot contract caps it, so a longer one would break every bootstrap.
   if (op.entityId.length > SYNC_LIMITS.idMaxLength) {

@@ -87,6 +87,7 @@ type GameRow = {
   summary: string | null;
   first_release_date: string | null;
   cover_image_id: string | null;
+  developer: string | null;
 };
 
 /**
@@ -96,7 +97,7 @@ type GameRow = {
  */
 export const listGamesOf = async (adapter: StorageAdapter, listId: string): Promise<Game[]> => {
   const rows = await adapter.execute<GameRow>(
-    `SELECT g.id, g.name, g.slug, g.summary, g.first_release_date, g.cover_image_id
+    `SELECT g.id, g.name, g.slug, g.summary, g.first_release_date, g.cover_image_id, g.developer
      FROM list_items i
      JOIN lists l ON l.id = i.list_id AND l.deleted = 0
      JOIN games g ON g.id = i.game_id
@@ -115,6 +116,7 @@ export const listGamesOf = async (adapter: StorageAdapter, listId: string): Prom
       coverImageId: row.cover_image_id,
       genreIds: [],
       platformIds: [],
+      developer: row.developer,
     }),
   );
 };

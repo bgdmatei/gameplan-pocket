@@ -1,21 +1,17 @@
 import { z } from 'zod';
 import { DomainValidationError } from '../shared/errors';
 
-/**
- * Stored as an integer 0-10; `null` means unrated. The UI shows 5 stars in
- * half steps. Plan §4 stores 0-100 — `schema-evolution` migrates to that as
- * its breaking change (SPEC-domain-model.md §Rating display).
- */
-export const ratingSchema = z.number().int().min(0).max(10).nullable();
+export const ratingSchema = z.number().int().min(0).max(100).nullable();
 
 export type Rating = z.infer<typeof ratingSchema>;
 
-export const ratingToStars = (rating: number): number => rating / 2;
+const PER_STAR = 20;
+
+export const ratingToStars = (rating: number): number => rating / PER_STAR;
 
 /** @throws {DomainValidationError} when `stars` isn't 0-5 in half steps. */
 export const starsToRating = (stars: number): number => {
-  const rating = stars * 2;
-  if (!Number.isInteger(rating) || rating < 0 || rating > 10) {
+  if (!Number.isInteger(stars * 2) || stars < 0 || stars > 5) {
     throw new DomainValidationError([
       {
         code: 'invalid_field',
@@ -24,5 +20,5 @@ export const starsToRating = (stars: number): number => {
       },
     ]);
   }
-  return rating;
+  return stars * PER_STAR;
 };

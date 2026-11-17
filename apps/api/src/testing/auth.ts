@@ -15,6 +15,7 @@ import { createCatalogService } from '../catalog/service';
 import type { Database } from '../db/schema';
 import { createSyncRepository } from '../sync/repository';
 import { createSyncService } from '../sync/service';
+import type { ProtocolRange } from '../version-gate';
 import { createTestDb } from './database';
 
 export const TEST_SECRETS = { jwt: 'j'.repeat(32), code: 'c'.repeat(32) } as const;
@@ -71,8 +72,9 @@ export const createTestAuth = async (
 /** The whole app over a test auth service, with an empty fake catalog. */
 export const createTestApp = async ({
   corsOrigins = [],
+  protocols,
   ...options
-}: TestAuthOptions & { corsOrigins?: readonly string[] } = {}): Promise<
+}: TestAuthOptions & { corsOrigins?: readonly string[]; protocols?: ProtocolRange } = {}): Promise<
   TestAuth & { app: Hono }
 > => {
   const testAuth = await createTestAuth(undefined, options);
@@ -95,6 +97,7 @@ export const createTestApp = async ({
     corsOrigins,
     logger,
     apiKey: TEST_API_KEY,
+    ...(protocols !== undefined && { protocols }),
   });
   return { ...testAuth, app };
 };

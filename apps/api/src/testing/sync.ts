@@ -36,7 +36,7 @@ export const createSyncTestKit = (t: TestAuth & { app: Hono }) => {
     type: 'set',
     fields,
     hlc: nextHlc(),
-    schemaVersion: 1,
+    schemaVersion: 2,
   });
 
   const deleteOp = (entity: string, entityId: string) => ({
@@ -45,7 +45,7 @@ export const createSyncTestKit = (t: TestAuth & { app: Hono }) => {
     entityId,
     type: 'delete',
     hlc: nextHlc(),
-    schemaVersion: 1,
+    schemaVersion: 2,
   });
 
   const push = async (token: string, ops: unknown[]): Promise<PushResponse> => {

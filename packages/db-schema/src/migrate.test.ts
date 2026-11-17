@@ -171,3 +171,24 @@ describe('schema', () => {
     expect(() => insert.run('entry-2', 1942)).toThrow();
   });
 });
+
+describe('migration 009', () => {
+  it('moves stored ratings to 0-100 and marks a synced device for a re-sync', async () => {
+    const database = new DatabaseSync(':memory:');
+    const executor = createTestExecutor(database);
+    await migrate(executor, MIGRATIONS.slice(0, 8));
+    database.exec(`
+      INSERT INTO library_entries (id, game_id, status, rating, created_at, updated_at)
+      VALUES ('a', 1, 'playing', 7, 'x', 'x'), ('b', 2, 'backlog', NULL, 'x', 'x');
+      UPDATE sync_state SET bootstrapped = 1;
+    `);
+
+    await migrate(executor);
+
+    expect(database.prepare('SELECT id, rating FROM library_entries ORDER BY id').all()).toEqual([
+      { id: 'a', rating: 70 },
+      { id: 'b', rating: null },
+    ]);
+    expect(database.prepare('SELECT resync FROM sync_state').get()).toEqual({ resync: 1 });
+  });
+});

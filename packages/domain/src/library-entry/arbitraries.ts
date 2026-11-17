@@ -25,7 +25,7 @@ export const isoDateTimeArb: fc.Arbitrary<string> = fc
   })
   .map((date) => date.toISOString());
 
-export const ratingArb: fc.Arbitrary<number | null> = fc.option(fc.integer({ min: 0, max: 10 }), {
+export const ratingArb: fc.Arbitrary<number | null> = fc.option(fc.integer({ min: 0, max: 100 }), {
   nil: null,
 });
 

@@ -17,7 +17,7 @@ const set = (hlc: string, fields: Record<string, unknown>): Op => ({
   type: 'set',
   fields,
   hlc,
-  schemaVersion: 1,
+  schemaVersion: 2,
 });
 
 const remove = (hlc: string): Op => ({
@@ -26,7 +26,7 @@ const remove = (hlc: string): Op => ({
   entityId: NOTE,
   type: 'delete',
   hlc,
-  schemaVersion: 1,
+  schemaVersion: 2,
 });
 
 const created = set(at(1), { type: 'puzzle', text: 'Lever', resolved: false });

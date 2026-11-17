@@ -52,13 +52,16 @@ export const createCatalogService = ({
 
   const getGames = async (ids: readonly number[]): Promise<Stale<{ games: Game[] }>> => {
     const cached = await repository.getGames(ids);
+    const outdated = new Set(await repository.getOutdatedIds(ids));
     const known = new Set(cached.map((game) => game.id));
-    const missing = ids.filter((id) => !known.has(id));
+    // A row fetched before a field was added counts as missing, so it fills in.
+    const missing = ids.filter((id) => !known.has(id) || outdated.has(id));
     if (missing.length === 0) return { games: cached, stale: false };
 
     // One request for every missing game, never one per game.
     const fetched = await ask('lookup', () => igdb.getGames(missing));
-    if (fetched === null) return { games: cached, stale: true };
+    // Outdated rows are still a valid answer; only absent games make it stale.
+    if (fetched === null) return { games: cached, stale: ids.some((id) => !known.has(id)) };
 
     await repository.upsertGames(fetched);
     return { games: await repository.getGames(ids), stale: false };

@@ -69,6 +69,11 @@ describe('sync activity', () => {
     },
     // Review of #22: a session ending is not an error that lingers.
     { case: 'a session that ended', events: [started, failed('ended')], phase: 'synced' },
+    {
+      case: 'an app the server no longer serves',
+      events: [started, failed('update_required'), started, succeeded],
+      phase: 'outdated',
+    },
   ])('$case → $phase', ({ events, phase }) => {
     expect(phaseOf(after(events))).toBe(phase);
   });

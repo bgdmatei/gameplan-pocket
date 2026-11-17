@@ -35,12 +35,14 @@ const urlAs = (serverUrl: string, database: string, role: string, password: stri
  */
 export const createTestDatabase = async ({
   ownerMigratedTo,
+  migratedTo,
 }: {
   /**
    * Run migrations up to this one as the superuser before the roles exist,
    * as staging did before them: those tables start owned by someone else.
    */
   ownerMigratedTo?: string;
+  migratedTo?: string;
 } = {}): Promise<TestDatabase> => {
   const serverUrl = inject('databaseUrl');
   const name = `test_${randomUUID().replaceAll('-', '')}`;
@@ -68,7 +70,15 @@ export const createTestDatabase = async ({
   await granter.end();
 
   const migrator = createDb(urlAs(serverUrl, name, MIGRATOR_ROLE, TEST_ROLE_PASSWORDS.migrator));
-  await migrateToLatest(migrator);
+  if (migratedTo === undefined) {
+    await migrateToLatest(migrator);
+  } else {
+    const { error } = await new Migrator({
+      db: migrator,
+      provider: { getMigrations: async () => MIGRATIONS },
+    }).migrateTo(migratedTo);
+    if (error !== undefined) throw error instanceof Error ? error : new Error(String(error));
+  }
   const app = createDb(urlAs(serverUrl, name, APP_ROLE, TEST_ROLE_PASSWORDS.app));
   // Opens the pool now: Kysely makes it on the first query, so destroying an
   // unused one does nothing and a test that breaks the database by destroying

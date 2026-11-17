@@ -6,6 +6,12 @@ import type { Database, GamesTable } from '../db/schema';
 /** How long a remote search result is trusted before IGDB is asked again. */
 const SEARCH_CACHE_TTL = '24 hours';
 
+/**
+ * Bumped whenever the games IGDB query gains a field: cached rows below it are
+ * re-fetched on their next lookup. 1 added the developer.
+ */
+export const CATALOG_FIELDS = 1;
+
 const toGame = (row: Selectable<GamesTable>): Game => ({
   id: row.id,
   name: row.name,
@@ -15,6 +21,7 @@ const toGame = (row: Selectable<GamesTable>): Game => ({
   coverImageId: row.cover_image_id,
   genreIds: row.genre_ids,
   platformIds: row.platform_ids,
+  developer: row.developer,
 });
 
 /** Every SQL statement the catalog runs. */
@@ -37,6 +44,8 @@ export const createCatalogRepository = (db: Kysely<Database>) => ({
           cover_image_id: game.coverImageId,
           genre_ids: game.genreIds,
           platform_ids: game.platformIds,
+          developer: game.developer,
+          catalog_fields: CATALOG_FIELDS,
         })),
       )
       .onConflict((conflict) =>
@@ -48,6 +57,8 @@ export const createCatalogRepository = (db: Kysely<Database>) => ({
           cover_image_id: eb.ref('excluded.cover_image_id'),
           genre_ids: eb.ref('excluded.genre_ids'),
           platform_ids: eb.ref('excluded.platform_ids'),
+          developer: eb.ref('excluded.developer'),
+          catalog_fields: eb.ref('excluded.catalog_fields'),
           fetched_at: sql<Date>`now()`,
           catalog_version: sql<number>`nextval('catalog_version_seq')`,
         })),
@@ -65,6 +76,18 @@ export const createCatalogRepository = (db: Kysely<Database>) => ({
       .execute();
     const byId = new Map(rows.map((row) => [row.id, toGame(row)]));
     return ids.flatMap((id) => byId.get(id) ?? []);
+  },
+
+  /** Which of `ids` are cached with an older IGDB field set. */
+  getOutdatedIds: async (ids: readonly number[]): Promise<number[]> => {
+    if (ids.length === 0) return [];
+    const rows = await db
+      .selectFrom('games')
+      .select('id')
+      .where('id', 'in', [...ids])
+      .where('catalog_fields', '<', CATALOG_FIELDS)
+      .execute();
+    return rows.map((row) => row.id);
   },
 
   /**

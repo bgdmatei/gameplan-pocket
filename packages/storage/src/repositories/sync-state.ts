@@ -32,6 +32,7 @@ export type SyncState = {
   lastSyncedAt: string | null;
   /** True once the server's snapshot has been applied (migration 007). */
   bootstrapped: boolean;
+  resync: boolean;
 };
 
 export type SyncStatePatch = Partial<SyncState>;
@@ -46,6 +47,7 @@ type SyncStateRow = {
   theme: string;
   last_synced_at: string | null;
   bootstrapped: number;
+  resync: number;
 };
 
 const COLUMNS: Record<keyof SyncState, string> = {
@@ -58,13 +60,14 @@ const COLUMNS: Record<keyof SyncState, string> = {
   theme: 'theme',
   lastSyncedAt: 'last_synced_at',
   bootstrapped: 'bootstrapped',
+  resync: 'resync',
 };
 
 /** Takes a transaction too, so a write can read and advance the clock atomically. */
 export const getSyncState = async (adapter: Transaction): Promise<SyncState> => {
   const rows = await adapter.execute<SyncStateRow>(
     `SELECT node_id, last_pulled_seq, hlc_last, schema_version, catalog_version, owner_user_id,
-            theme, last_synced_at, bootstrapped
+            theme, last_synced_at, bootstrapped, resync
      FROM sync_state WHERE id = 1`,
   );
   const row = rows[0];
@@ -84,6 +87,7 @@ export const getSyncState = async (adapter: Transaction): Promise<SyncState> => 
     theme: isThemePreference(row.theme) ? row.theme : 'auto',
     lastSyncedAt: row.last_synced_at,
     bootstrapped: row.bootstrapped === 1,
+    resync: row.resync === 1,
   };
 };
 

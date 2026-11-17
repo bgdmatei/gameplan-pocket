@@ -61,6 +61,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.sm,
   },
   lines: { flex: 1, gap: space.sm },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: space.md },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
   cell: { width: '33.333%', padding: space.xs, gap: space.sm },
 });

@@ -22,6 +22,7 @@ const game = (id: number): Game => ({
   coverImageId: null,
   genreIds: [],
   platformIds: [],
+  developer: null,
 });
 
 describe('Now Playing', () => {

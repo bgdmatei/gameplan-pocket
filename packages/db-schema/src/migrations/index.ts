@@ -5,6 +5,8 @@ import { migration004 } from './004-shelved-entries';
 import { migration005 } from './005-library-owner';
 import { migration006 } from './006-theme';
 import { migration007 } from './007-sync-transport';
+import { migration008 } from './008-game-developer';
+import { migration009 } from './009-rating-scale';
 import type { Migration } from './types';
 
 /**
@@ -20,6 +22,8 @@ export const MIGRATIONS: readonly Migration[] = [
   migration005,
   migration006,
   migration007,
+  migration008,
+  migration009,
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]?.number ?? 0;

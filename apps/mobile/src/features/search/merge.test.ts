@@ -12,6 +12,7 @@ const game = (id: number, name: string): Game => ({
   coverImageId: null,
   genreIds: [],
   platformIds: [],
+  developer: null,
 });
 
 const WITCHER = game(1942, 'The Witcher 3');

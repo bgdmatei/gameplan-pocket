@@ -72,8 +72,9 @@ const SyncGlyph = ({ view }: { view: SyncStatusView }) => {
 
 /**
  * The Library header's sync icon (owner, 2026-11-11): one cloud family tinted
- * by tone, arrows turning while syncing; a tap syncs now, in every state,
- * since it is how another device's edit arrives at once. Hidden signed out.
+ * by tone, arrows turning while syncing; a tap syncs now, except on a build
+ * the server no longer serves, since it is how another device's edit arrives
+ * at once. Hidden signed out.
  */
 export const SyncStatusButton = () => {
   const view = useSyncStatusView();

@@ -18,6 +18,7 @@ const gameOf = (id: number): Game => ({
   coverImageId: null,
   genreIds: [12],
   platformIds: [6],
+  developer: null,
 });
 
 /** The ops another device would push: one library entry per game. */

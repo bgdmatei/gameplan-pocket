@@ -2,6 +2,8 @@ import type { Migration } from 'kysely/migration';
 import { migration001 } from './001-catalog';
 import { migration002 } from './002-auth';
 import { migration003 } from './003-sync';
+import { migration004 } from './004-game-developer';
+import { migration005 } from './005-rating-scale';
 
 /**
  * Every migration, keyed by a name that sorts in the order they run.
@@ -11,4 +13,6 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   '001-catalog': migration001,
   '002-auth': migration002,
   '003-sync': migration003,
+  '004-game-developer': migration004,
+  '005-rating-scale': migration005,
 };

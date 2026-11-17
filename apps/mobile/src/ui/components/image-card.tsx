@@ -5,6 +5,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { DimensionValue } from 'react-native';
 import { displayMaxScale, gradients, radius, space, type } from '../theme';
 import { useTheme } from '../use-theme';
+import { localCoverUri } from '@/data/cover-store';
 import { PressableScale } from './pressable-scale';
 
 type Props = {
@@ -45,7 +46,7 @@ export const ImageCard = ({
 }: Props) => {
   const { colors } = useTheme();
   const small = size === 'small';
-  const uri = coverUrl(imageId, 'cover_big');
+  const uri = localCoverUri(imageId) ?? coverUrl(imageId, 'cover_big');
   const spoken = [title, spokenCaption ?? caption ?? label].filter(Boolean).join(', ');
 
   return (

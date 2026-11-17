@@ -22,9 +22,13 @@ export const backoffDelay = (failures: number, random: () => number): number => 
   return step / 2 + (random() * step) / 2;
 };
 
-/** No sign-in to sync for: retrying can't help until the player signs in. */
-const isFinal = (error: unknown): boolean =>
-  error instanceof SyncRequestError && (error.kind === 'signed_out' || error.kind === 'ended');
+/** Retrying can't help: no sign-in to sync for, or an app the server no longer serves. */
+const FINAL = new Set(['signed_out', 'ended', 'update_required']);
+
+const kindOf = (error: unknown): string | null =>
+  error instanceof SyncRequestError ? error.kind : null;
+
+const isFinal = (error: unknown): boolean => FINAL.has(kindOf(error) ?? '');
 
 export type SchedulerOptions = {
   sync: () => Promise<void>;
@@ -62,6 +66,8 @@ export const createSyncScheduler = ({
   const flight = createSingleFlight();
   let failures = 0;
   let stopped = false;
+  // Only a new launch, with a newer build, can sync again.
+  let outdated = false;
   let retry: ReturnType<typeof setTimeout> | null = null;
   let edit: ReturnType<typeof setTimeout> | null = null;
   let interval: ReturnType<typeof setTimeout> | null = null;
@@ -72,7 +78,7 @@ export const createSyncScheduler = ({
   };
 
   const attempt = async (): Promise<void> => {
-    if (stopped) {
+    if (stopped || outdated) {
       onSkip();
       return;
     }
@@ -88,6 +94,11 @@ export const createSyncScheduler = ({
       retry = clear(retry);
       onSuccess();
     } catch (error) {
+      if (kindOf(error) === 'update_required') {
+        outdated = true;
+        edit = clear(edit);
+        interval = clear(interval);
+      }
       onFailure(
         error instanceof SyncRequestError ? error.kind : 'error',
         !stopped && !isFinal(error),
@@ -114,6 +125,7 @@ export const createSyncScheduler = ({
   const soon = (): Promise<void> => (retry === null ? attempt() : Promise.resolve());
 
   const tick = () => {
+    if (outdated) return;
     interval = setTimeout(() => {
       void soon();
       tick();
@@ -134,6 +146,7 @@ export const createSyncScheduler = ({
     },
     /** A local edit: sync once edits pause for 2 s. */
     edited: (): void => {
+      if (outdated) return;
       edit = clear(edit);
       edit = setTimeout(() => {
         edit = null;

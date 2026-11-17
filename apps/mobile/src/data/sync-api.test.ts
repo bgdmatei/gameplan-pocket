@@ -105,6 +105,11 @@ describe('sync API client', () => {
     },
     { case: 'a 503', respond: () => new Response('', { status: 503 }), kind: 'offline' },
     {
+      case: 'a 426',
+      respond: () => Response.json({ error: 'update_required' }, { status: 426 }),
+      kind: 'update_required',
+    },
+    {
       case: 'a 400',
       respond: () => Response.json({ error: 'invalid_request' }, { status: 400 }),
       kind: 'failed',

@@ -24,6 +24,7 @@ const HADES: Game = {
   coverImageId: null,
   genreIds: [],
   platformIds: [],
+  developer: null,
 };
 
 describe('editing an entry', () => {

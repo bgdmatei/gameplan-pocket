@@ -19,6 +19,7 @@ const gameOf = (id: number, name: string, patch: Partial<Game> = {}): Game => ({
   coverImageId: null,
   genreIds: [],
   platformIds: [],
+  developer: null,
   ...patch,
 });
 
