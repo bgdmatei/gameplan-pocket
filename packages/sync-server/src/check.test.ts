@@ -12,13 +12,22 @@ const op = (overrides: Record<string, unknown> = {}) => ({
   type: 'set',
   fields: { status: 'playing' },
   hlc: clockAt(NOW),
-  schemaVersion: 1,
+  schemaVersion: 2,
   ...overrides,
 });
 
 describe('checkOp', () => {
   it('lets a well-formed op in', () => {
     expect(checkOp(op(), NOW)).toEqual({ ok: true, op: op() });
+  });
+
+  it("lets an older app's op in at the current version", () => {
+    expect(
+      checkOp(op({ schemaVersion: 1, fields: { rating: 7, status: 'playing' } }), NOW),
+    ).toEqual({
+      ok: true,
+      op: op({ fields: { rating: 70, status: 'playing' } }),
+    });
   });
 
   // The door's attacks (SPEC-sync-transport.md, criterion 7). Each was
@@ -49,6 +58,27 @@ describe('checkOp', () => {
     {
       label: 'a clock more than a minute ahead',
       raw: op({ hlc: clockAt(NOW + 61_000) }),
+      reason: 'clock_ahead',
+    },
+    {
+      label: 'a v1 op naming a server-managed column',
+      raw: op({ schemaVersion: 1, fields: { userId: 'someone-else' } }),
+      reason: 'invalid_op',
+    },
+    {
+      label: 'a v1 rating out of v1 range, rather than converting it',
+      raw: op({ schemaVersion: 1, fields: { rating: 11 } }),
+      reason: 'invalid_op',
+    },
+    {
+      label: 'a v2 rating marked as v1',
+      raw: op({ schemaVersion: 1, fields: { rating: 70 } }),
+      reason: 'invalid_op',
+    },
+    { label: 'an unknown schema version', raw: op({ schemaVersion: 3 }), reason: 'invalid_op' },
+    {
+      label: 'a v1 op with a clock more than a minute ahead',
+      raw: op({ schemaVersion: 1, hlc: clockAt(NOW + 61_000) }),
       reason: 'clock_ahead',
     },
   ])('refuses $label, naming the op', ({ raw, reason }) => {

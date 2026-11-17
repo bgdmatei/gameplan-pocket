@@ -5,7 +5,7 @@ const envelope = {
   id: '01890a5d-ac96-774b-bcce-b302099a8057',
   entityId: '9b385207-54aa-5778-81a4-815107b15eb0',
   hlc: '000001790000000:00000:3f9a2c1b7d4e8f60',
-  schemaVersion: 1,
+  schemaVersion: 2,
 };
 
 describe('op schema', () => {

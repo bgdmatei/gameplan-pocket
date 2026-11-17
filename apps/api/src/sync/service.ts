@@ -5,8 +5,9 @@ import type {
   SnapshotQuery,
   SnapshotResponse,
 } from '@gameplan/contracts';
+import { downcastOp, downcastRow } from '@gameplan/sync';
 import type { Op } from '@gameplan/sync';
-import { checkOp } from '@gameplan/sync-server';
+import { atCurrentVersion, checkOp } from '@gameplan/sync-server';
 import type { Logger } from '../logger';
 import { decodeCursor, encodeCursor } from './cursor';
 import type { SyncRepository } from './repository';
@@ -14,9 +15,13 @@ import type { SyncRepository } from './repository';
 export type SyncService = {
   /** `ops` are as the client sent them: each is checked here, at the door. */
   push: (userId: string, ops: readonly unknown[]) => Promise<PushResponse>;
-  pull: (userId: string, query: PullQuery) => Promise<PullResponse>;
+  pull: (userId: string, query: PullQuery, reads: 1 | 2) => Promise<PullResponse>;
   /** `invalid_cursor` for a cursor this server didn't hand out. */
-  snapshot: (userId: string, query: SnapshotQuery) => Promise<SnapshotResponse | 'invalid_cursor'>;
+  snapshot: (
+    userId: string,
+    query: SnapshotQuery,
+    reads: 1 | 2,
+  ) => Promise<SnapshotResponse | 'invalid_cursor'>;
 };
 
 export const createSyncService = ({
@@ -53,12 +58,31 @@ export const createSyncService = ({
     return { accepted: valid.map((op) => op.id), rejected, lastSeq };
   },
 
-  pull: (userId, query) => repository.pull(userId, query),
+  pull: async (userId, query, reads) => {
+    const page = await repository.pull(userId, query);
+    let unreadable = 0;
+    // An older server can log a v1 op mid-deploy; an unreadable op is skipped, not a 500 on every pull.
+    const ops = page.ops.flatMap(({ seq, op: raw }) => {
+      const op = atCurrentVersion(raw);
+      if (op === null) {
+        unreadable += 1;
+        return [];
+      }
+      const served = reads === 2 ? op : downcastOp(op, 1);
+      return served === null ? [] : [{ seq, op: served }];
+    });
+    if (unreadable > 0) logger.warn(`sync pull skipped ${unreadable} unreadable logged ops`);
+    return { ...page, ops };
+  },
 
-  snapshot: async (userId, { cursor: text, limit }) => {
+  snapshot: async (userId, { cursor: text, limit }, reads) => {
     const cursor = text === undefined ? undefined : decodeCursor(text);
     if (cursor === null) return 'invalid_cursor';
     const { rows, seq, next } = await repository.snapshot(userId, { cursor, limit });
-    return { rows, seq, nextCursor: next === null ? null : encodeCursor(next) };
+    return {
+      rows: reads === 2 ? rows : rows.map(downcastRow),
+      seq,
+      nextCursor: next === null ? null : encodeCursor(next),
+    };
   },
 });

@@ -113,7 +113,7 @@ describe('applyRemoteOps', () => {
       type: 'set',
       fields: { rating: 5 },
       hlc: formatHlc({ wallMs: START, counter: 0, nodeId: '00000000000000aa' }),
-      schemaVersion: 1,
+      schemaVersion: 2,
     };
 
     expect(await applyRemoteOps(adapter, fakeEnv(), [op], { lastPulledSeq: 1 })).toEqual({

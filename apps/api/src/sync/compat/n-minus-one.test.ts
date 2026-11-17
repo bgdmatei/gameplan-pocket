@@ -1,7 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
   HEADERS,
-  PROTOCOL_VERSION,
   pullResponseSchema,
   pushResponseSchema,
   snapshotResponseSchema,
@@ -15,6 +14,7 @@ import type { Hono } from 'hono';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createTestApp, signIn } from '../../testing/auth';
 import type { TestAuth } from '../../testing/auth';
+import { SERVED_PROTOCOLS } from '../../version-gate';
 import * as pinned from './client-v1.bundle.js';
 import type { PinnedAdapter } from './client-v1.bundle.js';
 
@@ -67,7 +67,7 @@ describe('an N-1 phone and a current phone on one account', () => {
         method: body === undefined ? 'GET' : 'POST',
         headers: {
           [HEADERS.appVersion]: '2.0.0',
-          [HEADERS.protocolVersion]: String(PROTOCOL_VERSION),
+          [HEADERS.protocolVersion]: String(SERVED_PROTOCOLS.max),
           Authorization: `Bearer ${token}`,
           ...(body !== undefined && { 'Content-Type': 'application/json' }),
         },
@@ -91,7 +91,7 @@ describe('an N-1 phone and a current phone on one account', () => {
   const entryOf = async (adapter: StorageAdapter | PinnedAdapter): Promise<Row | undefined> =>
     (await adapter.execute<Row>(ENTRY_SQL, [entryId(GAME)]))[0];
 
-  it('keeps both in step, each way', async () => {
+  it('keeps both in step, each on its own rating scale', async () => {
     const email = `n-1-${randomUUID()}@example.com`;
     const oldSession = await signIn(t, email, 'a1a1a1a1a1a1a1a1');
     // One code per email per minute.
@@ -117,7 +117,7 @@ describe('an N-1 phone and a current phone on one account', () => {
     await pinned.commitLocalEdit(old, oldEnv, {
       entity: 'library_entry',
       id: pinned.entryId(GAME),
-      update: (current) => ({ next: { ...current, rating: 8 }, changed: { rating: 8 } }),
+      update: (current) => ({ next: { ...current, rating: 7 }, changed: { rating: 7 } }),
     });
     expect(await pinned.syncOnce({ adapter: old, env: oldEnv, api: oldApi })).toMatchObject({
       pushed: 2,
@@ -147,14 +147,14 @@ describe('an N-1 phone and a current phone on one account', () => {
     });
     const api = currentApi(newSession.accessToken);
     await syncOnce({ adapter: current, env: currentEnv, api });
-    expect(await entryOf(current)).toEqual({ rating: 8, favourite: 0, status: 'playing' });
+    expect(await entryOf(current)).toEqual({ rating: 70, favourite: 0, status: 'playing' });
 
     await commitLocalEdit(current, currentEnv, {
       entity: 'library_entry',
       id: entryId(GAME),
       update: (entry) => ({
-        next: { ...entry, rating: 6, favourite: true },
-        changed: { rating: 6, favourite: true },
+        next: { ...entry, rating: 90, favourite: true },
+        changed: { rating: 90, favourite: true },
       }),
     });
     expect(await syncOnce({ adapter: current, env: currentEnv, api })).toMatchObject({
@@ -166,7 +166,19 @@ describe('an N-1 phone and a current phone on one account', () => {
       pulled: 1,
       rejected: 0,
     });
-    expect(await entryOf(old)).toEqual(await entryOf(current));
-    expect(await entryOf(old)).toEqual({ rating: 6, favourite: 1, status: 'playing' });
+    expect(await entryOf(old)).toEqual({ rating: 9, favourite: 1, status: 'playing' });
+    expect(await entryOf(current)).toEqual({ rating: 90, favourite: 1, status: 'playing' });
+
+    t.clock.advance(61_000);
+    const lateSession = await signIn(t, email, 'c3c3c3c3c3c3c3c3');
+    const late = await pinned.createMigratedNodeAdapter();
+    open.push(late);
+    const lateEnv = envOf();
+    await pinned.syncOnce({
+      adapter: late,
+      env: lateEnv,
+      api: pinnedDevice(lateSession.accessToken),
+    });
+    expect(await entryOf(late)).toEqual({ rating: 9, favourite: 1, status: 'playing' });
   });
 });

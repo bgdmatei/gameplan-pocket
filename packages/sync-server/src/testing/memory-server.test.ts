@@ -14,7 +14,7 @@ const setOp = (n: number) => ({
   type: 'set',
   fields: { name: `List ${n}` },
   hlc: formatHlc({ wallMs: NOW, counter: n, nodeId: '3f9a2c1b7d4e8f60' }),
-  schemaVersion: 1,
+  schemaVersion: 2,
 });
 
 describe('memory server', () => {

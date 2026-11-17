@@ -165,7 +165,7 @@ describe('syncOnce', () => {
                     type: 'set',
                     fields: { platformId: 6 },
                     hlc,
-                    schemaVersion: 1,
+                    schemaVersion: 2,
                   },
                 },
               ],
@@ -203,7 +203,7 @@ describe('syncOnce', () => {
         type: 'set',
         fields,
         hlc: at(seq),
-        schemaVersion: 1,
+        schemaVersion: 2,
       },
     });
     const { api } = emptyServer({

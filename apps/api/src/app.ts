@@ -11,6 +11,8 @@ import { createCors } from './cors';
 import type { Logger } from './logger';
 import { createSyncRoutes } from './sync/routes';
 import type { SyncService } from './sync/service';
+import { SERVED_PROTOCOLS, createVersionGate } from './version-gate';
+import type { ProtocolRange } from './version-gate';
 
 export type AppDependencies = {
   catalog: CatalogService;
@@ -25,6 +27,7 @@ export type AppDependencies = {
    * `auth-identity` (module 7) because search works signed out (decision 4).
    */
   apiKey: string;
+  protocols?: ProtocolRange;
 };
 
 /**
@@ -44,12 +47,17 @@ export const createApp = ({
   corsOrigins,
   logger,
   apiKey,
+  protocols = SERVED_PROTOCOLS,
 }: AppDependencies): Hono => {
   const app = new Hono();
 
   app.use('*', createCors(corsOrigins));
 
   app.get('/health', (c) => c.json({ status: 'ok' }));
+  // Auth stays open, so an app the server no longer serves can still sign out.
+  const gate = createVersionGate(protocols);
+  app.use('/catalog/*', gate);
+  app.use('/sync/*', gate);
   app.use('/catalog/*', async (c, next) => {
     if (!sameKey(c.req.header(HEADERS.apiKey) ?? '', apiKey)) {
       return c.json({ error: 'unauthorized' } satisfies ErrorResponse, 401);
@@ -58,7 +66,7 @@ export const createApp = ({
   });
   app.route('/catalog', createCatalogRoutes(catalog));
   app.route('/auth', createAuthRoutes(auth));
-  app.route('/sync', createSyncRoutes(sync, auth));
+  app.route('/sync', createSyncRoutes(sync, auth, protocols));
   app.get('/me', requireUser(auth), async (c) => {
     const me = await auth.me(c.get('user'));
     if (me === null) return c.json({ error: 'unauthorized' } satisfies ErrorResponse, 401);

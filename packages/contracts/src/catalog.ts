@@ -52,6 +52,8 @@ export const errorResponseSchema = z.discriminatedUnion('error', [
   z.object({ error: z.literal('device_conflict') }),
   // `/auth/verify` from a phone whose library belongs to another account.
   z.object({ error: z.literal('library_owner_mismatch') }),
+  z.object({ error: z.literal('update_required') }),
+  z.object({ error: z.literal('unsupported_protocol') }),
   z.object({ error: z.literal('internal') }),
 ]);
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;

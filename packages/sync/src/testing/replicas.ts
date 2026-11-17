@@ -35,7 +35,7 @@ export const edit = (replica: Replica, change: Change, nowMs: number, opId: stri
     entity: change.entity,
     entityId: change.entityId,
     hlc: replica.clock,
-    schemaVersion: 1 as const,
+    schemaVersion: 2 as const,
   };
   const op = (
     change.fields === null
@@ -76,7 +76,7 @@ export type Change = {
 const entryFields = fc.record(
   {
     status: fc.constantFrom('playing', 'completed', 'dropped'),
-    rating: fc.constantFrom(null, 4, 8),
+    rating: fc.constantFrom(null, 40, 80),
     favourite: fc.boolean(),
     archived: fc.boolean(),
   },

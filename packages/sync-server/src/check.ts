@@ -1,6 +1,6 @@
 import type { RejectionReason } from '@gameplan/contracts';
 import { SYNC_LIMITS } from '@gameplan/contracts';
-import { isTooFarAhead, opSchema } from '@gameplan/sync';
+import { isTooFarAhead, opSchema, opV1Schema, upcastOp } from '@gameplan/sync';
 import type { Op, SyncedEntity } from '@gameplan/sync';
 
 /**
@@ -41,6 +41,14 @@ const idOf = (raw: unknown): string | undefined => {
   return typeof id === 'string' && id.length <= SYNC_LIMITS.idMaxLength ? id : undefined;
 };
 
+// v1 is checked as v1 first, so an out-of-range v1 value is refused, not converted.
+export const atCurrentVersion = (raw: unknown): Op | null => {
+  const v1 = opV1Schema.safeParse(raw);
+  if (v1.success) return upcastOp(v1.data);
+  const current = opSchema.safeParse(raw);
+  return current.success ? current.data : null;
+};
+
 /**
  * The door: whether one op may enter a user's log. The only place an op can
  * be refused safely, because nothing has seen it yet; once logged, every
@@ -51,10 +59,9 @@ const idOf = (raw: unknown): string | undefined => {
  * Nothing here says whose op it is: the caller takes the user from the token.
  */
 export const checkOp = (raw: unknown, nowMs: number): CheckResult => {
-  const parsed = opSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false, reason: 'invalid_op', opId: idOf(raw) };
+  const op = atCurrentVersion(raw);
+  if (op === null) return { ok: false, reason: 'invalid_op', opId: idOf(raw) };
 
-  const op = parsed.data;
   // The op schema allows any row id; the server stores and snapshots it, and
   // the snapshot contract caps it, so a longer one would break every bootstrap.
   if (op.entityId.length > SYNC_LIMITS.idMaxLength) {
