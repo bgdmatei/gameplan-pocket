@@ -12,7 +12,7 @@ export type { Hlc } from './clock/hlc';
 export { entryId, newId, newNodeId, tagId } from './ids';
 export type { RandomBytes } from './ids';
 export { OP_SCHEMA_VERSION, SYNCED_ENTITIES, SYNCED_FIELDS, opSchema } from './op/schema';
-export { downcastOp, downcastRow, opV1Schema, upcastOp } from './compat/v1';
+export { downcastOp, downcastRow, opV1Schema, toCurrentOp, upcastOp } from './compat/v1';
 export type { OpV1 } from './compat/v1';
 export type { Op, SyncedEntity } from './op/schema';
 export { DELETE_CLOCK, EMPTY_ROW, isDeleted, mergeOp, mergeRow } from './merge/merge';

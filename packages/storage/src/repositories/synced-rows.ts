@@ -81,6 +81,10 @@ export const SYNCED_ROWS = {
   ),
 } as const;
 
+export const clearSyncedRows = async (tx: Transaction): Promise<void> => {
+  for (const { table } of Object.values(SYNCED_ROWS)) await tx.execute(`DELETE FROM ${table}`);
+};
+
 /**
  * Reads one row whatever its tombstone says: a merge needs the clocks of a
  * deleted row too, or an edit could never bring it back.

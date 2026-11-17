@@ -1,15 +1,17 @@
 import type { SnapshotRow } from '@gameplan/contracts';
-import { createList } from '@gameplan/domain';
+import { createEntry, createList } from '@gameplan/domain';
 import {
   SYNCED_ROWS,
   getSyncState,
   listPendingOps,
   listRejectedOps,
   readSyncedRow,
+  updateSyncState,
 } from '@gameplan/storage';
 import { createMigratedNodeAdapter } from '@gameplan/storage/node';
 import { describe, expect, it } from 'vitest';
 import { formatHlc } from '../clock/hlc';
+import { applySnapshot } from '../store/apply';
 import { commitLocalCreate } from '../store/commit';
 import { fakeEnv } from '../testing/env';
 import { syncOnce } from './sync-once';
@@ -246,5 +248,74 @@ describe('syncOnce', () => {
       createdAt: '2026-09-23T10:00:00Z',
     });
     expect(row?.fieldHlc).not.toContain('colour');
+  });
+
+  it('re-syncs after an upgrade, keeping what is still queued', async () => {
+    const adapter = await createMigratedNodeAdapter();
+    const env = fakeEnv();
+    const hlc = formatHlc({ wallMs: env.now(), counter: 0, nodeId: '3f9a2c1b7d4e8f60' });
+    const { id, ...fields } = createEntry(
+      { id: 'e-1', gameId: 1942, status: 'playing', createdAt: '2026-09-23T10:00:00.000Z' },
+      { today: '2026-09-23' },
+    );
+    const entryAt = (rating: number): SnapshotRow => ({
+      entity: 'library_entry',
+      id,
+      fields: { ...fields, rating },
+      fieldHlc: Object.fromEntries(Object.keys(fields).map((field) => [field, hlc])),
+      deleted: false,
+    });
+    await applySnapshot(adapter, env, [entryAt(70)], { seq: 1 });
+    await updateSyncState(adapter, { resync: true });
+    const list = createList({ id: 'l-1', name: 'Co-op', createdAt: '2026-09-23T10:00:00.000Z' });
+    await commitLocalCreate(adapter, env, { entity: 'list', next: list });
+    const { api } = emptyServer({
+      push: async (ops) => ({
+        accepted: [],
+        rejected: ops.map((_, index) => ({ index, reason: 'clock_ahead' as const })),
+        lastSeq: 1,
+      }),
+      snapshot: async () => ({ rows: [entryAt(73)], seq: 1, nextCursor: null }),
+    });
+
+    await syncOnce({ adapter, env, api });
+
+    const read = <T>(codec: Parameters<typeof readSyncedRow<T>>[1], rowId: string) =>
+      adapter.transaction((tx) => readSyncedRow(tx, codec, rowId));
+    expect((await read(SYNCED_ROWS.library_entries, id))?.value.rating).toBe(73);
+    expect((await read(SYNCED_ROWS.lists, 'l-1'))?.value.name).toBe('Co-op');
+    expect(await getSyncState(adapter)).toMatchObject({ resync: false, bootstrapped: true });
+    expect(await listPendingOps(adapter)).toHaveLength(1);
+  });
+
+  it('pushes an op queued before the upgrade at the current version', async () => {
+    const adapter = await createMigratedNodeAdapter();
+    const env = fakeEnv();
+    const hlc = formatHlc({ wallMs: env.now(), counter: 0, nodeId: '3f9a2c1b7d4e8f60' });
+    const queued = {
+      id: '01890a5d-ac96-774b-bcce-b302099a8057',
+      entity: 'library_entry',
+      entityId: 'e-1',
+      type: 'set',
+      fields: { rating: 7 },
+      hlc,
+      schemaVersion: 1,
+    };
+    await adapter.execute('INSERT INTO pending_ops (id, payload, created_at) VALUES (?, ?, ?)', [
+      queued.id,
+      JSON.stringify(queued),
+      '2026-09-23T10:00:00.000Z',
+    ]);
+    const sent: unknown[] = [];
+    const { api } = emptyServer({
+      push: async (ops) => {
+        sent.push(...ops);
+        return { accepted: [queued.id], rejected: [], lastSeq: 1 };
+      },
+    });
+
+    await syncOnce({ adapter, env, api });
+
+    expect(sent).toEqual([{ ...queued, schemaVersion: 2, fields: { rating: 70 } }]);
   });
 });

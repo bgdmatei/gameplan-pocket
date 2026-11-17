@@ -68,5 +68,5 @@ export {
   updateSyncState,
 } from './repositories/sync-state';
 export type { SyncState, SyncStatePatch, ThemePreference } from './repositories/sync-state';
-export { SYNCED_ROWS, readSyncedRow } from './repositories/synced-rows';
+export { SYNCED_ROWS, clearSyncedRows, readSyncedRow } from './repositories/synced-rows';
 export type { RowMeta, StoredRow, SyncedRowCodec } from './repositories/synced-rows';

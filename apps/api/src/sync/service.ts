@@ -5,9 +5,9 @@ import type {
   SnapshotQuery,
   SnapshotResponse,
 } from '@gameplan/contracts';
-import { downcastOp, downcastRow } from '@gameplan/sync';
+import { downcastOp, downcastRow, toCurrentOp } from '@gameplan/sync';
 import type { Op } from '@gameplan/sync';
-import { atCurrentVersion, checkOp } from '@gameplan/sync-server';
+import { checkOp } from '@gameplan/sync-server';
 import type { Logger } from '../logger';
 import { decodeCursor, encodeCursor } from './cursor';
 import type { SyncRepository } from './repository';
@@ -63,7 +63,7 @@ export const createSyncService = ({
     let unreadable = 0;
     // An older server can log a v1 op mid-deploy; an unreadable op is skipped, not a 500 on every pull.
     const ops = page.ops.flatMap(({ seq, op: raw }) => {
-      const op = atCurrentVersion(raw);
+      const op = toCurrentOp(raw);
       if (op === null) {
         unreadable += 1;
         return [];

@@ -1,9 +1,16 @@
-import { getSyncState, readSyncedRow, updateSyncState, writeRows } from '@gameplan/storage';
+import {
+  clearSyncedRows,
+  getSyncState,
+  readSyncedRow,
+  updateSyncState,
+  writeRows,
+} from '@gameplan/storage';
 import type { StorageAdapter, Transaction } from '@gameplan/storage';
 import type { SnapshotRow } from '@gameplan/contracts';
 import { receive } from '../clock/hlc';
 import { DELETE_CLOCK, isDeleted, mergeOp, mergeRow } from '../merge/merge';
 import type { RowState } from '../merge/merge';
+import { toCurrentOp } from '../compat/v1';
 import { isSyncedEntity, knownFields, opSchema } from '../op/schema';
 import type { Op } from '../op/schema';
 import { SCHEMAS, codecFor, isoAt, parseClocks, storedEntity, stringifyClocks } from './entities';
@@ -56,6 +63,36 @@ const tally = (count: Applied, outcome: 'written' | 'skipped' | 'unneeded'): voi
   if (outcome === 'skipped') count.skipped += 1;
 };
 
+const mergeOps = async (
+  tx: Transaction,
+  ops: readonly Op[],
+  { nowMs, nodeId, clock: start }: { nowMs: number; nodeId: string; clock: string | null },
+  count: Applied,
+): Promise<string | null> => {
+  let clock = start;
+  for (const incoming of ops) {
+    const op = opSchema.parse(incoming);
+    const entity = storedEntity(op.entity);
+    const stored = await readSyncedRow(tx, codecFor(entity), op.entityId);
+
+    const before = {
+      fields: stored === null ? {} : withoutId(stored.value),
+      clocks: parseClocks(stored?.fieldHlc),
+    };
+    const merged = mergeOp(before, op);
+    clock = receive(clock, op.hlc, nowMs, nodeId);
+    if (merged === before) continue;
+
+    const outcome = await writeMerged(tx, entity, op.entityId, merged, {
+      nowMs,
+      known: stored !== null,
+      source: `op ${op.id}`,
+    });
+    tally(count, outcome);
+  }
+  return clock;
+};
+
 /**
  * Applies ops from other devices, and the cursor that covers them, in one
  * transaction: a crash between the two would skip changes or apply them twice.
@@ -77,31 +114,13 @@ export const applyRemoteOps = async (
   adapter.transaction(async (tx) => {
     const nodeId = await ensureNodeId(tx, env.randomBytes);
     const state = await getSyncState(tx);
-    const nowMs = env.now();
-    let clock = state.hlcLast;
     const count: Applied = { applied: 0, skipped: 0 };
-
-    for (const incoming of ops) {
-      const op = opSchema.parse(incoming);
-      const entity = storedEntity(op.entity);
-      const stored = await readSyncedRow(tx, codecFor(entity), op.entityId);
-
-      const before = {
-        fields: stored === null ? {} : withoutId(stored.value),
-        clocks: parseClocks(stored?.fieldHlc),
-      };
-      const merged = mergeOp(before, op);
-      clock = receive(clock, op.hlc, nowMs, nodeId);
-      if (merged === before) continue;
-
-      const outcome = await writeMerged(tx, entity, op.entityId, merged, {
-        nowMs,
-        known: stored !== null,
-        source: `op ${op.id}`,
-      });
-      tally(count, outcome);
-    }
-
+    const clock = await mergeOps(
+      tx,
+      ops,
+      { nowMs: env.now(), nodeId, clock: state.hlcLast },
+      count,
+    );
     await updateSyncState(tx, { hlcLast: clock, lastPulledSeq });
     return count;
   });
@@ -111,12 +130,14 @@ export const applyRemoteOps = async (
  * was read at, in one transaction, then marks the device bootstrapped. Each
  * row merges per field with what is here, so edits this device made offline
  * and hasn't pushed yet keep winning where they are newer.
+ *
+ * With `resync`, synced rows are rebuilt from the snapshot, unpushed outbox on top.
  */
 export const applySnapshot = async (
   adapter: StorageAdapter,
   env: SyncEnv,
   rows: readonly SnapshotRow[],
-  { seq }: { seq: number },
+  { seq, resync = false }: { seq: number; resync?: boolean },
 ): Promise<Applied> =>
   adapter.transaction(async (tx) => {
     const nodeId = await ensureNodeId(tx, env.randomBytes);
@@ -124,6 +145,7 @@ export const applySnapshot = async (
     const nowMs = env.now();
     let clock = state.hlcLast;
     const count: Applied = { applied: 0, skipped: 0 };
+    if (resync) await clearSyncedRows(tx);
 
     for (const row of rows) {
       if (!isSyncedEntity(row.entity)) {
@@ -157,6 +179,23 @@ export const applySnapshot = async (
       tally(count, outcome);
     }
 
-    await updateSyncState(tx, { hlcLast: clock, lastPulledSeq: seq, bootstrapped: true });
+    if (resync) {
+      // Read here, in the same transaction as the clear, or an edit made mid-sync would be lost.
+      const queued = await tx.execute<{ payload: string }>(
+        'SELECT payload FROM pending_ops ORDER BY seq',
+      );
+      const outbox = queued.flatMap(({ payload }) => {
+        const op = toCurrentOp(JSON.parse(payload) as unknown);
+        if (op === null) count.skipped += 1;
+        return op ?? [];
+      });
+      clock = await mergeOps(tx, outbox, { nowMs, nodeId, clock }, count);
+    }
+    await updateSyncState(tx, {
+      hlcLast: clock,
+      lastPulledSeq: seq,
+      bootstrapped: true,
+      resync: false,
+    });
     return count;
   });

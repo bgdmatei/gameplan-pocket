@@ -76,6 +76,14 @@ export const upcastOp = (op: OpV1): Op =>
       op.entity === 'library_entry' && { fields: withRating(op.fields, (r) => r * STEP) }),
   });
 
+// v1 is checked as v1 first, so an out-of-range v1 value is refused, not converted.
+export const toCurrentOp = (raw: unknown): Op | null => {
+  const v1 = opV1Schema.safeParse(raw);
+  if (v1.success) return upcastOp(v1.data);
+  const current = opSchema.safeParse(raw);
+  return current.success ? current.data : null;
+};
+
 /** Null when a set names only fields v1 doesn't know. */
 export const downcastOp = (op: Op, to: 1): OpV1 | null => {
   if (op.type !== 'set') return opV1Schema.parse({ ...op, schemaVersion: to });

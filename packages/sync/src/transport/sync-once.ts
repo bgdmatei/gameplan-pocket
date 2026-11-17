@@ -13,6 +13,7 @@ import {
   updateSyncState,
 } from '@gameplan/storage';
 import type { Rejection, StorageAdapter } from '@gameplan/storage';
+import { toCurrentOp } from '../compat/v1';
 import { readPulledOp } from '../op/schema';
 import { createSingleFlight } from '../single-flight';
 import { applyRemoteOps, applySnapshot } from '../store/apply';
@@ -52,7 +53,10 @@ const pushOutbox = async ({ adapter, env, api }: SyncDeps) => {
   for (;;) {
     const pending = await listPendingOps(adapter, { limit: SYNC_LIMITS.pushMaxOps });
     if (pending.length === 0) break;
-    const ops = pending.map((op): unknown => JSON.parse(op.payload));
+    const ops = pending.map((op): unknown => {
+      const raw: unknown = JSON.parse(op.payload);
+      return toCurrentOp(raw) ?? raw;
+    });
 
     const response = await api.push(ops);
     const rejectedAt = isoAt(env.now());
@@ -85,7 +89,7 @@ const pushOutbox = async ({ adapter, env, api }: SyncDeps) => {
 };
 
 /** Reads every snapshot page first, so one transaction applies them all. */
-const bootstrap = async ({ adapter, env, api }: SyncDeps): Promise<number> => {
+const bootstrap = async ({ adapter, env, api }: SyncDeps, resync: boolean): Promise<number> => {
   const rows: SnapshotRow[] = [];
   let cursor: string | undefined;
   let seq: number | undefined;
@@ -102,7 +106,7 @@ const bootstrap = async ({ adapter, env, api }: SyncDeps): Promise<number> => {
     cursor = page.nextCursor ?? undefined;
   } while (cursor !== undefined);
 
-  const { skipped } = await applySnapshot(adapter, env, rows, { seq: seq ?? 0 });
+  const { skipped } = await applySnapshot(adapter, env, rows, { seq: seq ?? 0, resync });
   return skipped;
 };
 
@@ -136,8 +140,8 @@ const pullLog = async ({ adapter, env, api }: SyncDeps) => {
  */
 export const syncOnce = async (deps: SyncDeps): Promise<SyncResult> => {
   const { pushed, rejected } = await pushOutbox(deps);
-  const unbootstrapped = !(await getSyncState(deps.adapter)).bootstrapped;
-  const skippedAtBootstrap = unbootstrapped ? await bootstrap(deps) : 0;
+  const { bootstrapped, resync } = await getSyncState(deps.adapter);
+  const skippedAtBootstrap = !bootstrapped || resync ? await bootstrap(deps, resync) : 0;
   const { pulled, skipped } = await pullLog(deps);
   await updateSyncState(deps.adapter, { lastSyncedAt: isoAt(deps.env.now()) });
   return { pushed, rejected, pulled, skipped: skippedAtBootstrap + skipped };
