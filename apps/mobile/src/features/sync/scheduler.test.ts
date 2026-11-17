@@ -89,4 +89,16 @@ describe('sync scheduler', () => {
     expect(ended.calls).toHaveLength(1);
     expect(ended.failures).toEqual(['ended']);
   });
+
+  it('stops for good once the server says the app is too old', async () => {
+    const old = harness(() => Promise.reject(new SyncRequestError('update_required')));
+    await old.scheduler.start();
+    old.scheduler.edited();
+    await old.scheduler.networkBack();
+    await old.scheduler.start();
+    await vi.advanceTimersByTimeAsync(SYNC_TIMING.intervalMs * 2);
+    expect(old.calls).toHaveLength(1);
+    expect(old.failures).toEqual(['update_required']);
+    old.scheduler.stop();
+  });
 });

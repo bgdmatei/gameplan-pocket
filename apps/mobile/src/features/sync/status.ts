@@ -4,7 +4,7 @@
  * only what the database can't: a sync running, the connection, the last
  * failure. One store for the app: there is one scheduler at a time.
  */
-export type SyncPhase = 'synced' | 'syncing' | 'offline' | 'error';
+export type SyncPhase = 'synced' | 'syncing' | 'offline' | 'error' | 'outdated';
 
 /** Facts, not the phase: the phase is derived, so no event order can leave it stale. */
 export type SyncActivity = {
@@ -16,6 +16,7 @@ export type SyncActivity = {
   requested: boolean;
   /** The last failure's kind ('failed', 'ended', …) and when; never its contents. */
   lastError: { kind: string; at: string } | null;
+  outdated: boolean;
 };
 
 export type SyncEvent =
@@ -34,6 +35,7 @@ export const INITIAL_ACTIVITY: SyncActivity = {
   failing: false,
   requested: false,
   lastError: null,
+  outdated: false,
 };
 
 /**
@@ -42,7 +44,7 @@ export const INITIAL_ACTIVITY: SyncActivity = {
  * connected it means the server can't be reached, and a retry is on it; with
  * the connection gone, the offline phase shows instead.
  */
-const NOT_ERRORS = new Set(['signed_out', 'ended']);
+const NOT_ERRORS = new Set(['signed_out', 'ended', 'update_required']);
 
 export const reduceSyncActivity = (state: SyncActivity, event: SyncEvent): SyncActivity => {
   switch (event.type) {
@@ -60,6 +62,7 @@ export const reduceSyncActivity = (state: SyncActivity, event: SyncEvent): SyncA
         running: false,
         requested: false,
         failing: !NOT_ERRORS.has(event.kind),
+        outdated: state.outdated || event.kind === 'update_required',
         lastError: { kind: event.kind, at: event.at },
       };
     case 'went_offline':
@@ -79,6 +82,7 @@ export const reduceSyncActivity = (state: SyncActivity, event: SyncEvent): SyncA
  */
 export const phaseOf = (state: SyncActivity): SyncPhase => {
   if (!state.connected) return 'offline';
+  if (state.outdated) return 'outdated';
   if (state.running && (!state.failing || state.requested)) return 'syncing';
   return state.failing ? 'error' : 'synced';
 };

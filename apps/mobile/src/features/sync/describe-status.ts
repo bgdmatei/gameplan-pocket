@@ -8,7 +8,7 @@ export type SyncStatusView = {
   line: string;
   /** The Library icon's VoiceOver label: the line, and what a tap does. */
   label: string;
-  /** One cloud family for all four states (owner, 2026-11-11). */
+  /** One cloud family for every state (owner, 2026-11-11). */
   icon: ComponentProps<typeof MaterialCommunityIcons>['name'];
   /** Turn the arrows while a sync runs (owner, 2026-11-11). */
   spinning: boolean;
@@ -43,28 +43,35 @@ export const describeSyncStatus = (
   const line =
     phase === 'offline'
       ? 'Offline'
-      : phase === 'error'
-        ? 'Sync failed, retrying'
-        : pending > 0
-          ? `Waiting to sync (${String(pending)} ${pending === 1 ? 'change' : 'changes'})`
-          : lastSyncedAt === null
-            ? 'Waiting to sync'
-            : `Synced ${syncedAgo(lastSyncedAt, now)}`;
+      : phase === 'outdated'
+        ? 'Update needed'
+        : phase === 'error'
+          ? 'Sync failed, retrying'
+          : pending > 0
+            ? `Waiting to sync (${String(pending)} ${pending === 1 ? 'change' : 'changes'})`
+            : lastSyncedAt === null
+              ? 'Waiting to sync'
+              : `Synced ${syncedAgo(lastSyncedAt, now)}`;
 
   const look: Pick<SyncStatusView, 'icon' | 'tint'> =
     phase === 'offline'
       ? { icon: 'cloud-off-outline', tint: 'warning' }
-      : phase === 'error'
-        ? { icon: 'cloud-outline', tint: 'danger' }
-        : phase === 'syncing' || pending > 0 || lastSyncedAt === null
-          ? // Running, or changes not yet safe: never the green "done".
-            { icon: 'cloud-sync-outline', tint: 'accent' }
-          : { icon: 'cloud-check-outline', tint: 'success' };
+      : phase === 'outdated'
+        ? { icon: 'cloud-outline', tint: 'warning' }
+        : phase === 'error'
+          ? { icon: 'cloud-outline', tint: 'danger' }
+          : phase === 'syncing' || pending > 0 || lastSyncedAt === null
+            ? // Running, or changes not yet safe: never the green "done".
+              { icon: 'cloud-sync-outline', tint: 'accent' }
+            : { icon: 'cloud-check-outline', tint: 'success' };
 
   const spoken = phase === 'syncing' ? 'Syncing' : line;
   return {
     line,
-    label: `${spoken}. Double-tap to sync now.`,
+    label:
+      phase === 'outdated'
+        ? 'Update needed. Update the app to sync again.'
+        : `${spoken}. Double-tap to sync now.`,
     spinning: phase === 'syncing',
     ...look,
   };

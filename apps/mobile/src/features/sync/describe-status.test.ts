@@ -22,6 +22,7 @@ describe('sync status wording', () => {
     // Offline and failing say so, whatever is queued.
     { phase: 'offline', lastSyncedAt: ago(2), pending: 3, line: 'Offline' },
     { phase: 'error', lastSyncedAt: ago(2), pending: 3, line: 'Sync failed, retrying' },
+    { phase: 'outdated', lastSyncedAt: ago(2), pending: 3, line: 'Update needed' },
   ])('$phase, $pending queued → $line', ({ phase, lastSyncedAt, pending, line }) => {
     expect(describeSyncStatus({ phase, lastSyncedAt, pending }, NOW).line).toBe(line);
   });
@@ -38,5 +39,8 @@ describe('sync status wording', () => {
   it('tells VoiceOver the state and what a tap does', () => {
     const view = describeSyncStatus({ phase: 'syncing', lastSyncedAt: null, pending: 0 }, NOW);
     expect(view.label).toBe('Syncing. Double-tap to sync now.');
+    expect(
+      describeSyncStatus({ phase: 'outdated', lastSyncedAt: null, pending: 0 }, NOW).label,
+    ).toBe('Update needed. Update the app to sync again.');
   });
 });

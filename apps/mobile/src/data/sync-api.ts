@@ -12,9 +12,10 @@ import type { SyncApi } from '@gameplan/sync';
  * - `signed_out`, `ended`: there is no sign-in to sync for; sync stops until
  *   the player signs in again.
  * - `offline`: no connection, a timeout or a 5xx; try again later.
+ * - `update_required`: the server no longer serves this build; sync stops until a newer one.
  * - `failed`: any other unusable answer, such as one that fails the contract.
  */
-export type SyncFailure = 'signed_out' | 'ended' | 'offline' | 'failed';
+export type SyncFailure = 'signed_out' | 'ended' | 'offline' | 'update_required' | 'failed';
 
 /** Thrown by the sync client: `syncOnce` takes a throwing transport (packages/sync). */
 export class SyncRequestError extends Error {
@@ -116,6 +117,7 @@ export const createSyncApi = ({
         throw new SyncRequestError('ended');
       }
     }
+    if (answer.status === 426) throw new SyncRequestError('update_required');
     if (answer.status >= 500) throw new SyncRequestError('offline');
     if (answer.status !== 200) throw new SyncRequestError('failed');
     const body = schema.safeParse(parseJson(answer.text));
