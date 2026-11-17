@@ -131,3 +131,39 @@ export const opSchema = z.union([
 ]);
 
 export type Op = z.output<typeof opSchema>;
+
+export const isSyncedEntity = (entity: string): entity is SyncedEntity =>
+  SYNCED_ENTITIES.some((known) => known === entity);
+
+/**
+ * Only the fields this build syncs for `entity` (ADR-017, additive changes):
+ * a field a newer app adds is ignored here, not refused, or one new field
+ * would stop every older phone syncing. The push door stays strict.
+ */
+export const knownFields = <T>(
+  entity: SyncedEntity,
+  record: Readonly<Record<string, T>>,
+): Record<string, T> =>
+  Object.fromEntries(
+    Object.entries(record).filter(([field]) => Object.hasOwn(SYNCED_FIELDS[entity], field)),
+  );
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+/**
+ * An op from a pull, with fields this build doesn't know dropped; null when
+ * it named fields and none of them are known, as there is nothing to apply.
+ * Anything else wrong with it, an empty set included, still throws.
+ */
+export const readPulledOp = (raw: unknown): Op | null => {
+  if (!isRecord(raw) || raw.type !== 'set' || typeof raw.entity !== 'string') {
+    return opSchema.parse(raw);
+  }
+  const { entity, fields } = raw;
+  if (!isSyncedEntity(entity) || !isRecord(fields) || Object.keys(fields).length === 0) {
+    return opSchema.parse(raw);
+  }
+  const known = knownFields(entity, fields);
+  return Object.keys(known).length === 0 ? null : opSchema.parse({ ...raw, fields: known });
+};

@@ -186,4 +186,65 @@ describe('syncOnce', () => {
       (await adapter.transaction((tx) => readSyncedRow(tx, SYNCED_ROWS.lists, 'l-1')))?.value,
     ).toMatchObject({ name: 'Co-op' });
   });
+
+  // ADR-017: a field a newer app adds must not stop an older one syncing.
+  // Before ADR-017 one unknown field failed the whole pull, every sync.
+  it('applies pulled data without fields this build does not know', async () => {
+    const adapter = await createMigratedNodeAdapter();
+    const env = fakeEnv();
+    const at = (counter: number) =>
+      formatHlc({ wallMs: env.now(), counter, nodeId: '3f9a2c1b7d4e8f60' });
+    const setList = (seq: number, fields: Record<string, unknown>) => ({
+      seq,
+      op: {
+        id: `01890a5d-ac96-774b-bcce-b302099a805${String(seq)}`,
+        entity: 'list',
+        entityId: 'l-1',
+        type: 'set',
+        fields,
+        hlc: at(seq),
+        schemaVersion: 1,
+      },
+    });
+    const { api } = emptyServer({
+      snapshot: async () => ({
+        rows: [
+          {
+            entity: 'list',
+            id: 'l-1',
+            fields: {
+              name: 'Co-op',
+              description: null,
+              createdAt: '2026-09-23T10:00:00Z',
+              colour: 'red',
+            },
+            fieldHlc: { name: at(1), description: at(1), createdAt: at(1), colour: at(1) },
+            deleted: false,
+          },
+        ],
+        seq: 1,
+        nextCursor: null,
+      }),
+      pull: async ({ after }) =>
+        after === 1
+          ? {
+              ops: [setList(2, { name: 'RPG', colour: 'blue' }), setList(3, { colour: 'green' })],
+              lastSeq: 3,
+              hasMore: false,
+            }
+          : { ops: [], lastSeq: after, hasMore: false },
+    });
+
+    await syncOnce({ adapter, env, api });
+
+    expect(await getSyncState(adapter)).toMatchObject({ bootstrapped: true, lastPulledSeq: 3 });
+    const row = await adapter.transaction((tx) => readSyncedRow(tx, SYNCED_ROWS.lists, 'l-1'));
+    expect(row?.value).toEqual({
+      id: 'l-1',
+      name: 'RPG',
+      description: null,
+      createdAt: '2026-09-23T10:00:00Z',
+    });
+    expect(row?.fieldHlc).not.toContain('colour');
+  });
 });

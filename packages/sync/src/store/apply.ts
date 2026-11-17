@@ -2,17 +2,13 @@ import { getSyncState, readSyncedRow, updateSyncState, writeRows } from '@gamepl
 import type { StorageAdapter, Transaction } from '@gameplan/storage';
 import type { SnapshotRow } from '@gameplan/contracts';
 import { receive } from '../clock/hlc';
-import { isDeleted, mergeOp, mergeRow } from '../merge/merge';
+import { DELETE_CLOCK, isDeleted, mergeOp, mergeRow } from '../merge/merge';
 import type { RowState } from '../merge/merge';
-import { SYNCED_ENTITIES, opSchema } from '../op/schema';
-import type { SyncedEntity } from '../op/schema';
+import { isSyncedEntity, knownFields, opSchema } from '../op/schema';
 import type { Op } from '../op/schema';
 import { SCHEMAS, codecFor, isoAt, parseClocks, storedEntity, stringifyClocks } from './entities';
 import type { StoredEntity, SyncEnv } from './entities';
 import { ensureNodeId } from './node-id';
-
-const isSyncedEntity = (entity: string): entity is SyncedEntity =>
-  SYNCED_ENTITIES.some((known) => known === entity);
 
 const withoutId = (value: object): Record<string, unknown> =>
   Object.fromEntries(Object.entries(value).filter(([field]) => field !== 'id'));
@@ -139,7 +135,17 @@ export const applySnapshot = async (
         fields: stored === null ? {} : withoutId(stored.value),
         clocks: parseClocks(stored?.fieldHlc),
       };
-      const merged = mergeRow(before, { fields: row.fields, clocks: row.fieldHlc });
+      // Fields a newer server sends are dropped with their clocks (ADR-017);
+      // the clock still learns every value it has seen.
+      const deletedAt = row.fieldHlc[DELETE_CLOCK];
+      const remote = {
+        fields: knownFields(row.entity, row.fields),
+        clocks: {
+          ...knownFields(row.entity, row.fieldHlc),
+          ...(deletedAt !== undefined && { [DELETE_CLOCK]: deletedAt }),
+        },
+      };
+      const merged = mergeRow(before, remote);
       for (const hlc of Object.values(row.fieldHlc)) clock = receive(clock, hlc, nowMs, nodeId);
       if (merged === before) continue;
 

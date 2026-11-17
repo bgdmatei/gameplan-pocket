@@ -13,7 +13,7 @@ import {
   updateSyncState,
 } from '@gameplan/storage';
 import type { Rejection, StorageAdapter } from '@gameplan/storage';
-import { opSchema } from '../op/schema';
+import { readPulledOp } from '../op/schema';
 import { createSingleFlight } from '../single-flight';
 import { applyRemoteOps, applySnapshot } from '../store/apply';
 import { isoAt } from '../store/entities';
@@ -118,7 +118,7 @@ const pullLog = async ({ adapter, env, api }: SyncDeps) => {
       const applied = await applyRemoteOps(
         adapter,
         env,
-        page.ops.map(({ op }) => opSchema.parse(op)),
+        page.ops.flatMap(({ op }) => readPulledOp(op) ?? []),
         { lastPulledSeq: page.lastSeq },
       );
       skipped += applied.skipped;
