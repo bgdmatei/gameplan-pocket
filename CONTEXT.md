@@ -10,7 +10,7 @@ The glossary of the game logbook: the words used in code, specs, issues and comm
 - **Now Playing**: the entries with status `playing`, shown as a row of image cards on the Library.
 - **Favourite**: a flag on an entry, independent of status. The Favourites filter shows favourites of any status.
 - **Archive**: entries the user has put away (`archived`); hidden from the Library, kept with their rating and notes. Entries are archived, never deleted.
-- **Rating**: the scale in ADR-020. **Progress**: the model in ADR-021.
+- **Rating**: an integer 0–100 shown as five stars in half steps (ADR-020, scale moved by ADR-017). **Progress**: the model in ADR-021.
 - **Tag**: a user label on an entry, stored normalised (trimmed, collapsed whitespace, lowercase, at most 32 characters).
 - **List**: a user-made collection of catalog games ("Co-op with friends"), which can include games the user doesn't track. Items are oldest first; manual ordering is deferred.
 
@@ -31,6 +31,11 @@ The glossary of the game logbook: the words used in code, specs, issues and comm
 - **Local write**: a change made on this device through `sync`'s commit functions, validated against domain rules.
 - **Device**: one install, registered at sign-in, with its own `deviceId` and HLC node id.
 - **`sync_state`**: per-device bookkeeping (owner, pull cursor, theme); never synced.
+- **Protocol version**: what an app can read, sent on every request (`X-Protocol-Version`). The server serves its own and the one before; outside that, it answers "update required" (ADR-017).
+- **Schema version**: the shape of one op's fields, carried on the op (`schemaVersion`).
+- **Upcast**: converting an older op to the current schema, at the server's door. **Downcast**: converting current data to an older schema, when serving an older app.
+- **Update needed**: the sync state of an app the server no longer serves. Sync stops; everything local keeps working and edits stay queued.
+- **Pinned client**: the sync code of an earlier commit, bundled into the repo, so tests run what installed phones run.
 
 ## Accounts
 

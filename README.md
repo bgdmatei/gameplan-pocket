@@ -188,6 +188,7 @@ The full reasoning is in [`docs/adr/`](docs/adr). In short:
 - **Hono rather than Fastify** (ADR-022): small, built on the web-standard Request and Response, and routes can be tested in memory without a server. Moving to an edge runtime later would mostly be a change of adapter.
 - **pnpm and Turborepo** (ADR-001): strict dependency resolution, so packages can't use what they don't declare, plus cached task graphs.
 - **Privacy rules set early, because they're cheap now and hard to retrofit.** Note text never leaves the phone except through sync: it is kept out of logs and error reports. Signing out erases the local database rather than just closing it, and the library covers stored for offline use with it. The server will accept only allowlisted columns from a client, and the user id always comes from the token.
+- **Old apps keep syncing after a breaking change** (ADR-017). Each request says which protocol the app reads and each op says which schema it is in. The server converts old ops on the way in, keeps only the current version, and converts back for an app one version behind. An app older than that stops syncing but keeps working offline. The first breaking change is the rating moving from 0–10 to 0–100.
 - **Few, meaningful tests** over a high count or a coverage target. Rules, invariants as property tests, attacks on every exposed surface, and every real bug pinned.
 
 ---
