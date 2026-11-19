@@ -10,6 +10,7 @@
 // the pin fails unless the commit's lockfile has those exact versions.
 // Re-pinning from another commit is ask-first (SPEC-schema-evolution.md).
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdtempSync,
@@ -133,15 +134,18 @@ try {
     tsconfigRaw: {},
     logLevel: 'warning',
   });
+  const [file] = result.outputFiles;
+  // The temp folder's name is random: without this, every re-pin would differ.
+  const text = file.text.replaceAll(path.relative(root, tree), `<${sha.slice(0, 7)}>`);
+  // compat/pinned-bundle.test.ts recomputes it, so any edit after pinning fails the tests.
+  const bodySha = createHash('sha256').update(text).digest('hex');
   const header = [
     '// GENERATED: the phone sync client pinned for the N-1 test (ADR-017). Do not edit.',
     `// Commit ${sha} (protocol ${protocol}).`,
     `// Rebuild: node scripts/pin-client.mjs ${sha.slice(0, 7)} ${protocol}`,
+    `// Body SHA-256: ${bodySha}`,
     '',
   ].join('\n');
-  const [file] = result.outputFiles;
-  // The temp folder's name is random: without this, every re-pin would differ.
-  const text = file.text.replaceAll(path.relative(root, tree), `<${sha.slice(0, 7)}>`);
   writeFileSync(out, header + text);
   console.log(`Pinned ${sha.slice(0, 7)} → ${path.relative(root, out)}`);
 } finally {

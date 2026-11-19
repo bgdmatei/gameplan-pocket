@@ -47,6 +47,12 @@ export const createTestDatabase = async ({
   migratedTo?: string;
 } = {}): Promise<TestDatabase> => {
   const serverUrl = inject('databaseUrl');
+  // Undefined under the root Vitest, which surfaced as an unrelated SASL password error.
+  if (typeof serverUrl !== 'string') {
+    throw new Error(
+      "No test database: run the API's tests from apps/api (pnpm --filter api test, or vitest inside apps/api), where globalSetup starts it.",
+    );
+  }
   const name = `test_${randomUUID().replaceAll('-', '')}`;
 
   const admin = new pg.Client({ connectionString: serverUrl });

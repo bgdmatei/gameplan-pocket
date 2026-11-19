@@ -5,6 +5,12 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import boundaries from 'eslint-plugin-boundaries';
 
+/** Spread into any config that sets its own no-restricted-syntax, which replaces this one. */
+export const CONST_ARROW_ONLY = {
+  selector: 'VariableDeclarator > FunctionExpression',
+  message: 'Use a const arrow function.',
+};
+
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 export default tseslint.config(
@@ -49,6 +55,10 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/consistent-type-imports': 'error',
+      // Every function and component is a const arrow (owner's convention).
+      'func-style': ['error', 'expression'],
+      'prefer-arrow-callback': 'error',
+      'no-restricted-syntax': ['error', CONST_ARROW_ONLY],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'boundaries/dependencies': [
         'error',

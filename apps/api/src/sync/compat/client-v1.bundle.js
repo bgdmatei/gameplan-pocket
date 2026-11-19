@@ -1,6 +1,7 @@
 // GENERATED: the phone sync client pinned for the N-1 test (ADR-017). Do not edit.
 // Commit 89012c4f28fbe9acef64e4772e5cc4d0b17019a7 (protocol 1).
 // Rebuild: node scripts/pin-client.mjs 89012c4 1
+// Body SHA-256: 5da4a0302d1856aa2242f0e94fb39e7e33f35ce9b5dcf811b5a8daf155aebe6d
 var __defProp = Object.defineProperty;
 var __export = (target, all) => {
   for (var name in all)
