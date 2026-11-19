@@ -13,6 +13,9 @@ const ALG = 'HS256';
 /** What an access token proves. `user_id` comes from here and nowhere else. */
 export type AccessClaims = { userId: string; deviceId: string };
 
+/** A checked token's claims, and how long it has left on the clock that checked it. */
+export type VerifiedClaims = AccessClaims & { expiresInMs: number };
+
 export const signAccessToken = async (
   claims: AccessClaims,
   { secret, nowMs }: { secret: string; nowMs: number },
@@ -40,7 +43,7 @@ export const verifyAccessToken = async (
   token: string,
   secret: string,
   nowMs: number,
-): Promise<AccessClaims | null> => {
+): Promise<VerifiedClaims | null> => {
   try {
     const payload = await verify(token, secret, {
       alg: ALG,
@@ -52,7 +55,7 @@ export const verifyAccessToken = async (
     const { sub, did, exp } = payload;
     if (typeof exp !== 'number' || exp * 1000 <= nowMs) return null;
     return typeof sub === 'string' && typeof did === 'string'
-      ? { userId: sub, deviceId: did }
+      ? { userId: sub, deviceId: did, expiresInMs: exp * 1000 - nowMs }
       : null;
   } catch {
     return null;

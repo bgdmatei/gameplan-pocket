@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { Hono } from 'hono';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createTestApp } from '../../testing/auth';
@@ -29,7 +30,11 @@ describe('poke fan-out', () => {
 
   const heard = (hub: PokeHub, userId: string): number[] => {
     const seqs: number[] = [];
-    hub.register(userId, (seq) => seqs.push(seq));
+    hub.register(userId, {
+      deviceId: randomUUID(),
+      poke: (seq) => seqs.push(seq),
+      close: () => undefined,
+    });
     return seqs;
   };
 

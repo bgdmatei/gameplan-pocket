@@ -16,11 +16,32 @@ export const createSyncTestKit = (t: TestAuth & { app: Hono }) => {
   let accounts = 0;
   let counter = 0;
 
-  const account = async (): Promise<{ token: string; userId: string }> => {
+  /**
+   * `n` devices signed in to one new account, oldest first. Each device gets
+   * its own node id (a reused one is `device_conflict`), and the clock moves
+   * a minute between sign-ins (one code a minute per address).
+   */
+  const devices = async (n: number): Promise<{ userId: string; tokens: string[] }> => {
     accounts += 1;
-    const node = `beef${String(accounts).padStart(12, '0')}`;
-    const session = await signIn(t, `sync-${accounts}-${randomUUID()}@example.com`, node);
-    return { token: session.accessToken, userId: session.user.id };
+    const email = `sync-${accounts}-${randomUUID()}@example.com`;
+    const tokens: string[] = [];
+    let userId = '';
+    for (let device = 0; device < n; device += 1) {
+      if (device > 0) t.clock.advance(61_000);
+      const node = randomUUID().replaceAll('-', '').slice(0, 16);
+      const session = await signIn(t, email, node);
+      tokens.push(session.accessToken);
+      userId = session.user.id;
+    }
+    return { userId, tokens };
+  };
+
+  const account = async (): Promise<{ token: string; userId: string }> => {
+    const {
+      userId,
+      tokens: [token = ''],
+    } = await devices(1);
+    return { token, userId };
   };
 
   /** A clock just after the last one, near the service's own time. */
@@ -64,5 +85,5 @@ export const createSyncTestKit = (t: TestAuth & { app: Hono }) => {
     return { status: response.status, body: (await response.json()) as unknown };
   };
 
-  return { account, nextHlc, setOp, deleteOp, push, get };
+  return { account, devices, nextHlc, setOp, deleteOp, push, get };
 };

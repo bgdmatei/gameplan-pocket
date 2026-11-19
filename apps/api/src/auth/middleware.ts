@@ -1,10 +1,10 @@
 import type { ErrorResponse } from '@gameplan/contracts';
 import { createMiddleware } from 'hono/factory';
 import type { AuthService } from './service';
-import type { AccessClaims } from './tokens';
+import type { VerifiedClaims } from './tokens';
 
 /** What `requireUser` puts on the context for the handlers behind it. */
-export type UserVariables = { user: AccessClaims };
+export type UserVariables = { user: VerifiedClaims };
 
 const BEARER = /^Bearer (\S+)$/;
 

@@ -64,7 +64,7 @@ export const createSyncRoutes = (
   });
 
   routes.get('/events', (c) => {
-    const { userId } = c.get('user');
+    const { userId, deviceId, expiresInMs } = c.get('user');
     return streamSSE(c, async (stream) => {
       // The opening read can finish after a live poke for a later push: only ever send higher.
       let sent = -1;
@@ -73,18 +73,26 @@ export const createSyncRoutes = (
         sent = seq;
         void stream.writeSSE({ event: POKE_EVENT, data: JSON.stringify({ seq } satisfies Poke) });
       };
-      const closed = new Promise<void>((resolve) => stream.onAbort(resolve));
+      // Ends on the client leaving, the hub replacing it, or the token expiring;
+      // the phone reconnects with a fresh token.
+      let end = (): void => undefined;
+      const ended = new Promise<void>((resolve) => {
+        end = resolve;
+      });
+      stream.onAbort(end);
+      const expiry = setTimeout(end, expiresInMs);
       // Registered before reading the position: a push committing in between is still heard.
-      const unregister = pokes.register(userId, poke);
+      const unregister = pokes.register(userId, { deviceId, poke, close: end });
       const heartbeat = setInterval(() => void stream.write(':\n\n'), HEARTBEAT_MS);
       try {
         poke(await sync.lastSeq(userId));
-        await closed;
+        await ended;
       } catch (error) {
         logger.warn(
           `sync events stream failed: ${error instanceof Error ? error.name : 'unknown'}`,
         );
       } finally {
+        clearTimeout(expiry);
         clearInterval(heartbeat);
         unregister();
       }

@@ -5,7 +5,8 @@ import { serve } from '@hono/node-server';
 import type { ServerType } from '@hono/node-server';
 import type { Hono } from 'hono';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { createTestApp, signIn } from '../../testing/auth';
+import { ACCESS_TOKEN_TTL_MS } from '../../auth/tokens';
+import { createTestApp } from '../../testing/auth';
 import type { TestAuth } from '../../testing/auth';
 import { createSyncTestKit } from '../../testing/sync';
 import type { SyncTestKit } from '../../testing/sync';
@@ -51,16 +52,21 @@ describe('GET /sync/events', () => {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let text = '';
+    let ended = false;
     void (async () => {
       for (;;) {
         const { done, value } = await reader.read();
-        if (done) return;
+        if (done) {
+          ended = true;
+          return;
+        }
         text += decoder.decode(value, { stream: true });
       }
     })();
     const stream = {
       status: response.status,
       text: () => text,
+      ended: () => ended,
       pokes: () =>
         [...text.matchAll(POKE)].map((match) => pokeSchema.parse(JSON.parse(match[1] ?? '')).seq),
       close: () => reader.cancel(),
@@ -69,15 +75,11 @@ describe('GET /sync/events', () => {
     return stream;
   };
 
-  /** Two devices signed in to one new account. */
   const twoDevices = async () => {
-    const email = `events-${randomUUID()}@example.com`;
-    const node = () => randomUUID().replaceAll('-', '').slice(0, 16);
-    const one = await signIn(t, email, node());
-    // One code a minute per address.
-    t.clock.advance(61_000);
-    const two = await signIn(t, email, node());
-    return { one: one.accessToken, two: two.accessToken };
+    const {
+      tokens: [one = '', two = ''],
+    } = await kit.devices(2);
+    return { one, two };
   };
 
   const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -92,6 +94,31 @@ describe('GET /sync/events', () => {
 
     await kit.push(one, [kit.setOp('list', 'l-2', { name: 'RPG' })]);
     await vi.waitFor(() => expect(stream.pokes()).toEqual([1, 2]));
+  });
+
+  it('closes a stream when its token expires, and refuses that token after', async () => {
+    const { two } = await twoDevices();
+    t.clock.advance(ACCESS_TOKEN_TTL_MS - 1_000);
+
+    const stream = await open(bearer(two));
+    expect(stream.status).toBe(200);
+    await vi.waitFor(() => expect(stream.ended()).toBe(true), { timeout: 3_000 });
+
+    t.clock.advance(1_000);
+    expect((await open(bearer(two))).status).toBe(401);
+  });
+
+  it("ends a device's older stream when it opens a new one", async () => {
+    const { one, two } = await twoDevices();
+    const older = await open(bearer(two));
+    await vi.waitFor(() => expect(older.pokes()).toEqual([0]));
+
+    const newer = await open(bearer(two));
+    await vi.waitFor(() => expect(older.ended()).toBe(true));
+
+    await kit.push(one, [kit.setOp('list', 'l-1', { name: 'Co-op' })]);
+    await vi.waitFor(() => expect(newer.pokes()).toEqual([0, 1]));
+    expect(newer.ended()).toBe(false);
   });
 
   it('refuses a missing or forged token, and an app below the served protocol', async () => {

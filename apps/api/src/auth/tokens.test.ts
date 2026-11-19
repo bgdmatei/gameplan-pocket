@@ -8,9 +8,13 @@ const base64url = (value: object): string =>
   Buffer.from(JSON.stringify(value)).toString('base64url');
 
 describe('access tokens', () => {
-  it('a token signed now verifies to the same user and device', async () => {
-    const { token } = await signAccessToken(claims, { secret, nowMs: Date.now() });
-    expect(await verifyAccessToken(token, secret, Date.now())).toEqual(claims);
+  it('a token signed now verifies to the same user and device, with its time left', async () => {
+    const now = Date.now();
+    const { token, expiresAt } = await signAccessToken(claims, { secret, nowMs: now });
+    expect(await verifyAccessToken(token, secret, now)).toEqual({
+      ...claims,
+      expiresInMs: expiresAt.getTime() - now,
+    });
   });
 
   // Attack 8 (unit half): each of these must be refused.
