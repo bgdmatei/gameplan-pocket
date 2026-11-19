@@ -25,6 +25,8 @@ export {
 } from './catalog';
 export type { ErrorResponse, GameResponse, GamesResponse, ReferenceResponse } from './catalog';
 export { HEADERS, PROTOCOL_VERSION } from './protocol';
+export { POKE_EVENT, pokeSchema } from './sync-events';
+export type { Poke } from './sync-events';
 export {
   REJECTION_REASONS,
   SYNC_LIMITS,

@@ -16,7 +16,7 @@ import type { Database } from '../db/schema';
 import { createSyncRepository } from '../sync/repository';
 import { createSyncService } from '../sync/service';
 import type { ProtocolRange } from '../version-gate';
-import { createTestDb } from './database';
+import { createTestDatabase, createTestDb } from './database';
 
 export const TEST_SECRETS = { jwt: 'j'.repeat(32), code: 'c'.repeat(32) } as const;
 export const TEST_API_KEY = 'test-api-key-0123456789';
@@ -75,9 +75,11 @@ export const createTestApp = async ({
   protocols,
   ...options
 }: TestAuthOptions & { corsOrigins?: readonly string[]; protocols?: ProtocolRange } = {}): Promise<
-  TestAuth & { app: Hono }
+  TestAuth & { app: Hono; dbUrl: string }
 > => {
-  const testAuth = await createTestAuth(undefined, options);
+  const database = await createTestDatabase();
+  await database.migrator.destroy();
+  const testAuth = await createTestAuth(database.app, options);
   const logger = { warn: (line: string) => testAuth.logs.push(line) };
   const igdb = createFakeIgdb([], { genres: [], platforms: [] });
   const catalog = createCatalogService({
@@ -99,7 +101,7 @@ export const createTestApp = async ({
     apiKey: TEST_API_KEY,
     ...(protocols !== undefined && { protocols }),
   });
-  return { ...testAuth, app };
+  return { ...testAuth, app, dbUrl: database.appUrl };
 };
 
 /**
