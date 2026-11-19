@@ -1,3 +1,4 @@
+import { createPokeHub } from '../sync/events/hub';
 import { createSyncRepository } from '../sync/repository';
 import { createSyncService } from '../sync/service';
 import {
@@ -48,6 +49,7 @@ describe('catalog routes', () => {
       catalog: createCatalogService({ repository, igdb: igdb.client, logger }),
       auth: (await createTestAuth(db)).auth,
       sync: createSyncService({ repository: createSyncRepository(db), logger, now: Date.now }),
+      pokes: createPokeHub(),
       corsOrigins: [],
       logger,
       apiKey: API_KEY,

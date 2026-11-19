@@ -9,6 +9,7 @@ import { createCatalogRoutes } from './catalog/routes';
 import type { CatalogService } from './catalog/service';
 import { createCors } from './cors';
 import type { Logger } from './logger';
+import type { PokeHub } from './sync/events/hub';
 import { createSyncRoutes } from './sync/routes';
 import type { SyncService } from './sync/service';
 import { SERVED_PROTOCOLS, createVersionGate } from './version-gate';
@@ -18,6 +19,7 @@ export type AppDependencies = {
   catalog: CatalogService;
   auth: AuthService;
   sync: SyncService;
+  pokes: PokeHub;
   /** Origins browsers may call from (`CORS_ORIGINS`); empty until the web app exists. */
   corsOrigins: readonly string[];
   logger: Logger;
@@ -44,6 +46,7 @@ export const createApp = ({
   catalog,
   auth,
   sync,
+  pokes,
   corsOrigins,
   logger,
   apiKey,
@@ -66,7 +69,7 @@ export const createApp = ({
   });
   app.route('/catalog', createCatalogRoutes(catalog));
   app.route('/auth', createAuthRoutes(auth));
-  app.route('/sync', createSyncRoutes(sync, auth, protocols));
+  app.route('/sync', createSyncRoutes(sync, auth, protocols, { pokes, logger }));
   app.get('/me', requireUser(auth), async (c) => {
     const me = await auth.me(c.get('user'));
     if (me === null) return c.json({ error: 'unauthorized' } satisfies ErrorResponse, 401);

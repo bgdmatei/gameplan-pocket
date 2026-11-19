@@ -10,6 +10,8 @@ import { createDb } from './db/client';
 import { assertAppRole } from './db/roles';
 import { loadDotEnv, readEnv } from './env';
 import { consoleLogger } from './logger';
+import { createPokeHub } from './sync/events/hub';
+import { createPokeListener } from './sync/events/listener';
 import { createSyncRepository } from './sync/repository';
 import { createSyncService } from './sync/service';
 
@@ -21,6 +23,14 @@ const logger = consoleLogger;
 const db = createDb(env.DATABASE_URL);
 try {
   await assertAppRole(db);
+  if (env.LISTEN_DATABASE_URL !== undefined) {
+    const listenDb = createDb(env.LISTEN_DATABASE_URL);
+    try {
+      await assertAppRole(listenDb, 'LISTEN_DATABASE_URL');
+    } finally {
+      await listenDb.destroy();
+    }
+  }
 } catch (error) {
   console.error(error instanceof Error ? error.message : 'The database role check failed.');
   await db.destroy();
@@ -55,11 +65,28 @@ const sync = createSyncService({
   now: () => Date.now(),
 });
 
+const pokes = createPokeHub();
+const listener = createPokeListener({
+  connectionString: env.LISTEN_DATABASE_URL ?? env.DATABASE_URL,
+  hub: pokes,
+  logger,
+});
+try {
+  await listener.start();
+} catch (error) {
+  console.error(
+    `The poke listener could not start: ${error instanceof Error ? error.name : 'unknown'}.`,
+  );
+  await db.destroy();
+  process.exit(1);
+}
+
 serve({
   fetch: createApp({
     catalog,
     auth,
     sync,
+    pokes,
     corsOrigins: env.CORS_ORIGINS,
     logger,
     apiKey: env.CATALOG_API_KEY,

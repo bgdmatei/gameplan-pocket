@@ -13,6 +13,8 @@ import { createFakeIgdb } from '../catalog/igdb/fake';
 import { createCatalogRepository } from '../catalog/repository';
 import { createCatalogService } from '../catalog/service';
 import type { Database } from '../db/schema';
+import { createPokeHub } from '../sync/events/hub';
+import type { PokeHub } from '../sync/events/hub';
 import { createSyncRepository } from '../sync/repository';
 import { createSyncService } from '../sync/service';
 import type { ProtocolRange } from '../version-gate';
@@ -75,7 +77,7 @@ export const createTestApp = async ({
   protocols,
   ...options
 }: TestAuthOptions & { corsOrigins?: readonly string[]; protocols?: ProtocolRange } = {}): Promise<
-  TestAuth & { app: Hono; dbUrl: string }
+  TestAuth & { app: Hono; dbUrl: string; pokes: PokeHub }
 > => {
   const database = await createTestDatabase();
   await database.migrator.destroy();
@@ -92,16 +94,18 @@ export const createTestApp = async ({
     logger,
     now: testAuth.clock.now,
   });
+  const pokes = createPokeHub();
   const app = createApp({
     catalog,
     auth: testAuth.auth,
     sync,
+    pokes,
     corsOrigins,
     logger,
     apiKey: TEST_API_KEY,
     ...(protocols !== undefined && { protocols }),
   });
-  return { ...testAuth, app, dbUrl: database.appUrl };
+  return { ...testAuth, app, dbUrl: database.appUrl, pokes };
 };
 
 /**

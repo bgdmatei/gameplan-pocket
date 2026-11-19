@@ -21,6 +21,8 @@ const optionalString = z
 const envSchema = z
   .object({
     DATABASE_URL: z.string().min(1),
+    // A direct (unpooled) URL for the poke listener: a transaction-mode pooler can't LISTEN (ADR-012).
+    LISTEN_DATABASE_URL: optionalString,
     TWITCH_CLIENT_ID: z.string().min(1),
     TWITCH_CLIENT_SECRET: z.string().min(1),
     // Long enough that guessing it is not worth trying; see AppDependencies.apiKey.

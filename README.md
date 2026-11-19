@@ -92,9 +92,9 @@ The iOS simulator passes on the Mac's network changes late or not at all, so che
 2. From Neon's **Connect** dialog: the owner role's direct connection string (pooling off), and the pooled host (with `-pooler`).
 3. In a terminal, export three URLs, without writing them to a file: `ADMIN_DATABASE_URL` (the owner, direct), `MIGRATION_DATABASE_URL` (`gameplan_migrator`, the direct host) and `DATABASE_URL` (`gameplan_app`, the pooled host), each ending in `?sslmode=require`. Variables you don't export fall back to `apps/api/.env`, so check all three point at Neon first.
 4. `pnpm --filter api db:roles`, then `pnpm --filter api migrate`, then unset the three.
-5. In Render, set `DATABASE_URL` (app, pooled) and `MIGRATION_DATABASE_URL` (migrator, direct). `ADMIN_DATABASE_URL` never goes to Render.
+5. In Render, set `DATABASE_URL` (app, pooled), `LISTEN_DATABASE_URL` (app, direct: the poke listener, since a pooled connection can't `LISTEN`; ADR-012) and `MIGRATION_DATABASE_URL` (migrator, direct). `ADMIN_DATABASE_URL` never goes to Render.
 
-Each deploy migrates as `gameplan_migrator`, then starts the API without that credential in its environment. The API refuses to start unless `DATABASE_URL` connects as `gameplan_app`.
+Each deploy migrates as `gameplan_migrator`, then starts the API without that credential in its environment. The API refuses to start unless `DATABASE_URL` and `LISTEN_DATABASE_URL` connect as `gameplan_app`.
 
 ## Running the tests
 

@@ -27,6 +27,8 @@ export type SyncRepository = {
     userId: string,
     query: { cursor: SnapshotCursor | undefined; limit: number },
   ) => Promise<{ rows: SnapshotRow[]; seq: number; next: SnapshotCursor | null }>;
+  /** The user's log position; 0 before their first push. */
+  lastSeq: (userId: string) => Promise<number>;
 };
 
 type Row = Record<string, unknown>;
@@ -105,6 +107,15 @@ const readRow = async (
     WHERE user_id = ${userId} AND id = ${id}`.execute(tx);
   return rows[0];
 };
+
+const readLastSeq = async (db: Kysely<Database>, userId: string): Promise<number> =>
+  (
+    await db
+      .selectFrom('user_sync')
+      .select('last_seq')
+      .where('user_id', '=', userId)
+      .executeTakeFirst()
+  )?.last_seq ?? 0;
 
 export const createSyncRepository = (db: Kysely<Database>): SyncRepository => ({
   push: (userId, ops) =>
@@ -205,16 +216,7 @@ export const createSyncRepository = (db: Kysely<Database>): SyncRepository => ({
   },
 
   snapshot: async (userId, { cursor, limit }) => {
-    const seq =
-      cursor?.seq ??
-      (
-        await db
-          .selectFrom('user_sync')
-          .select('last_seq')
-          .where('user_id', '=', userId)
-          .executeTakeFirst()
-      )?.last_seq ??
-      0;
+    const seq = cursor?.seq ?? (await readLastSeq(db, userId));
 
     // Keyset over (entity, id): the rest of the cursor's table, then each
     // later table from the start. One extra row says whether there is more.
@@ -254,4 +256,6 @@ export const createSyncRepository = (db: Kysely<Database>): SyncRepository => ({
           : null,
     };
   },
+
+  lastSeq: (userId) => readLastSeq(db, userId),
 });

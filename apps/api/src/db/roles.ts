@@ -75,7 +75,7 @@ export const grantRoles = async (admin: Admin, database: string): Promise<void> 
  * (directly, or switched with SET ROLE) would otherwise run with DDL rights,
  * and nothing would show it.
  */
-export const assertAppRole = async <T>(db: Kysely<T>): Promise<void> => {
+export const assertAppRole = async <T>(db: Kysely<T>, name = 'DATABASE_URL'): Promise<void> => {
   const { rows } = await sql<{ login: string; ddl: boolean }>`
     SELECT session_user AS login,
            has_schema_privilege('public', 'CREATE')
@@ -83,9 +83,7 @@ export const assertAppRole = async <T>(db: Kysely<T>): Promise<void> => {
   `.execute(db);
   const login = rows[0]?.login;
   if (login !== APP_ROLE) {
-    throw new Error(
-      `DATABASE_URL connects as ${String(login)}, not ${APP_ROLE}. Refusing to start.`,
-    );
+    throw new Error(`${name} connects as ${String(login)}, not ${APP_ROLE}. Refusing to start.`);
   }
   if (rows[0]?.ddl !== false) {
     throw new Error(`${APP_ROLE} can change the schema. Refusing to start.`);
