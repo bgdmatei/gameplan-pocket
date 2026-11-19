@@ -36,6 +36,7 @@ The glossary of the game logbook: the words used in code, specs, issues and comm
 - **Upcast**: converting an older op to the current schema, at the server's door. **Downcast**: converting current data to an older schema, when serving an older app.
 - **Update needed**: the sync state of an app the server no longer serves. Sync stops; everything local keeps working and edits stay queued.
 - **Pinned client**: the sync code of an earlier commit, bundled into the repo, so tests run what installed phones run.
+- **Poke**: a message on a device's open stream (`/sync/events`) saying its account's log now reaches `seq`, and nothing more. A device behind that position syncs as usual (ADR-011, ADR-012).
 
 ## Accounts
 
