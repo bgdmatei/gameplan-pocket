@@ -12,6 +12,8 @@ export type PokeHub = {
   /** Returns the unregister function. */
   register: (userId: string, stream: PokeStream) => () => void;
   deliver: (userId: string, seq: number) => void;
+  /** Accounts with at least one open stream. */
+  accounts: () => string[];
 };
 
 /**
@@ -24,6 +26,7 @@ export const createPokeHub = (): PokeHub => {
   const streams = new Map<string, Set<PokeStream>>();
 
   return {
+    accounts: () => [...streams.keys()],
     register: (userId, stream) => {
       const own = streams.get(userId) ?? new Set();
       streams.set(userId, own);

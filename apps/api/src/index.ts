@@ -70,6 +70,7 @@ const listener = createPokeListener({
   connectionString: env.LISTEN_DATABASE_URL ?? env.DATABASE_URL,
   hub: pokes,
   logger,
+  currentSeq: sync.lastSeq,
 });
 try {
   await listener.start();

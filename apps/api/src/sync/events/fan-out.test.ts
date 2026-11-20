@@ -1,10 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { Hono } from 'hono';
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createTestApp } from '../../testing/auth';
 import type { TestAuth } from '../../testing/auth';
 import { createSyncTestKit } from '../../testing/sync';
 import type { SyncTestKit } from '../../testing/sync';
+import { createSyncRepository } from '../repository';
+import { POKE_CHANNEL } from './channel';
 import { createPokeHub } from './hub';
 import type { PokeHub } from './hub';
 import { createPokeListener } from './listener';
@@ -22,6 +25,7 @@ describe('poke fan-out', () => {
       connectionString: t.dbUrl,
       hub,
       logger: { warn: (line) => t.logs.push(line) },
+      currentSeq: createSyncRepository(t.db).lastSeq,
     });
     await listener.start();
     instances.push({ hub, listener });
@@ -94,5 +98,40 @@ describe('poke fan-out', () => {
       expect(onFirst).toEqual([1]);
       expect(onSecond).toEqual([1]);
     });
+  });
+
+  it('reconnects after losing its connection, and re-pokes for a push made meanwhile', async () => {
+    const hub = await instance();
+    const a = await kit.account();
+    const toA = heard(hub, a.userId);
+    const lost = () => t.logs.filter((line) => line.includes('connection lost')).length;
+    const before = lost();
+
+    await sql`
+      SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+      WHERE datname = current_database() AND query = ${`LISTEN ${POKE_CHANNEL}`}`.execute(t.db);
+    await vi.waitFor(() => expect(lost()).toBeGreaterThan(before));
+    // Reconnecting waits at least half a second: this push's notification has no one to hear it.
+    await kit.push(a.token, [kit.setOp('list', 'a-1', { name: 'A' })]);
+
+    await vi.waitFor(() => expect(toA).toEqual([1]), { timeout: 3_000 });
+  });
+
+  // A failed connect also emits 'end': it once scheduled a second retry beside
+  // the caller's, so retries multiplied while the database was down.
+  it('leaves nothing retrying behind a start that failed', async () => {
+    const logs: string[] = [];
+    const listener = createPokeListener({
+      connectionString: 'postgres://nobody:nothing@127.0.0.1:1/none',
+      hub: createPokeHub(),
+      logger: { warn: (line) => logs.push(line) },
+      currentSeq: async () => 0,
+    });
+
+    await expect(listener.start()).rejects.toThrow();
+    // Past the longest first backoff (1 s).
+    await new Promise((resolve) => setTimeout(resolve, 1_200));
+
+    expect(logs).toEqual([]);
   });
 });

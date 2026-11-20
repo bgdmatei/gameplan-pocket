@@ -11,6 +11,7 @@ import type { TestAuth } from '../../testing/auth';
 import { createSyncTestKit } from '../../testing/sync';
 import type { SyncTestKit } from '../../testing/sync';
 import type { PokeHub } from './hub';
+import { createSyncRepository } from '../repository';
 import { createPokeListener } from './listener';
 import type { PokeListener } from './listener';
 
@@ -31,6 +32,7 @@ describe('GET /sync/events', () => {
       connectionString: t.dbUrl,
       hub: t.pokes,
       logger: { warn: () => undefined },
+      currentSeq: createSyncRepository(t.db).lastSeq,
     });
     await listener.start();
     // A real server, not app.request: node-server could buffer a stream that Hono doesn't.
