@@ -74,14 +74,6 @@ The library starts empty. Either search for a game and add it, or open **Library
 
 Signing in is optional; the app works fully signed out. To try it, go to **Account**, enter any email, and copy the 6-digit code from the API's terminal.
 
-### 5. Sync two devices
-
-Run two simulators, or a simulator and a phone, against the same API, and sign in to the same email on both. Sync runs on its own: at launch and on returning to the app, when the network comes back, 2 s after an edit, and every 5 minutes while open. The cloud in the Library header shows its state; tap it to sync now. An edit on one device shows on the other once that one comes to the foreground.
-
-**Debug → Sync check** runs one sync by hand and prints what it pushed, pulled and skipped. **Debug → Outbox** lists ops waiting to go and ops the server refused. Don't sync a library filled by **Seed**: its entries don't use the ids sync expects.
-
-The iOS simulator passes on the Mac's network changes late or not at all, so check offline behaviour (airplane mode) on a phone.
-
 ---
 
 ### Staging (Render and Neon)
@@ -118,6 +110,7 @@ There are deliberately few tests, and each one pins a rule that could actually b
 - **Domain rules**, such as status transitions and the rating scale, as table-driven tests.
 - **Sync convergence as property tests** (fast-check). Random sequences of edits, applied in any order on any number of simulated devices, must end in the same state. Merges are idempotent and commutative, and a delete beats a concurrent edit only when it should.
 - **A storage contract**: one suite that any `StorageAdapter` must pass. It runs against Node's SQLite in CI and against op-sqlite on the phone (next section).
+- **Pokes end to end**, against real Postgres and a real HTTP server: a push on one device reaches another device's stream, a second API instance, and a listener whose connection was killed. Another account hears nothing, and after a note is pushed the stream's raw bytes hold only positions and heartbeats.
 - **The API against real Postgres**, including attacks rather than just the happy path. A known and an unknown email get exactly the same answer. A code sent to one address can't sign in another. Another account's device id is refused. A replayed refresh token revokes its whole family. No log line contains an email, a code or a token.
 - **The previous app against the current server** (ADR-017). `apps/api/src/sync/compat/client-v1.bundle.js` is the phone's sync code as an earlier commit built it. A test signs it and today's client in to one account and checks they stay in step. It is generated, and only re-pinned on purpose: `node scripts/pin-client.mjs <commit> <protocol>`. Its header records a hash of the bundled code, and a test fails if that code changes any other way.
 - **Regressions**: a test that a real bug once caused says so in a comment.
@@ -154,7 +147,7 @@ Node's SQLite is more forgiving than the phone's: FTS5 is built into Node but ha
 ```
 apps/
   mobile/       Expo Router app (SDK 57): screens, features, UI kit
-  api/          Hono API: IGDB proxy with a Postgres cache, email-code auth, sync push
+  api/          Hono API: IGDB proxy with a Postgres cache, email-code auth, sync, poke stream
 packages/
   domain/       Entities and rules. Pure TypeScript: no React, no I/O, no clock
   sync/         Hybrid logical clock, ops, per-field merges, the local write path, the sync loop
@@ -189,6 +182,7 @@ The full reasoning is in [`docs/adr/`](docs/adr). In short:
 - **Hono rather than Fastify** (ADR-022): small, built on the web-standard Request and Response, and routes can be tested in memory without a server. Moving to an edge runtime later would mostly be a change of adapter.
 - **pnpm and Turborepo** (ADR-001): strict dependency resolution, so packages can't use what they don't declare, plus cached task graphs.
 - **Privacy rules set early, because they're cheap now and hard to retrofit.** Note text never leaves the phone except through sync: it is kept out of logs and error reports. Signing out erases the local database rather than just closing it, and the library covers stored for offline use with it. The server will accept only allowlisted columns from a client, and the user id always comes from the token.
+- **Poke, then pull** (ADR-011, 012). The server tells an open app only that the account's log has moved on (`{ seq }`, over Server-Sent Events), and the app runs its normal sync. Data keeps one path, so realtime adds no new way for state to change and no new merge. A push notifies through Postgres `LISTEN/NOTIFY`, which every API instance hears, so no broker is needed yet. A stream that drops reconnects, and the first poke on every connection carries the current position, so nothing is missed, only delayed.
 - **Old apps keep syncing after a breaking change** (ADR-017). Each request says which protocol the app reads and each op says which schema it is in. The server converts old ops on the way in, keeps only the current version, and converts back for an app one version behind. An app older than that stops syncing but keeps working offline. The first breaking change is the rating moving from 0–10 to 0–100.
 - **Few, meaningful tests** over a high count or a coverage target. Rules, invariants as property tests, attacks on every exposed surface, and every real bug pinned.
 
@@ -198,8 +192,8 @@ The full reasoning is in [`docs/adr/`](docs/adr). In short:
 
 The project is planned as 15 modules (foundation → domain → storage → sync core → catalog → mobile library → auth → visual design → sync transport → realtime → conflicts → schema evolution → Steam import → stats → web).
 
-**Done:** the foundation, domain model, storage adapter, offline sync core, catalog service, the mobile library app (search, library grid and filters, favourites, game detail, notes, archive), auth, the visual design (image-led covers, Fraunces headlines, frosted chrome, a floating tab bar, and light and dark themes with a switch in Account), and sync between devices: a server op log with push, pull and snapshot, per-field merges on the server with the client's own functions, sync triggers with backoff, a sync status in the Library header and on Account, and library covers stored on the phone (on Wi-Fi, 50 per sync) so they show offline. And schema evolution (ADR-017, above), built ahead of realtime and conflicts since it depends on neither. A staging API runs on Render with Neon Postgres, as a database role that can't change the schema.
+**Done:** the foundation, domain model, storage adapter, offline sync core, catalog service, the mobile library app (search, library grid and filters, favourites, game detail, notes, archive), auth, the visual design (image-led covers, Fraunces headlines, frosted chrome, a floating tab bar, and light and dark themes with a switch in Account), and sync between devices: a server op log with push, pull and snapshot, per-field merges on the server with the client's own functions, sync triggers with backoff, a sync status in the Library header and on Account, and library covers stored on the phone (on Wi-Fi, 50 per sync) so they show offline. And schema evolution (ADR-017, above), built ahead of realtime and conflicts since it depends on neither. And realtime pokes (ADR-011, 012): an edit reaches another open device in a couple of seconds. A staging API runs on Render with Neon Postgres, as a database role that can't change the schema.
 
 **How work is tracked:** each module starts from an approved spec; its tasks are GitHub Issues in a milestone named after it, and an issue is built only once the owner labels it `ready-for-agent` (`docs/agents/`). `CONTEXT.md` is the glossary.
 
-**Not yet:** realtime pokes (another device's edit currently arrives on the next sync trigger, not at once), the conflict UI for notes, Steam import, stats, and the web app.
+**Not yet:** the conflict UI for notes, Steam import, stats, and the web app.
