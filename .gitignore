@@ -58,3 +58,5 @@ coverage/
 !docs/agents/*.md
 !CONTEXT.md
 
+# The original architecture plan: local only, the repo is public
+docs/plan/

@@ -8,15 +8,15 @@ Offline-first, multi-device game logbook: Expo (React Native) + Hono API + a cus
 
 ## Planning documents (read before starting work)
 
-| File                     | Purpose                                                                                                      |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `SPEC-map.md`            | Capability map: the 15 modules, dependencies, build order. The index of what exists                          |
-| `SPEC-<module-id>.md`    | One approved spec per module (`SPEC-foundation.md`, `SPEC-domain-model.md`)                                  |
-| `tasks/plan.md`          | Implementation plan for the module in progress                                                               |
-| GitHub Issues            | Its tasks, one issue each, in the module's milestone (`docs/agents/issue-tracker.md`). Replaced `todo.md`    |
-| `tasks/archive/`         | Plans from finished modules, plus `todo.md` task lists from before the switch to issues                      |
-| `CONTEXT.md`             | The glossary: use its words in code, issues and commits                                                      |
-| `game-logbook-plan.html` | The original architecture plan; authoritative for design decisions. Lives outside the repo, in `~/Downloads` |
+| File                               | Purpose                                                                                 |
+| ---------------------------------- | --------------------------------------------------------------------------------------- |
+| `SPEC-map.md`                      | Capability map: the 15 modules, dependencies, build order. The index of what exists     |
+| `SPEC-<module-id>.md`              | One approved spec per module (`SPEC-foundation.md`, `SPEC-domain-model.md`)             |
+| `tasks/plan.md`                    | Implementation plan for the module in progress                                          |
+| GitHub Issues                      | Its tasks, one issue each, in the module's milestone (`docs/agents/issue-tracker.md`)   |
+| `tasks/archive/`                   | Plans from finished modules, plus `todo.md` task lists from before the switch to issues |
+| `CONTEXT.md`                       | The glossary: use its words in code, issues and commits                                 |
+| `docs/plan/game-logbook-plan.html` | The original architecture plan; authoritative for design decisions. Local, gitignored   |
 
 Work follows spec → plan → issues → implement, with a human review gate between phases: the owner labels an issue `ready-for-agent`. Don't start a module without an approved spec, and don't overwrite a plan whose milestone still has open issues — archive it instead.
 
@@ -98,15 +98,14 @@ Don't test:
 - **Both directions of a trivial mapping**, when a single round-trip covers it.
 - **Exhaustive permutations.** Prefer one table-driven test that loops over twenty `it.each` cases: same assertions, one line of output, far easier to read.
 
-Practices that still hold:
+Practices:
 
 - Vitest for unit tests, fast-check for properties, both at the root.
 - Write the test first for anything with real logic; skip the ceremony for a getter.
 - **Prove a guard by breaking it.** A guard that has never failed hasn't been tested.
 - **Never assert immediately on something delivered asynchronously.** Asserting straight after a write passed in Node only because its SQLite is synchronous, and hid a spec violation the phone exposed at once.
-- **Node's SQLite is more generous than the phone's.** FTS5 is compiled into Node and not into op-sqlite, so local search was green in CI and dead on the device. Anything resting on a SQLite compile-time feature is only proven by running the contract on a device (`Run the storage contract` on the mobile home screen).
+- **Node's SQLite is more generous than the phone's.** FTS5 is compiled into Node and not into op-sqlite, so local search was green in CI and dead on the device. Anything resting on a SQLite compile-time feature is only proven by running the contract on a device (Library → Debug (wrench) → `Run the storage contract`).
 - Coverage is a hint, not a target. There are no coverage thresholds: chasing a number is what produced the tests we deleted.
-- When reporting information to me, be extremely concise and sacrifice grammar for the sake of concision.
 
 ## Git
 
@@ -117,7 +116,6 @@ Practices that still hold:
 - Conventional subject (`feat(domain): …`, `ci: …`, `docs: …`) plus a body explaining _why_, wrapped at ~72 characters. Note anything unrelated that rides along in the same commit.
 - **No `Co-Authored-By` trailers and no AI attribution** in commits or PR descriptions. The repo has one contributor; co-author lines add Claude to GitHub's contributor badges.
 - Don't rename CI job names casually — branch protection matches required checks by name.
-- Never use `--no-verify`, and never push straight to `main`.
 
 ## Ask first
 
@@ -138,6 +136,7 @@ Functional criteria ("it converges", "it appears on both devices") never catch t
 
 I'm building this to practise architecture and system design, so:
 
+- When reporting information to me, be extremely concise and sacrifice grammar for the sake of concision.
 - Before introducing a new library, pattern, folder structure, or data-model change: propose 2–3 options with tradeoffs and **wait for my choice**. Don't implement first.
 - For routine code within an agreed pattern, just do it.
 - Keep diffs small and scoped to the task. No drive-by refactors.
