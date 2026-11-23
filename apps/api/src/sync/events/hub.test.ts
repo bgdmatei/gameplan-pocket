@@ -19,5 +19,7 @@ describe('poke hub', () => {
 
     expect(closed).toEqual(['d1', 'd5']);
     expect(poked.sort()).toEqual(['d10', 'd11', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9']);
+    // The logged count the device check reads: evicted streams are gone from it.
+    expect(hub.size()).toBe(MAX_STREAMS_PER_ACCOUNT);
   });
 });

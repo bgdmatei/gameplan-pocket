@@ -14,6 +14,8 @@ export type PokeHub = {
   deliver: (userId: string, seq: number) => void;
   /** Accounts with at least one open stream. */
   accounts: () => string[];
+  /** Open streams, all accounts together. */
+  size: () => number;
 };
 
 /**
@@ -27,6 +29,7 @@ export const createPokeHub = (): PokeHub => {
 
   return {
     accounts: () => [...streams.keys()],
+    size: () => [...streams.values()].reduce((total, own) => total + own.size, 0),
     register: (userId, stream) => {
       const own = streams.get(userId) ?? new Set();
       streams.set(userId, own);

@@ -85,16 +85,19 @@ export const createSyncRoutes = (
       const unregister = pokes.register(userId, { deviceId, poke, close: end });
       const heartbeat = setInterval(() => void stream.write(':\n\n'), HEARTBEAT_MS);
       try {
+        // The count only: which account or device would be personal data in a log.
+        logger.warn(`Sync events stream opened (${pokes.size()} open).`);
         poke(await sync.lastSeq(userId));
         await ended;
       } catch (error) {
         logger.warn(
-          `sync events stream failed: ${error instanceof Error ? error.name : 'unknown'}`,
+          `Sync events stream failed: ${error instanceof Error ? error.name : 'unknown'}`,
         );
       } finally {
         clearTimeout(expiry);
         clearInterval(heartbeat);
         unregister();
+        logger.warn(`Sync events stream closed (${pokes.size()} open).`);
       }
     });
   });

@@ -123,6 +123,24 @@ describe('GET /sync/events', () => {
     expect(newer.ended()).toBe(false);
   });
 
+  // The owner reads these on Render to see a backgrounded phone let go of its stream.
+  it('logs the open stream count on open and close, and nothing that names anyone', async () => {
+    const { two } = await twoDevices();
+    const before = t.pokes.size();
+    const from = t.logs.length;
+
+    const stream = await open(bearer(two));
+    await vi.waitFor(() => expect(stream.pokes()).toEqual([0]));
+    await stream.close();
+
+    await vi.waitFor(() =>
+      expect(t.logs.slice(from)).toEqual([
+        `Sync events stream opened (${before + 1} open).`,
+        `Sync events stream closed (${before} open).`,
+      ]),
+    );
+  });
+
   it('refuses a missing or forged token, and an app below the served protocol', async () => {
     const { one } = await twoDevices();
     const [signature] = one.split('.').reverse();
