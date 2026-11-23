@@ -22,7 +22,7 @@ Work follows spec → plan → issues → implement, with a human review gate be
 
 `*.md` is gitignored (see `.gitignore`), so specs and plans stay local. The versioned exceptions are `CLAUDE.md`, `README.md`, `CONTEXT.md`, `docs/agents/*.md`, `docs/adr/*.md` and `PERFORMANCE.md`; anything written there gets committed.
 
-**Keep `README.md` current.** It is the versioned record of how to run the project and the tests, the decisions behind it, and what is done. When a change touches any of those (a command, a setup step, a decision revisited, a module finished), update the README in the same commit.
+**Keep `README.md` current.** It is the versioned record of how to run the project and the tests, the decisions behind it, and what is done, written for people reading the repo or running the app; verification recipes (`curl` checks, log lines) belong in the spec. When a change touches any of those (a command, a setup step, a decision revisited, a module finished), update the README in the same commit.
 
 ## Commands
 
@@ -44,7 +44,7 @@ pnpm exec prettier --check <paths>
 
 A task is done when `pnpm typecheck && pnpm lint && pnpm lint:boundaries && pnpm test` pass and Prettier is clean on changed files.
 
-**Review before committing.** Run `/code-review medium` on the diff before each commit, naming the issue it closes (if any) and the milestone's later issues as out of scope, and `/security-review` before each module PR. Fix what's real; log each rejected finding with its reason in `review-log.md` (local, gitignored), so false positives become visible over time.
+**Review before committing.** Run `/code-review medium` on the diff before each commit, naming the issue it closes (if any) and the milestone's later issues as out of scope, and `/security-review` on `origin/main...dev` before each module PR: the repo's default branch is `dev`, so the skill's own diff comes back empty, and an empty diff is a review that didn't happen. Fix what's real; log each rejected finding with its reason in `review-log.md` (local, gitignored), so false positives become visible over time.
 
 **Never judge a command by truncated output.** `| tail -3` once hid a typecheck failure behind a success-looking summary. Grep for `error`, `Failed`, `ERROR`, or check the exit code.
 
@@ -67,8 +67,7 @@ These are cheap now and very hard to retrofit once code exists.
 ## Code conventions
 
 - TypeScript strict, `noUncheckedIndexedAccess`, no `any` — use `unknown` and narrow.
-- ESM. Named exports only; no default exports in packages.
-- Filenames kebab-case; types PascalCase; functions and variables camelCase.
+- ESM. Types PascalCase; functions and variables camelCase. Named exports and kebab-case filenames are lint rules on `src/` (`packages/config/eslint.config.js`); Expo Router's `src/app/` is the exception, and config files outside `src/` keep their tools' default exports.
 - Prettier: single quotes, width 100.
 - Types are inferred from zod schemas (`z.infer`), never hand-written twice.
 - Domain write rules throw `DomainValidationError` (it carries every reason) rather than returning a result object — screens catch it and show a toast.

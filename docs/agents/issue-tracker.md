@@ -6,7 +6,7 @@ Work is tracked in GitHub Issues on `bgdmatei/gameplan-pocket`, through the `gh`
 
 1. **Spec.** `SPEC-<module-id>.md` (local) is written and approved. Nothing below starts without it.
 2. **Milestone.** One per module, named after it: `8 sync-transport`.
-3. **Issues.** The plan's tasks become issues in that milestone, one vertical slice each, small enough for one PR-sized commit series. Every issue states:
+3. **Issues.** Before any are created, every in-scope bullet of the spec names the plan task that builds it; an unmapped bullet goes back into the plan first. A check that reads something ("the server's stream count") needs a task that writes it. The plan's tasks become issues in that milestone, one vertical slice each, small enough for one PR-sized commit series. Every issue states:
    - **What** it delivers, in a sentence.
    - **Acceptance**: what must be true, including the attack criteria the spec requires.
    - **Verify**: the commands or checks that prove it.

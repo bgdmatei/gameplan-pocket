@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Invert-exit CI helper: lints each boundary-violation fixture and expects it
-// to FAIL via `boundaries/dependencies`. If a fixture passes, the rule isn't
-// enforcing that dependency direction and CI should break.
+// Invert-exit CI helper: lints each violation fixture and expects it to FAIL
+// via its rule (`boundaries/dependencies` unless the entry names another). If
+// a fixture passes, that rule isn't enforcing anything and CI should break.
 //
 // Only the relative-path shape is lint-tested. Package-specifier imports
 // (`import 'api'`) can't reach the lint rule because apps have no
@@ -34,12 +34,21 @@ const fixtures = [
   'apps/mobile/tests/fixtures/mobile-imports-sync-server.ts',
   // sync-server → the API's database code
   'packages/sync-server/tests/fixtures/sync-server-imports-api.ts',
+  // Named exports only, including `export { x as default }`
+  { file: 'packages/test-utils/tests/fixtures/default-export.ts', rule: 'no-restricted-syntax' },
+  // Kebab-case file names
+  {
+    file: 'packages/test-utils/tests/fixtures/NotKebab.ts',
+    rule: 'gameplan/kebab-case-filename',
+  },
 ];
 
 let failed = false;
 
-for (const fixture of fixtures) {
-  const result = spawnSync('pnpm', ['exec', 'eslint', '--no-warn-ignored', fixture], {
+for (const entry of fixtures) {
+  const { file, rule } =
+    typeof entry === 'string' ? { file: entry, rule: 'boundaries/dependencies' } : entry;
+  const result = spawnSync('pnpm', ['exec', 'eslint', '--no-warn-ignored', file], {
     cwd: root,
     encoding: 'utf8',
   });
@@ -47,16 +56,16 @@ for (const fixture of fixtures) {
   const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
 
   if (result.status === 0) {
-    console.error(`FAIL: fixture ${fixture} unexpectedly passed lint.`);
-    console.error('boundaries/dependencies is not catching this dependency direction.');
+    console.error(`FAIL: fixture ${file} unexpectedly passed lint.`);
+    console.error(`${rule} is not catching it.`);
     console.error(output);
     failed = true;
-  } else if (!output.includes('boundaries/dependencies')) {
-    console.error(`FAIL: fixture ${fixture} errored, but not via boundaries/dependencies.`);
+  } else if (!output.includes(rule)) {
+    console.error(`FAIL: fixture ${file} errored, but not via ${rule}.`);
     console.error(output);
     failed = true;
   } else {
-    console.log(`OK: fixture ${fixture} correctly flagged by boundaries/dependencies.`);
+    console.log(`OK: fixture ${file} correctly flagged by ${rule}.`);
   }
 }
 
