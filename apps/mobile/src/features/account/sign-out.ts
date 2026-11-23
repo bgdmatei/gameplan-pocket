@@ -6,7 +6,7 @@ export type SignOutDeps = {
   session: Pick<SessionManager, 'current' | 'end'>;
   api: Pick<AuthApi, 'logout'>;
   /** Destroys the database and opens an empty one (`useEraseDatabase`). */
-  erase: () => Promise<void>;
+  erase: () => Promise<unknown>;
 };
 
 export type LibraryCounts = { games: number; notes: number };

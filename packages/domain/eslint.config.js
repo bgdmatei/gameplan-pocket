@@ -1,4 +1,4 @@
-import config from '@gameplan/config/eslint';
+import config, { CONST_ARROW_ONLY } from '@gameplan/config/eslint';
 
 // Domain is pure: no frameworks, no Node, no workspace packages, no clock or
 // randomness. Time and IDs are passed in (SPEC-domain-model.md §Code style).
@@ -50,6 +50,7 @@ export default [
       ],
       'no-restricted-syntax': [
         'error',
+        CONST_ARROW_ONLY,
         {
           selector: "NewExpression[callee.name='Date'][arguments.length=0]",
           message: 'new Date() reads the clock. Pass time in as a parameter.',

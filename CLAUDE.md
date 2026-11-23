@@ -44,7 +44,7 @@ pnpm exec prettier --check <paths>
 
 A task is done when `pnpm typecheck && pnpm lint && pnpm lint:boundaries && pnpm test` pass and Prettier is clean on changed files.
 
-**Review before committing.** Run `/code-review medium` on the diff before each commit, and `/security-review` before each module PR. Fix what's real; log each rejected finding with its reason in `review-log.md` (local, gitignored), so false positives become visible over time.
+**Review before committing.** Run `/code-review medium` on the diff before each commit, naming the issue it closes (if any) and the milestone's later issues as out of scope, and `/security-review` before each module PR. Fix what's real; log each rejected finding with its reason in `review-log.md` (local, gitignored), so false positives become visible over time.
 
 **Never judge a command by truncated output.** `| tail -3` once hid a typecheck failure behind a success-looking summary. Grep for `error`, `Failed`, `ERROR`, or check the exit code.
 
@@ -80,8 +80,6 @@ These are cheap now and very hard to retrofit once code exists.
   character. Prefer the Write tool for files containing escapes, and check with
   `python3 -c "print(open('<file>','rb').read().count(b'\\x00'))"` (expect 0) or
   `git diff --stat` (a text file must never report `Bin`).
-- Always use `const` arrow functions — every function and every component. No `function` declarations.
-- Never use `any` type — always define proper types
 
 ## Testing
 
@@ -145,10 +143,6 @@ I'm building this to practise architecture and system design, so:
 - For routine code within an agreed pattern, just do it.
 - Keep diffs small and scoped to the task. No drive-by refactors.
 - If you think a decision above is wrong, say so and explain why. Don't silently work around it.
-
-## Don't
-
-- Don't add dependencies without asking.
 
 ## Agent skills
 

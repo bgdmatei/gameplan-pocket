@@ -73,13 +73,22 @@ export const createCatalogService = ({
 
       const cachedIds = await repository.getCachedSearch(query);
       if (cachedIds !== null) {
-        return { games: await repository.getGames(cachedIds.slice(0, limit)), stale: false };
+        const cached = await repository.getGames(cachedIds.slice(0, limit));
+        if (cached.length >= limit) return { games: cached, stale: false };
+        // A stored answer, empty or short, mustn't hide games cached since that match.
+        const seen = new Set(cached.map((game) => game.id));
+        const local = (await repository.searchByName(query, limit)).filter((g) => !seen.has(g.id));
+        return { games: [...cached, ...local].slice(0, limit), stale: false };
       }
 
       const local = await repository.searchByName(query, limit);
       if (local.length >= ENOUGH_LOCAL_MATCHES) return { games: local, stale: false };
 
-      const remote = await ask('search', () => igdb.searchGames(query, limit));
+      const words = await ask('search', () => igdb.searchGames(query, limit));
+      const remote =
+        words !== null && words.length === 0
+          ? await ask('search', () => igdb.findGamesByName(query, limit))
+          : words;
       if (remote === null) return { games: local, stale: true };
 
       await repository.upsertGames(remote);

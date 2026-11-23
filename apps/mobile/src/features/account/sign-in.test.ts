@@ -5,7 +5,7 @@ import { createMigratedNodeAdapter } from '@gameplan/storage/node';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { AuthResult } from '@/data/auth-api';
 import type { Session } from './session';
-import { signIn } from './sign-in';
+import { signIn, signInAfterErase } from './sign-in';
 import { PLAYER_ID, playerSession, seedOneGame, testEnv } from './test-fixtures';
 
 const OWNER = PLAYER_ID;
@@ -121,5 +121,46 @@ describe('signIn', () => {
     // The logout is fire-and-forget: let it run before counting it.
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(outcome.loggedOut).toEqual(revoked);
+  });
+
+  // #46: erasing used to stop there, and the player had to sign in again.
+  it('signs the other account in with the same code once the library is erased', async () => {
+    await updateSyncState(adapter, { ownerUserId: OWNER });
+    const started: Session[] = [];
+    const deps = {
+      randomBytes: testEnv.randomBytes,
+      platform: 'ios' as const,
+      appVersion: '1.0.0',
+      requestSync: () => undefined,
+      session: { start: async (session: Session) => void started.push(session) },
+      api: {
+        verify: async ({ ownerUserId }: { ownerUserId?: string }) =>
+          ownerUserId === undefined
+            ? { kind: 'ok' as const, value: answerFor(OTHER) }
+            : { kind: 'library_owner_mismatch' as const },
+        logout: async () => ({ kind: 'ok' as const, value: undefined }),
+      },
+    };
+    const credentials = { email: 'other@example.com', code: '123456' };
+
+    expect((await signIn({ ...deps, adapter }, credentials)).kind).toBe('library_belongs_to_other');
+
+    let fresh: StorageAdapter | null = null;
+    const result = await signInAfterErase(
+      {
+        ...deps,
+        erase: async () => {
+          await adapter.destroy();
+          fresh = await createMigratedNodeAdapter();
+          return fresh;
+        },
+      },
+      credentials,
+    );
+
+    expect(result.kind).toBe('signed_in');
+    expect(started).toHaveLength(1);
+    expect(fresh).not.toBeNull();
+    if (fresh !== null) expect((await getSyncState(fresh)).ownerUserId).toBe(OTHER);
   });
 });

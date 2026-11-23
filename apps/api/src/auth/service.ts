@@ -19,7 +19,7 @@ import {
   signAccessToken,
   verifyAccessToken,
 } from './tokens';
-import type { AccessClaims } from './tokens';
+import type { AccessClaims, VerifiedClaims } from './tokens';
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -256,7 +256,7 @@ export const createAuthService = ({
     },
 
     /** The claims of a valid access token, on the service's clock; null for anything else. */
-    authenticate: (accessToken: string): Promise<AccessClaims | null> =>
+    authenticate: (accessToken: string): Promise<VerifiedClaims | null> =>
       verifyAccessToken(accessToken, jwtSecret, now()),
 
     /**

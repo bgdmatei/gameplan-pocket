@@ -1,8 +1,8 @@
 import { emailSchema } from '@gameplan/contracts';
 import { getSyncState } from '@gameplan/storage';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text } from 'react-native';
+import { Alert, InteractionManager, Platform, ScrollView, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase, useEraseDatabase } from '@/data/database';
 import { appVersion, syncEnv } from '@/data/env';
@@ -12,7 +12,8 @@ import { EmailForm } from '@/features/account/email-form';
 import { checkSession } from '@/features/account/session';
 import type { Session } from '@/features/account/session';
 import { SignedInCard } from '@/features/account/signed-in-card';
-import { signIn } from '@/features/account/sign-in';
+import { signIn, signInAfterErase } from '@/features/account/sign-in';
+import type { SignInResult } from '@/features/account/sign-in';
 import { eraseWarning, libraryCounts, signOut } from '@/features/account/sign-out';
 import { requestSync } from '@/features/sync/sync-requests';
 import { ThemeButton } from '@/ui/components/theme-button';
@@ -28,6 +29,12 @@ type Step =
 
 const OFFLINE = 'You’re offline. Try again when you’re connected.';
 
+const NOT_SIGNED_IN = {
+  invalid_code: 'That code didn’t work. Check it, or send a new one.',
+  offline: OFFLINE,
+  failed: 'Signing in didn’t work. Try again.',
+};
+
 /**
  * Signing in is optional: the app works fully signed out, and signing in only
  * prepares sync (SPEC-auth-identity.md). Email, then a code; no passwords.
@@ -39,6 +46,8 @@ const AccountScreen = () => {
   const adapter = useDatabase();
   const erase = useEraseDatabase();
   const toast = useToast();
+  // Set when an erase to sign in as another account couldn't finish the sign-in.
+  const resumed = useLocalSearchParams<{ email?: string; failed?: string }>();
   const [step, setStep] = useState<Step>({ kind: 'loading' });
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -69,6 +78,15 @@ const AccountScreen = () => {
       const { games, notes } = await libraryCounts(adapter);
       setHasData(games + notes > 0);
       const current = await session.current();
+      if (current === null && resumed.email !== undefined) {
+        setEmail(resumed.email);
+        setStep({ kind: 'code', email: resumed.email });
+        const reason = resumed.failed;
+        if (reason !== undefined && Object.hasOwn(NOT_SIGNED_IN, reason)) {
+          toast.show(NOT_SIGNED_IN[reason as keyof typeof NOT_SIGNED_IN]);
+        }
+        return;
+      }
       if (current === null) {
         setStep({ kind: 'email' });
         return;
@@ -76,7 +94,7 @@ const AccountScreen = () => {
       setStep({ kind: 'signed_in', session: current });
       await check(current);
     })();
-  }, [adapter, check]);
+  }, [adapter, check, resumed.email, resumed.failed, toast]);
 
   const sendCode = async (): Promise<void> => {
     const parsed = emailSchema.safeParse(email);
@@ -101,7 +119,12 @@ const AccountScreen = () => {
    * counts what would go. Erasing reopens the database, so the app starts
    * again on the Library.
    */
-  const confirmErase = async (title: string, why: string | null, action: string): Promise<void> => {
+  const confirmErase = async (
+    title: string,
+    why: string | null,
+    action: string,
+    run: () => Promise<void> = () => signOut({ session, api: authApi, erase }),
+  ): Promise<void> => {
     const warning = eraseWarning(await libraryCounts(adapter));
     Alert.alert(title, why === null ? warning : `${why} ${warning}`, [
       { text: 'Cancel', style: 'cancel' },
@@ -112,7 +135,7 @@ const AccountScreen = () => {
           void (async () => {
             setBusy(true);
             try {
-              await signOut({ session, api: authApi, erase });
+              await run();
             } catch {
               toast.show('Erasing didn’t finish. Try again.');
             } finally {
@@ -124,20 +147,18 @@ const AccountScreen = () => {
     ]);
   };
 
+  const signInDeps = {
+    api: authApi,
+    session,
+    randomBytes: syncEnv.randomBytes,
+    platform: Platform.OS === 'android' ? ('android' as const) : ('ios' as const),
+    appVersion,
+    requestSync,
+  };
+
   const submitCode = async (address: string, entered: string): Promise<void> => {
     setBusy(true);
-    const result = await signIn(
-      {
-        adapter,
-        api: authApi,
-        session,
-        randomBytes: syncEnv.randomBytes,
-        platform: Platform.OS === 'android' ? 'android' : 'ios',
-        appVersion,
-        requestSync,
-      },
-      { email: address, code: entered },
-    );
+    const result = await signIn({ ...signInDeps, adapter }, { email: address, code: entered });
     setBusy(false);
 
     switch (result.kind) {
@@ -157,8 +178,21 @@ const AccountScreen = () => {
       case 'library_belongs_to_other':
         await confirmErase(
           'This library belongs to another account',
-          `Sign in with the account it belongs to, or erase it and then sign in as ${address}.`,
+          `Sign in with the account it belongs to, or erase it to sign in as ${address}.`,
           'Erase library',
+          async () => {
+            const credentials = { email: address, code: entered };
+            const after = await signInAfterErase({ ...signInDeps, erase }, credentials).catch(
+              (): SignInResult => ({ kind: 'failed' }),
+            );
+            if (after.kind === 'signed_in') return;
+            const failed: keyof typeof NOT_SIGNED_IN =
+              after.kind === 'invalid_code' || after.kind === 'offline' ? after.kind : 'failed';
+            // The app restarted on the Library with the new database; wait for its navigator.
+            InteractionManager.runAfterInteractions(() => {
+              router.push({ pathname: '/account', params: { email: address, failed } });
+            });
+          },
         );
     }
   };

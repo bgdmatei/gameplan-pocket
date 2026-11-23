@@ -31,6 +31,12 @@ export const searchGamesQuery = (text: string, limit: number): IgdbQuery => ({
   body: `search "${toSearchTerm(text)}"; fields ${GAME_FIELDS}; limit ${limit};`,
 });
 
+/** Names containing the text anywhere: `search` matches whole words only, so misses a word half-typed. */
+export const nameContainsQuery = (text: string, limit: number): IgdbQuery => ({
+  endpoint: 'games',
+  body: `fields ${GAME_FIELDS}; where name ~ *"${toSearchTerm(text)}"*; sort total_rating_count desc; limit ${limit};`,
+});
+
 /** One request for many ids, rather than one per game. */
 export const gamesByIdQuery = (ids: readonly number[]): IgdbQuery => {
   if (ids.length === 0 || ids.length > IGDB_MAX_LIMIT) {

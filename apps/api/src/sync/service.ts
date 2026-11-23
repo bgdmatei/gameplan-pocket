@@ -22,6 +22,7 @@ export type SyncService = {
     query: SnapshotQuery,
     reads: 1 | 2,
   ) => Promise<SnapshotResponse | 'invalid_cursor'>;
+  lastSeq: (userId: string) => Promise<number>;
 };
 
 export const createSyncService = ({
@@ -85,4 +86,6 @@ export const createSyncService = ({
       nextCursor: next === null ? null : encodeCursor(next),
     };
   },
+
+  lastSeq: (userId) => repository.lastSeq(userId),
 });

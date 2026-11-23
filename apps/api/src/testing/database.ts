@@ -16,6 +16,8 @@ export type TestDatabase = {
   app: Kysely<Database>;
   /** Connected as `gameplan_migrator`, the role migrations run as. */
   migrator: Kysely<Database>;
+  /** `app`'s URL, for connections outside the pool (the poke listener). */
+  appUrl: string;
 };
 
 const urlAs = (serverUrl: string, database: string, role: string, password: string): string => {
@@ -45,6 +47,12 @@ export const createTestDatabase = async ({
   migratedTo?: string;
 } = {}): Promise<TestDatabase> => {
   const serverUrl = inject('databaseUrl');
+  // Undefined under the root Vitest, which surfaced as an unrelated SASL password error.
+  if (typeof serverUrl !== 'string') {
+    throw new Error(
+      "No test database: run the API's tests from apps/api (pnpm --filter api test, or vitest inside apps/api), where globalSetup starts it.",
+    );
+  }
   const name = `test_${randomUUID().replaceAll('-', '')}`;
 
   const admin = new pg.Client({ connectionString: serverUrl });
@@ -79,12 +87,13 @@ export const createTestDatabase = async ({
     }).migrateTo(migratedTo);
     if (error !== undefined) throw error instanceof Error ? error : new Error(String(error));
   }
-  const app = createDb(urlAs(serverUrl, name, APP_ROLE, TEST_ROLE_PASSWORDS.app));
+  const appUrl = urlAs(serverUrl, name, APP_ROLE, TEST_ROLE_PASSWORDS.app);
+  const app = createDb(appUrl);
   // Opens the pool now: Kysely makes it on the first query, so destroying an
   // unused one does nothing and a test that breaks the database by destroying
   // it would quietly reconnect (secrets.test.ts). Also proves the role logs in.
   await sql`SELECT 1`.execute(app);
-  return { app, migrator };
+  return { app, migrator, appUrl };
 };
 
 /** The app's connection only, for tests that never need the migrator. */

@@ -25,6 +25,11 @@ services:
       - key: DATABASE_URL
         sync: false
       # Neon's direct (unpooled) connection string, ending in ?sslmode=require,
+      # as gameplan_app: the poke listener's one connection, since the pooled
+      # one can't LISTEN (ADR-012).
+      - key: LISTEN_DATABASE_URL
+        sync: false
+      # Neon's direct (unpooled) connection string, ending in ?sslmode=require,
       # as gameplan_migrator, which owns the schema. Used only by migrate:built
       # (startCommand). Debt: it still lives in this service's settings until
       # migrations move to a separate deploy step. Setup: README, Staging.

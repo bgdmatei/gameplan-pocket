@@ -1,3 +1,4 @@
+import { createPokeHub } from '../sync/events/hub';
 import { createSyncRepository } from '../sync/repository';
 import { createSyncService } from '../sync/service';
 import { HEADERS } from '@gameplan/contracts';
@@ -36,7 +37,15 @@ const setup = async (answer: (url: string) => Response) => {
   const catalog = createCatalogService({ repository: createCatalogRepository(db), igdb, logger });
   const { auth } = await createTestAuth(db);
   const sync = createSyncService({ repository: createSyncRepository(db), logger, now: Date.now });
-  const app = createApp({ catalog, auth, sync, corsOrigins: [], logger, apiKey: API_KEY });
+  const app = createApp({
+    catalog,
+    auth,
+    sync,
+    pokes: createPokeHub(),
+    corsOrigins: [],
+    logger,
+    apiKey: API_KEY,
+  });
   const request = (path: string) => app.request(path, { headers: { [HEADERS.apiKey]: API_KEY } });
   return { request, lines, db };
 };

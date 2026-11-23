@@ -7,6 +7,7 @@ import {
   genresQuery,
   platformsQuery,
   popularGamesQuery,
+  nameContainsQuery,
   searchGamesQuery,
 } from './query';
 import type { IgdbQuery } from './query';
@@ -18,6 +19,7 @@ const IGDB_URL = 'https://api.igdb.com/v4';
 /** What the catalog needs from IGDB. The service depends on this, not on `fetch`. */
 export type IgdbClient = {
   searchGames: (text: string, limit: number) => Promise<Game[]>;
+  findGamesByName: (text: string, limit: number) => Promise<Game[]>;
   getGames: (ids: readonly number[]) => Promise<Game[]>;
   getGenres: () => Promise<Genre[]>;
   getPlatforms: () => Promise<Platform[]>;
@@ -97,6 +99,8 @@ export const createIgdbClient = ({
   return {
     searchGames: async (text, limit) =>
       reportSkipped('games', mapGames(await post(searchGamesQuery(text, limit)))),
+    findGamesByName: async (text, limit) =>
+      reportSkipped('games', mapGames(await post(nameContainsQuery(text, limit)))),
     getGames: async (ids) => reportSkipped('games', mapGames(await post(gamesByIdQuery(ids)))),
     getGenres: async () => reportSkipped('genres', mapGenres(await post(genresQuery()))),
     getPlatforms: async () =>

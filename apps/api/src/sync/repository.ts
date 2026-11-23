@@ -8,6 +8,7 @@ import { ENTITY_TABLES, isServerEntity } from './columns';
 import type { ServerEntity } from './columns';
 import { SNAPSHOT_ORDER } from './cursor';
 import type { SnapshotCursor } from './cursor';
+import { POKE_CHANNEL } from './events/channel';
 
 export type SyncRepository = {
   /**
@@ -26,6 +27,8 @@ export type SyncRepository = {
     userId: string,
     query: { cursor: SnapshotCursor | undefined; limit: number },
   ) => Promise<{ rows: SnapshotRow[]; seq: number; next: SnapshotCursor | null }>;
+  /** The user's log position; 0 before their first push. */
+  lastSeq: (userId: string) => Promise<number>;
 };
 
 type Row = Record<string, unknown>;
@@ -105,6 +108,15 @@ const readRow = async (
   return rows[0];
 };
 
+const readLastSeq = async (db: Kysely<Database>, userId: string): Promise<number> =>
+  (
+    await db
+      .selectFrom('user_sync')
+      .select('last_seq')
+      .where('user_id', '=', userId)
+      .executeTakeFirst()
+  )?.last_seq ?? 0;
+
 export const createSyncRepository = (db: Kysely<Database>): SyncRepository => ({
   push: (userId, ops) =>
     db.transaction().execute(async (tx) => {
@@ -177,6 +189,10 @@ export const createSyncRepository = (db: Kysely<Database>): SyncRepository => ({
           .set({ last_seq: seq })
           .where('user_id', '=', userId)
           .execute();
+        // Delivered only on commit, so a poke never names a seq a pull can't read yet.
+        await sql`SELECT pg_notify(${POKE_CHANNEL}, json_build_object('u', ${userId}::text, 's', ${seq}::bigint)::text)`.execute(
+          tx,
+        );
       }
       return { lastSeq: seq };
     }),
@@ -200,16 +216,7 @@ export const createSyncRepository = (db: Kysely<Database>): SyncRepository => ({
   },
 
   snapshot: async (userId, { cursor, limit }) => {
-    const seq =
-      cursor?.seq ??
-      (
-        await db
-          .selectFrom('user_sync')
-          .select('last_seq')
-          .where('user_id', '=', userId)
-          .executeTakeFirst()
-      )?.last_seq ??
-      0;
+    const seq = cursor?.seq ?? (await readLastSeq(db, userId));
 
     // Keyset over (entity, id): the rest of the cursor's table, then each
     // later table from the start. One extra row says whether there is more.
@@ -249,4 +256,6 @@ export const createSyncRepository = (db: Kysely<Database>): SyncRepository => ({
           : null,
     };
   },
+
+  lastSeq: (userId) => readLastSeq(db, userId),
 });

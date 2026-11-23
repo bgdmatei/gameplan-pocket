@@ -83,3 +83,9 @@ export const signIn = async (
   requestSync();
   return { kind: 'signed_in', session: signedIn };
 };
+
+/** The server left the code unused when it refused the other account, so it still signs in. */
+export const signInAfterErase = async (
+  { erase, ...deps }: Omit<SignInDeps, 'adapter'> & { erase: () => Promise<StorageAdapter> },
+  credentials: { email: string; code: string },
+): Promise<SignInResult> => signIn({ ...deps, adapter: await erase() }, credentials);
