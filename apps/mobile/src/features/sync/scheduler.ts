@@ -7,18 +7,21 @@ export const SYNC_TIMING = {
   intervalMs: 5 * 60_000,
   backoffBaseMs: 1_000,
   backoffMaxMs: 5 * 60_000,
+  /** The poke stream reconnects sooner: a minute without it is a minute of missed edits. */
+  streamBackoffMaxMs: 60_000,
 } as const;
 
 /**
- * The wait before retry `failures` (1, 2, …): 1 s doubling, capped at 5 min,
+ * The wait before retry `failures` (1, 2, …): 1 s doubling, capped at `maxMs` (5 min),
  * with "equal jitter", so a fleet that failed together doesn't retry together
  * yet no retry comes sooner than half the step.
  */
-export const backoffDelay = (failures: number, random: () => number): number => {
-  const step = Math.min(
-    SYNC_TIMING.backoffMaxMs,
-    SYNC_TIMING.backoffBaseMs * 2 ** Math.max(0, failures - 1),
-  );
+export const backoffDelay = (
+  failures: number,
+  random: () => number,
+  maxMs: number = SYNC_TIMING.backoffMaxMs,
+): number => {
+  const step = Math.min(maxMs, SYNC_TIMING.backoffBaseMs * 2 ** Math.max(0, failures - 1));
   return step / 2 + (random() * step) / 2;
 };
 
@@ -33,6 +36,8 @@ const isFinal = (error: unknown): boolean => FINAL.has(kindOf(error) ?? '');
 export type SchedulerOptions = {
   sync: () => Promise<void>;
   signedIn: () => Promise<boolean>;
+  /** How far this device has pulled the server's log, to tell a poke it hasn't seen. */
+  pulledSeq: () => Promise<number>;
   random?: () => number;
   /** After each sync that ran and finished. */
   onSuccess?: () => void;
@@ -58,6 +63,7 @@ export type SchedulerOptions = {
 export const createSyncScheduler = ({
   sync,
   signedIn,
+  pulledSeq,
   random = Math.random,
   onSuccess = () => undefined,
   onSkip = () => undefined,
@@ -71,6 +77,16 @@ export const createSyncScheduler = ({
   let retry: ReturnType<typeof setTimeout> | null = null;
   let edit: ReturnType<typeof setTimeout> | null = null;
   let interval: ReturnType<typeof setTimeout> | null = null;
+  // The sync running now, if any: a poke waits for it before deciding.
+  let running: Promise<void> | null = null;
+  const tracked = async (): Promise<void> => {
+    running = sync();
+    try {
+      await running;
+    } finally {
+      running = null;
+    }
+  };
 
   const clear = (timer: ReturnType<typeof setTimeout> | null): null => {
     if (timer !== null) clearTimeout(timer);
@@ -88,7 +104,7 @@ export const createSyncScheduler = ({
         onSkip();
         return;
       }
-      await flight(sync);
+      await flight(tracked);
       failures = 0;
       // A run that failed alongside this one may have queued a retry for nothing.
       retry = clear(retry);
@@ -152,6 +168,22 @@ export const createSyncScheduler = ({
         edit = null;
         void soon();
       }, SYNC_TIMING.editDebounceMs);
+    },
+    /**
+     * The server's log reached `seq`: sync, unless this device has pulled that
+     * far. A run in flight is waited for first: it may be about to pull that
+     * far (this phone's own push echoed back, or the poke a stream opens
+     * with), or it may have pulled before the poke's ops were written.
+     */
+    poked: async (seq: number): Promise<void> => {
+      try {
+        await running?.catch(() => undefined);
+        if (stopped || outdated || seq <= (await pulledSeq())) return;
+      } catch {
+        // The database closed (an erase): nothing to sync into.
+        return;
+      }
+      if (!stopped) await soon();
     },
     /** Sync at once, as after signing in. */
     syncNow: now,

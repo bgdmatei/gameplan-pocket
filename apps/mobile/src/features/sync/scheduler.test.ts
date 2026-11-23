@@ -16,6 +16,7 @@ const harness = (
       await outcome();
     },
     signedIn,
+    pulledSeq: async () => 0,
     // The top of each jitter range, so delays are exact.
     random: () => 1,
   });
@@ -100,5 +101,67 @@ describe('sync scheduler', () => {
     expect(old.calls).toHaveLength(1);
     expect(old.failures).toEqual(['update_required']);
     old.scheduler.stop();
+  });
+
+  describe('pokes', () => {
+    /** A server log at `server`; each run takes 1 s and pulls what was there when it began. */
+    const pokeHarness = (pulledAtStart = 0) => {
+      let server = pulledAtStart;
+      let pulled = pulledAtStart;
+      const calls: number[] = [];
+      const scheduler = createSyncScheduler({
+        sync: async () => {
+          calls.push(Date.now());
+          const reached = server;
+          await new Promise((resolve) => setTimeout(resolve, 1_000));
+          pulled = reached;
+        },
+        signedIn: async () => true,
+        pulledSeq: async () => pulled,
+      });
+      const push = (seq: number) => {
+        server = seq;
+      };
+      return { scheduler, calls, push };
+    };
+
+    // The run in flight pulled before the poke's ops were written: without
+    // the trailing run, the edit would wait for the 5-minute timer.
+    it('runs exactly once more for a poke that arrives during a run', async () => {
+      const { scheduler, calls, push } = pokeHarness();
+
+      void scheduler.syncNow();
+      await vi.advanceTimersByTimeAsync(500);
+      push(5);
+      void scheduler.poked(5);
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      expect(calls).toEqual([0, 1_000]);
+    });
+
+    // The phone's own push comes back as a poke at a position it already pulled.
+    it('does nothing for a poke at or below the pulled position', async () => {
+      const { scheduler, calls } = pokeHarness(7);
+
+      await scheduler.poked(7);
+      await scheduler.poked(3);
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      expect(calls).toEqual([]);
+    });
+
+    // Every edit would otherwise sync twice: the echo arrives before the
+    // run that pushed it has saved how far it pulled.
+    it('does nothing for its own push, echoed back while that run is still going', async () => {
+      const { scheduler, calls, push } = pokeHarness();
+
+      push(5);
+      void scheduler.syncNow();
+      await vi.advanceTimersByTimeAsync(500);
+      void scheduler.poked(5);
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      expect(calls).toEqual([0]);
+    });
   });
 });

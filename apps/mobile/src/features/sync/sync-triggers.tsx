@@ -1,4 +1,4 @@
-import { PENDING_OP_TABLES, latestPendingSeq } from '@gameplan/storage';
+import { PENDING_OP_TABLES, getSyncState, latestPendingSeq } from '@gameplan/storage';
 import { NetworkStateType, addNetworkStateListener, getNetworkStateAsync } from 'expo-network';
 import type { NetworkState } from 'expo-network';
 import { useEffect } from 'react';
@@ -12,12 +12,13 @@ import { SyncRequestError } from '@/data/sync-api';
 import { useToast } from '@/ui/components/toast';
 import { fillCovers } from '../covers/fill-covers';
 import { ownsDatabase } from './owns-database';
+import { createPokeStream } from './poke-stream';
 import { createReconnectNotices } from './reconnect-notices';
 import { runSync } from './run-sync';
 import { createSyncScheduler } from './scheduler';
 import { syncActivity } from './status';
 import type { SyncEvent } from './status';
-import { syncApi } from './sync-client';
+import { syncApi, syncEvents } from './sync-client';
 import { onSyncRequest } from './sync-requests';
 
 /**
@@ -36,8 +37,9 @@ const isForeground = (state: AppStateStatus): boolean => state !== 'background';
 /**
  * Runs sync on its own (SPEC-sync-transport.md): at launch and on coming to
  * the foreground, when the network returns, 2 s after local edits, every 5
- * minutes while open, and when asked (after signing in); in the background,
- * nothing. One per database, so an erase starts a fresh one. Renders nothing.
+ * minutes while open, when asked (after signing in), and when a poke says
+ * the server's log moved on; in the background, nothing. One per database,
+ * so an erase starts a fresh one. Renders nothing.
  * Only while this database belongs to the session's account (`ownsDatabase`).
  */
 export const SyncTriggers = () => {
@@ -88,6 +90,7 @@ export const SyncTriggers = () => {
         }
       },
       signedIn,
+      pulledSeq: async () => (await getSyncState(adapter)).lastPulledSeq,
       onSuccess: notices.synced,
       onSkip: () => {
         report({ type: 'skipped' });
@@ -96,8 +99,15 @@ export const SyncTriggers = () => {
       // The kind only ('offline', 'failed', …): a failure never carries op data.
       onFailure: (kind, retrying) => {
         console.warn(`Sync failed: ${kind}`);
+        if (kind === 'update_required') pokes.retire();
         notices.failed(retrying);
       },
+    });
+    // Open only in the foreground, like sync itself (no background network).
+    const pokes = createPokeStream({
+      events: syncEvents,
+      onPoke: (seq) => void scheduler.poked(seq),
+      signedIn,
     });
     // A new database (first open, or after an erase) has no history yet.
     syncActivity.reset();
@@ -152,6 +162,11 @@ export const SyncTriggers = () => {
           .then((yes) => yes && notices.cameBack())
           .catch(() => undefined)
           .finally(() => void scheduler.networkBack());
+        // A stream that failed while offline may be waiting out its backoff.
+        if (foreground) {
+          pokes.close();
+          pokes.open();
+        }
       }
       online = now;
     });
@@ -159,8 +174,14 @@ export const SyncTriggers = () => {
     let foreground = isForeground(AppState.currentState);
     const app = AppState.addEventListener('change', (next) => {
       const now = isForeground(next);
-      if (now && !foreground) void scheduler.start();
-      if (!now && foreground) scheduler.stop();
+      if (now && !foreground) {
+        void scheduler.start();
+        pokes.open();
+      }
+      if (!now && foreground) {
+        scheduler.stop();
+        pokes.close();
+      }
       foreground = now;
     });
 
@@ -168,13 +189,19 @@ export const SyncTriggers = () => {
       // Marked first, so a tapped run shows even while an error holds.
       if (byPlayer) report({ type: 'requested' });
       void scheduler.syncNow();
+      // After a sign-in, the stream a signed-out launch couldn't open.
+      if (foreground) pokes.open();
     });
 
-    if (foreground) void scheduler.start();
+    if (foreground) {
+      void scheduler.start();
+      pokes.open();
+    }
 
     return () => {
       mounted = false;
       scheduler.stop();
+      pokes.close();
       unsubscribe();
       network.remove();
       app.remove();
