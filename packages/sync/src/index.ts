@@ -18,7 +18,8 @@ export {
   isSyncedEntity,
   opSchema,
 } from './op/schema';
-export { downcastOp, downcastRow, opV1Schema, toCurrentOp, upcastOp } from './compat/v1';
+export { downcastOp, opV1Schema, toCurrentOp, upcastOp } from './compat/v1';
+export { opForProtocol2, rowForProtocol2 } from './compat/protocol-2';
 export type { OpV1 } from './compat/v1';
 export type { Op, SyncedEntity } from './op/schema';
 export {

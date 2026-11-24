@@ -1,14 +1,14 @@
 // GENERATED: the phone sync client pinned for the N-1 test (ADR-017). Do not edit.
-// Commit 89012c4f28fbe9acef64e4772e5cc4d0b17019a7 (protocol 1).
-// Rebuild: node scripts/pin-client.mjs 89012c4 1
-// Body SHA-256: 5da4a0302d1856aa2242f0e94fb39e7e33f35ce9b5dcf811b5a8daf155aebe6d
+// Commit 4463fdf67ec16df5b1b7b81ec5115a064adb07ef (protocol 2).
+// Rebuild: node scripts/pin-client.mjs 4463fdf 2
+// Body SHA-256: f5df897debd5dd1e643c2438825f68c1f50e50915dfe0578988aa5ddcebb1aca
 var __defProp = Object.defineProperty;
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// <89012c4>/packages/sync/src/clock/hlc.ts
+// <4463fdf>/packages/sync/src/clock/hlc.ts
 var WALL_DIGITS = 15;
 var COUNTER_DIGITS = 5;
 var MAX_WALL_MS = 10 ** WALL_DIGITS - 1;
@@ -19727,11 +19727,11 @@ function date4(params) {
   return _coercedDate(ZodDate, params);
 }
 
-// <89012c4>/packages/domain/src/shared/date.ts
+// <4463fdf>/packages/domain/src/shared/date.ts
 var isoDateSchema = external_exports.iso.date();
 var isoDateTimeSchema = external_exports.iso.datetime();
 
-// <89012c4>/packages/domain/src/shared/errors.ts
+// <4463fdf>/packages/domain/src/shared/errors.ts
 var describe3 = (error62) => {
   switch (error62.code) {
     case "invalid_transition":
@@ -19761,7 +19761,7 @@ var throwIfErrors = (errors) => {
   if (errors.length > 0) throw new DomainValidationError(errors);
 };
 
-// <89012c4>/packages/domain/src/shared/text.ts
+// <4463fdf>/packages/domain/src/shared/text.ts
 var trimmedText = (min, max) => external_exports.string().trim().min(min).max(max);
 var optionalTrimmedText = (max) => external_exports.union([external_exports.string(), external_exports.null()]).transform((value) => value === null || value.trim().length === 0 ? null : value.trim()).pipe(external_exports.string().min(1).max(max).nullable());
 var zodIssuesToErrors = (issues, prefix) => issues.map((issue2) => {
@@ -19770,7 +19770,7 @@ var zodIssuesToErrors = (issues, prefix) => issues.map((issue2) => {
   return { code: "invalid_field", field, message: issue2.message };
 });
 
-// <89012c4>/packages/domain/src/catalog/schema.ts
+// <4463fdf>/packages/domain/src/catalog/schema.ts
 var gameSchema = external_exports.object({
   id: external_exports.number().int().positive(),
   name: external_exports.string().min(1),
@@ -19794,7 +19794,7 @@ var platformSchema = external_exports.object({
   abbreviation: external_exports.string().min(1).nullable()
 }).strict();
 
-// <89012c4>/packages/domain/src/shared/diff.ts
+// <4463fdf>/packages/domain/src/shared/diff.ts
 var definedEntries = (value) => Object.entries(value).filter(([, fieldValue]) => fieldValue !== void 0);
 var isSameValue = (a, b) => {
   if (a === b) return true;
@@ -19809,7 +19809,7 @@ var diffFields = (current, next2, skip) => Object.fromEntries(
   )
 );
 
-// <89012c4>/packages/domain/src/list/schema.ts
+// <4463fdf>/packages/domain/src/list/schema.ts
 var LIST_NAME_MAX_LENGTH = 100;
 var LIST_DESCRIPTION_MAX_LENGTH = 500;
 var listSchema = external_exports.object({
@@ -19825,11 +19825,11 @@ var listItemSchema = external_exports.object({
   addedAt: isoDateTimeSchema
 }).strict();
 
-// <89012c4>/packages/domain/src/list/changes.ts
+// <4463fdf>/packages/domain/src/list/changes.ts
 var IDENTITY_FIELDS = { id: true, createdAt: true };
 var listPatchSchema = listSchema.omit(IDENTITY_FIELDS).partial().strict();
 
-// <89012c4>/packages/domain/src/note-item/schema.ts
+// <4463fdf>/packages/domain/src/note-item/schema.ts
 var NOTE_ITEM_TYPES = ["puzzle", "secret", "npc_hint", "other"];
 var noteItemTypeSchema = external_exports.enum(NOTE_ITEM_TYPES);
 var NOTE_TEXT_MAX_LENGTH = 5e3;
@@ -19844,11 +19844,11 @@ var noteItemSchema = external_exports.object({
   createdAt: isoDateTimeSchema
 }).strict();
 
-// <89012c4>/packages/domain/src/note-item/changes.ts
+// <4463fdf>/packages/domain/src/note-item/changes.ts
 var IDENTITY_FIELDS2 = { id: true, entryId: true, createdAt: true };
 var noteItemPatchSchema = noteItemSchema.omit(IDENTITY_FIELDS2).partial().strict();
 
-// <89012c4>/packages/domain/src/note-conflict/schema.ts
+// <4463fdf>/packages/domain/src/note-conflict/schema.ts
 var noteConflictSchema = external_exports.object({
   id: external_exports.string().min(1),
   noteItemId: external_exports.string().min(1),
@@ -19859,7 +19859,7 @@ var noteConflictSchema = external_exports.object({
   resolved: external_exports.boolean()
 }).strict();
 
-// <89012c4>/packages/domain/src/entry-tag/tag.ts
+// <4463fdf>/packages/domain/src/entry-tag/tag.ts
 var TAG_MAX_LENGTH = 32;
 var normalisedTagSchema = external_exports.string().min(1).max(TAG_MAX_LENGTH).refine((tag) => tag === tag.trim().replace(/\s+/g, " ").toLowerCase(), {
   message: "Tag must be stored in its normalised form."
@@ -19870,10 +19870,10 @@ var entryTagSchema = external_exports.object({
   tag: normalisedTagSchema
 }).strict();
 
-// <89012c4>/packages/domain/src/library-entry/playtime.ts
+// <4463fdf>/packages/domain/src/library-entry/playtime.ts
 var playtimeMinutesSchema = external_exports.number().int().min(0).max(1e6);
 
-// <89012c4>/packages/domain/src/library-entry/progress.ts
+// <4463fdf>/packages/domain/src/library-entry/progress.ts
 var progressSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("percentage"), value: external_exports.number().int().min(0).max(100) }),
   external_exports.object({ type: external_exports.literal("chapter"), value: trimmedText(1, 100) }),
@@ -19888,10 +19888,10 @@ var progressSchema = external_exports.discriminatedUnion("type", [
   path: ["earned"]
 });
 
-// <89012c4>/packages/domain/src/library-entry/rating.ts
-var ratingSchema = external_exports.number().int().min(0).max(10).nullable();
+// <4463fdf>/packages/domain/src/library-entry/rating.ts
+var ratingSchema = external_exports.number().int().min(0).max(100).nullable();
 
-// <89012c4>/packages/domain/src/library-entry/status.ts
+// <4463fdf>/packages/domain/src/library-entry/status.ts
 var ENTRY_STATUSES = [
   "wishlist",
   "backlog",
@@ -19911,7 +19911,7 @@ var TRANSITIONS = {
 };
 var canTransition = (from, to) => from === to || TRANSITIONS[from].includes(to);
 
-// <89012c4>/packages/domain/src/library-entry/schema.ts
+// <4463fdf>/packages/domain/src/library-entry/schema.ts
 var libraryEntrySchema = external_exports.object({
   id: external_exports.string().min(1),
   gameId: external_exports.number().int().positive(),
@@ -19932,7 +19932,7 @@ var libraryEntrySchema = external_exports.object({
   createdAt: isoDateTimeSchema
 }).strict();
 
-// <89012c4>/packages/domain/src/library-entry/changes.ts
+// <4463fdf>/packages/domain/src/library-entry/changes.ts
 var IDENTITY_FIELDS3 = { id: true, gameId: true, createdAt: true };
 var DERIVED_FIELDS = { startedOn: true, finishedOn: true };
 var entryPatchSchema = libraryEntrySchema.omit({ ...IDENTITY_FIELDS3, ...DERIVED_FIELDS }).partial().strict();
@@ -20154,14 +20154,14 @@ function v7Sequence(rnds) {
 }
 var v7_default = v7;
 
-// <89012c4>/packages/sync/src/ids.ts
+// <4463fdf>/packages/sync/src/ids.ts
 var ENTRY_NAMESPACE = "1f4dc284-da8c-4ffc-baa5-a87024213a1b";
 var newId = (randomBytes, nowMs) => v7_default({ random: randomBytes(16), msecs: nowMs });
 var entryId = (gameId) => v5_default(String(gameId), ENTRY_NAMESPACE);
 var newNodeId = (randomBytes) => Array.from(randomBytes(8), (byte) => byte.toString(16).padStart(2, "0")).join("");
 
-// <89012c4>/packages/sync/src/op/schema.ts
-var OP_SCHEMA_VERSION = 1;
+// <4463fdf>/packages/sync/src/op/schema.ts
+var OP_SCHEMA_VERSION = 2;
 var SYNCED_FIELDS = {
   library_entry: {
     gameId: true,
@@ -20207,42 +20207,61 @@ var FIELD_SCHEMAS = {
   list_item: listItemSchema.pick(SYNCED_FIELDS.list_item)
 };
 var hlcSchema = external_exports.string().refine(isHlc, { message: "Not a clock value." });
-var envelope = {
-  id: external_exports.uuid(),
-  entityId: external_exports.string().min(1),
-  hlc: hlcSchema,
-  schemaVersion: external_exports.literal(OP_SCHEMA_VERSION)
-};
 var changedFields = (fields) => fields.partial().strict().refine((value) => Object.keys(value).length > 0, {
   message: "A set op must name at least one field."
 });
-var setOp = (entity) => external_exports.object({
-  ...envelope,
-  entity: external_exports.literal(entity),
-  type: external_exports.literal("set"),
-  fields: changedFields(FIELD_SCHEMAS[entity])
-}).strict();
-var deleteOp = (entity) => external_exports.object({ ...envelope, entity: external_exports.literal(entity), type: external_exports.literal("delete") }).strict();
-var opSchema = external_exports.union([
-  setOp("library_entry"),
-  setOp("entry_tag"),
-  // Only note text edits carry `baseHlc`: the clock of the text the edit
-  // started from, used by `notes-conflicts` (module 10) to spot concurrent
-  // edits. Carried from day one so queued ops never need rewriting.
-  setOp("note_item").extend({ baseHlc: hlcSchema.optional() }).strict(),
-  setOp("note_conflict"),
-  setOp("list"),
-  setOp("list_item"),
-  // Library entries are archived, never deleted (SPEC-domain-model.md
-  // decision 12), so no delete op exists for them.
-  deleteOp("entry_tag"),
-  deleteOp("note_item"),
-  deleteOp("note_conflict"),
-  deleteOp("list"),
-  deleteOp("list_item")
-]);
+var buildOpSchema = (version2, fieldSchemas) => {
+  const envelope = {
+    id: external_exports.uuid(),
+    entityId: external_exports.string().min(1),
+    hlc: hlcSchema,
+    schemaVersion: external_exports.literal(version2)
+  };
+  const setOp = (entity) => external_exports.object({
+    ...envelope,
+    entity: external_exports.literal(entity),
+    type: external_exports.literal("set"),
+    fields: changedFields(fieldSchemas[entity])
+  }).strict();
+  const deleteOp = (entity) => external_exports.object({ ...envelope, entity: external_exports.literal(entity), type: external_exports.literal("delete") }).strict();
+  return external_exports.union([
+    setOp("library_entry"),
+    setOp("entry_tag"),
+    // Only note text edits carry `baseHlc`: the clock of the text the edit
+    // started from, used by `notes-conflicts` (module 10) to spot concurrent
+    // edits. Carried from day one so queued ops never need rewriting.
+    setOp("note_item").extend({ baseHlc: hlcSchema.optional() }).strict(),
+    setOp("note_conflict"),
+    setOp("list"),
+    setOp("list_item"),
+    // Library entries are archived, never deleted (SPEC-domain-model.md
+    // decision 12), so no delete op exists for them.
+    deleteOp("entry_tag"),
+    deleteOp("note_item"),
+    deleteOp("note_conflict"),
+    deleteOp("list"),
+    deleteOp("list_item")
+  ]);
+};
+var opSchema = buildOpSchema(OP_SCHEMA_VERSION, FIELD_SCHEMAS);
+var isSyncedEntity = (entity) => SYNCED_ENTITIES.some((known) => known === entity);
+var knownFields = (entity, record2) => Object.fromEntries(
+  Object.entries(record2).filter(([field]) => Object.hasOwn(SYNCED_FIELDS[entity], field))
+);
+var isRecord = (value) => typeof value === "object" && value !== null;
+var readPulledOp = (raw) => {
+  if (!isRecord(raw) || raw.type !== "set" || typeof raw.entity !== "string") {
+    return opSchema.parse(raw);
+  }
+  const { entity, fields } = raw;
+  if (!isSyncedEntity(entity) || !isRecord(fields) || Object.keys(fields).length === 0) {
+    return opSchema.parse(raw);
+  }
+  const known = knownFields(entity, fields);
+  return Object.keys(known).length === 0 ? null : opSchema.parse({ ...raw, fields: known });
+};
 
-// <89012c4>/packages/sync/src/merge/merge.ts
+// <4463fdf>/packages/sync/src/merge/merge.ts
 var DELETE_CLOCK = "$delete";
 var mergeOp = (state, op) => {
   if (op.type === "delete") {
@@ -20280,7 +20299,66 @@ var isDeleted = (clocks) => {
   );
 };
 
-// <89012c4>/packages/storage/src/sql-tables.ts
+// <4463fdf>/packages/sync/src/compat/v1.ts
+var V1_SYNCED = {
+  library_entry: {
+    gameId: true,
+    status: true,
+    rating: true,
+    platformId: true,
+    progress: true,
+    playtimeMinutes: true,
+    startedOn: true,
+    finishedOn: true,
+    favourite: true,
+    shelved: true,
+    archived: true,
+    createdAt: true
+  },
+  entry_tag: { entryId: true, tag: true },
+  note_item: {
+    entryId: true,
+    type: true,
+    text: true,
+    location: true,
+    resolved: true,
+    createdAt: true
+  },
+  note_conflict: {
+    noteItemId: true,
+    text: true,
+    fromDeviceId: true,
+    hlc: true,
+    createdAt: true,
+    resolved: true
+  },
+  list: { name: true, description: true, createdAt: true },
+  list_item: { listId: true, gameId: true, addedAt: true }
+};
+var V1_FIELDS = {
+  library_entry: FIELD_SCHEMAS.library_entry.pick(V1_SYNCED.library_entry).extend({ rating: external_exports.number().int().min(0).max(10).nullable() }),
+  entry_tag: FIELD_SCHEMAS.entry_tag.pick(V1_SYNCED.entry_tag),
+  note_item: FIELD_SCHEMAS.note_item.pick(V1_SYNCED.note_item),
+  note_conflict: FIELD_SCHEMAS.note_conflict.pick(V1_SYNCED.note_conflict),
+  list: FIELD_SCHEMAS.list.pick(V1_SYNCED.list),
+  list_item: FIELD_SCHEMAS.list_item.pick(V1_SYNCED.list_item)
+};
+var opV1Schema = buildOpSchema(1, V1_FIELDS);
+var STEP = 10;
+var withRating = (fields, convert) => typeof fields.rating === "number" ? { ...fields, rating: convert(fields.rating) } : fields;
+var upcastOp = (op) => opSchema.parse({
+  ...op,
+  schemaVersion: 2,
+  ...op.type === "set" && op.entity === "library_entry" && { fields: withRating(op.fields, (r) => r * STEP) }
+});
+var toCurrentOp = (raw) => {
+  const v1 = opV1Schema.safeParse(raw);
+  if (v1.success) return upcastOp(v1.data);
+  const current = opSchema.safeParse(raw);
+  return current.success ? current.data : null;
+};
+
+// <4463fdf>/packages/storage/src/sql-tables.ts
 var WRITE_PATTERN = /(?:^|;)\s*(?:insert(?:\s+or\s+\w+)?\s+into|replace\s+into|update|delete\s+from)\s+([`"[\]\w.]+)/gi;
 var stripStringLiterals = (sql) => sql.replace(/'(?:[^']|'')*'/g, "''");
 var cleanName = (raw) => {
@@ -20297,7 +20375,7 @@ var tablesWritten = (sql) => {
   return [...tables];
 };
 
-// <89012c4>/packages/storage/src/repositories/library-entries.ts
+// <4463fdf>/packages/storage/src/repositories/library-entries.ts
 var toRow = (entry, { updatedAt, fieldHlc }) => ({
   id: entry.id,
   game_id: entry.gameId,
@@ -20341,7 +20419,7 @@ var gridEntrySchema = libraryEntrySchema.pick({
 });
 var gridGameSchema = gameSchema.pick({ name: true, coverImageId: true });
 
-// <89012c4>/packages/storage/src/repositories/write.ts
+// <4463fdf>/packages/storage/src/repositories/write.ts
 var buildUpsert = (table, row) => {
   const columns = Object.keys(row);
   const placeholders = columns.map(() => "?").join(", ");
@@ -20367,7 +20445,7 @@ var writeRows = async (tx, { rows, ops = [] }) => {
   }
 };
 
-// <89012c4>/packages/storage/src/repositories/entry-tags.ts
+// <4463fdf>/packages/storage/src/repositories/entry-tags.ts
 var toRow2 = (tag, { createdAt, fieldHlc }) => ({
   id: tag.id,
   entry_id: tag.entryId,
@@ -20380,7 +20458,7 @@ var toRow2 = (tag, { createdAt, fieldHlc }) => ({
 });
 var toTag = (row) => entryTagSchema.parse({ id: row.id, entryId: row.entry_id, tag: row.tag });
 
-// <89012c4>/packages/storage/src/repositories/note-items.ts
+// <4463fdf>/packages/storage/src/repositories/note-items.ts
 var toRow3 = (item, { updatedAt, fieldHlc }) => ({
   id: item.id,
   entry_id: item.entryId,
@@ -20402,7 +20480,7 @@ var toNote = (row) => noteItemSchema.parse({
   createdAt: row.created_at
 });
 
-// <89012c4>/packages/storage/src/repositories/lists.ts
+// <4463fdf>/packages/storage/src/repositories/lists.ts
 var toListRow = (list, { updatedAt, fieldHlc }) => ({
   id: list.id,
   name: list.name,
@@ -20432,7 +20510,7 @@ var toListItemRow = (item, fieldHlc) => ({
   field_hlc: fieldHlc ?? "{}"
 });
 
-// <89012c4>/packages/storage/src/repositories/pending-ops.ts
+// <4463fdf>/packages/storage/src/repositories/pending-ops.ts
 var listPendingOps = async (adapter, options = {}) => {
   const rows = await adapter.execute(
     "SELECT id, payload, created_at FROM pending_ops ORDER BY seq LIMIT ?",
@@ -20446,7 +20524,7 @@ var deletePendingOps = async (adapter, ids) => {
   await adapter.execute(`DELETE FROM pending_ops WHERE id IN (${placeholders})`, ids);
 };
 
-// <89012c4>/packages/storage/src/repositories/rejected-ops.ts
+// <4463fdf>/packages/storage/src/repositories/rejected-ops.ts
 var rejectPendingOps = async (adapter, rejections) => {
   if (rejections.length === 0) return;
   await adapter.transaction(async (tx) => {
@@ -20461,7 +20539,7 @@ var rejectPendingOps = async (adapter, rejections) => {
   });
 };
 
-// <89012c4>/packages/storage/src/repositories/sync-state.ts
+// <4463fdf>/packages/storage/src/repositories/sync-state.ts
 var THEME_PREFERENCES = ["auto", "light", "dark"];
 var isThemePreference = (value) => THEME_PREFERENCES.some((theme) => theme === value);
 var COLUMNS = {
@@ -20473,12 +20551,13 @@ var COLUMNS = {
   ownerUserId: "owner_user_id",
   theme: "theme",
   lastSyncedAt: "last_synced_at",
-  bootstrapped: "bootstrapped"
+  bootstrapped: "bootstrapped",
+  resync: "resync"
 };
 var getSyncState = async (adapter) => {
   const rows = await adapter.execute(
     `SELECT node_id, last_pulled_seq, hlc_last, schema_version, catalog_version, owner_user_id,
-            theme, last_synced_at, bootstrapped
+            theme, last_synced_at, bootstrapped, resync
      FROM sync_state WHERE id = 1`
   );
   const row = rows[0];
@@ -20495,7 +20574,8 @@ var getSyncState = async (adapter) => {
     // Only updateSyncState writes it, and it refuses anything else; 'auto' is the safe reading.
     theme: isThemePreference(row.theme) ? row.theme : "auto",
     lastSyncedAt: row.last_synced_at,
-    bootstrapped: row.bootstrapped === 1
+    bootstrapped: row.bootstrapped === 1,
+    resync: row.resync === 1
   };
 };
 var updateSyncState = async (adapter, patch) => {
@@ -20518,7 +20598,7 @@ var updateSyncState = async (adapter, patch) => {
   ]);
 };
 
-// <89012c4>/packages/storage/src/repositories/synced-rows.ts
+// <4463fdf>/packages/storage/src/repositories/synced-rows.ts
 var codec2 = (table, toRow4, fromRow) => ({ table, toRow: toRow4, fromRow: (row) => fromRow(row) });
 var SYNCED_ROWS = {
   library_entries: codec2(
@@ -20559,6 +20639,9 @@ var SYNCED_ROWS = {
     toListItem
   )
 };
+var clearSyncedRows = async (tx) => {
+  for (const { table } of Object.values(SYNCED_ROWS)) await tx.execute(`DELETE FROM ${table}`);
+};
 var readSyncedRow = async (tx, { table, fromRow }, id) => {
   const rows = await tx.execute(`SELECT * FROM ${table} WHERE id = ?`, [
     id
@@ -20568,7 +20651,7 @@ var readSyncedRow = async (tx, { table, fromRow }, id) => {
   return { value: fromRow(row), fieldHlc: String(row.field_hlc), deleted: row.deleted === 1 };
 };
 
-// <89012c4>/packages/sync/src/store/entities.ts
+// <4463fdf>/packages/sync/src/store/entities.ts
 var CODECS = {
   library_entry: SYNCED_ROWS.library_entries,
   entry_tag: SYNCED_ROWS.entry_tags,
@@ -20596,7 +20679,7 @@ var parseClocks = (fieldHlc) => fieldHlc === void 0 ? {} : JSON.parse(fieldHlc);
 var stringifyClocks = (clocks) => JSON.stringify(Object.fromEntries(Object.entries(clocks).sort(([a], [b]) => a < b ? -1 : 1)));
 var isoAt = (nowMs) => new Date(nowMs).toISOString();
 
-// <89012c4>/packages/sync/src/store/node-id.ts
+// <4463fdf>/packages/sync/src/store/node-id.ts
 var ensureNodeId = async (tx, randomBytes) => {
   const { nodeId } = await getSyncState(tx);
   if (nodeId !== null) return nodeId;
@@ -20605,7 +20688,7 @@ var ensureNodeId = async (tx, randomBytes) => {
   return created;
 };
 
-// <89012c4>/packages/sync/src/store/commit.ts
+// <4463fdf>/packages/sync/src/store/commit.ts
 var nextClock = async (tx, env) => {
   const nodeId = await ensureNodeId(tx, env.randomBytes);
   const state = await getSyncState(tx);
@@ -20668,8 +20751,7 @@ var commitLocalCreate = async (adapter, env, { entity, next: next2 }) => {
   });
 };
 
-// <89012c4>/packages/sync/src/store/apply.ts
-var isSyncedEntity = (entity) => SYNCED_ENTITIES.some((known) => known === entity);
+// <4463fdf>/packages/sync/src/store/apply.ts
 var withoutId = (value) => Object.fromEntries(Object.entries(value).filter(([field]) => field !== "id"));
 var writeMerged = async (tx, entity, entityId, merged, { nowMs, known, source }) => {
   const codec3 = codecFor(entity);
@@ -20690,12 +20772,8 @@ var tally = (count, outcome) => {
   if (outcome === "written") count.applied += 1;
   if (outcome === "skipped") count.skipped += 1;
 };
-var applyRemoteOps = async (adapter, env, ops, { lastPulledSeq }) => adapter.transaction(async (tx) => {
-  const nodeId = await ensureNodeId(tx, env.randomBytes);
-  const state = await getSyncState(tx);
-  const nowMs = env.now();
-  let clock = state.hlcLast;
-  const count = { applied: 0, skipped: 0 };
+var mergeOps = async (tx, ops, { nowMs, nodeId, clock: start }, count) => {
+  let clock = start;
   for (const incoming of ops) {
     const op = opSchema.parse(incoming);
     const entity = storedEntity(op.entity);
@@ -20714,15 +20792,28 @@ var applyRemoteOps = async (adapter, env, ops, { lastPulledSeq }) => adapter.tra
     });
     tally(count, outcome);
   }
+  return clock;
+};
+var applyRemoteOps = async (adapter, env, ops, { lastPulledSeq }) => adapter.transaction(async (tx) => {
+  const nodeId = await ensureNodeId(tx, env.randomBytes);
+  const state = await getSyncState(tx);
+  const count = { applied: 0, skipped: 0 };
+  const clock = await mergeOps(
+    tx,
+    ops,
+    { nowMs: env.now(), nodeId, clock: state.hlcLast },
+    count
+  );
   await updateSyncState(tx, { hlcLast: clock, lastPulledSeq });
   return count;
 });
-var applySnapshot = async (adapter, env, rows, { seq }) => adapter.transaction(async (tx) => {
+var applySnapshot = async (adapter, env, rows, { seq, resync = false }) => adapter.transaction(async (tx) => {
   const nodeId = await ensureNodeId(tx, env.randomBytes);
   const state = await getSyncState(tx);
   const nowMs = env.now();
   let clock = state.hlcLast;
   const count = { applied: 0, skipped: 0 };
+  if (resync) await clearSyncedRows(tx);
   for (const row of rows) {
     if (!isSyncedEntity(row.entity)) {
       throw new Error(`Cannot apply snapshot row: unknown entity ${row.entity}.`);
@@ -20733,7 +20824,15 @@ var applySnapshot = async (adapter, env, rows, { seq }) => adapter.transaction(a
       fields: stored === null ? {} : withoutId(stored.value),
       clocks: parseClocks(stored?.fieldHlc)
     };
-    const merged = mergeRow(before, { fields: row.fields, clocks: row.fieldHlc });
+    const deletedAt = row.fieldHlc[DELETE_CLOCK];
+    const remote = {
+      fields: knownFields(row.entity, row.fields),
+      clocks: {
+        ...knownFields(row.entity, row.fieldHlc),
+        ...deletedAt !== void 0 && { [DELETE_CLOCK]: deletedAt }
+      }
+    };
+    const merged = mergeRow(before, remote);
     for (const hlc of Object.values(row.fieldHlc)) clock = receive(clock, hlc, nowMs, nodeId);
     if (merged === before) continue;
     const outcome = await writeMerged(tx, entity, row.id, merged, {
@@ -20743,11 +20842,27 @@ var applySnapshot = async (adapter, env, rows, { seq }) => adapter.transaction(a
     });
     tally(count, outcome);
   }
-  await updateSyncState(tx, { hlcLast: clock, lastPulledSeq: seq, bootstrapped: true });
+  if (resync) {
+    const queued = await tx.execute(
+      "SELECT payload FROM pending_ops ORDER BY seq"
+    );
+    const outbox = queued.flatMap(({ payload }) => {
+      const op = toCurrentOp(JSON.parse(payload));
+      if (op === null) count.skipped += 1;
+      return op ?? [];
+    });
+    clock = await mergeOps(tx, outbox, { nowMs, nodeId, clock }, count);
+  }
+  await updateSyncState(tx, {
+    hlcLast: clock,
+    lastPulledSeq: seq,
+    bootstrapped: true,
+    resync: false
+  });
   return count;
 });
 
-// <89012c4>/packages/contracts/src/auth.ts
+// <4463fdf>/packages/contracts/src/auth.ts
 var AUTH_LIMITS = {
   codeLength: 6,
   // RFC 5321's longest deliverable address.
@@ -20785,7 +20900,7 @@ var verifyResponseSchema = tokenPairSchema.extend({
 });
 var meResponseSchema = external_exports.object({ user: userSchema, device: deviceSchema });
 
-// <89012c4>/packages/contracts/src/catalog.ts
+// <4463fdf>/packages/contracts/src/catalog.ts
 var wireGame = external_exports.object(gameSchema.shape);
 var wireGenre = external_exports.object(genreSchema.shape);
 var wirePlatform = external_exports.object(platformSchema.shape);
@@ -20808,18 +20923,23 @@ var errorResponseSchema = external_exports.discriminatedUnion("error", [
   external_exports.object({ error: external_exports.literal("device_conflict") }),
   // `/auth/verify` from a phone whose library belongs to another account.
   external_exports.object({ error: external_exports.literal("library_owner_mismatch") }),
+  external_exports.object({ error: external_exports.literal("update_required") }),
+  external_exports.object({ error: external_exports.literal("unsupported_protocol") }),
   external_exports.object({ error: external_exports.literal("internal") })
 ]);
 
-// <89012c4>/packages/contracts/src/protocol.ts
-var PROTOCOL_VERSION = 1;
+// <4463fdf>/packages/contracts/src/protocol.ts
+var PROTOCOL_VERSION = 2;
 var HEADERS = {
   apiKey: "X-Api-Key",
   appVersion: "X-App-Version",
   protocolVersion: "X-Protocol-Version"
 };
 
-// <89012c4>/packages/contracts/src/sync.ts
+// <4463fdf>/packages/contracts/src/sync-events.ts
+var pokeSchema = external_exports.strictObject({ seq: external_exports.number().int().nonnegative() });
+
+// <4463fdf>/packages/contracts/src/sync.ts
 var SYNC_LIMITS = {
   pushMaxOps: 500,
   pullDefaultLimit: 500,
@@ -20887,7 +21007,7 @@ var snapshotResponseSchema = external_exports.object({
   nextCursor: external_exports.string().min(1).max(SYNC_LIMITS.cursorMaxLength).nullable()
 });
 
-// <89012c4>/packages/sync/src/transport/sync-once.ts
+// <4463fdf>/packages/sync/src/transport/sync-once.ts
 var entityOf = (op) => typeof op === "object" && op !== null && "entity" in op && typeof op.entity === "string" ? op.entity : "unknown";
 var pushOutbox = async ({ adapter, env, api }) => {
   let pushed = 0;
@@ -20895,7 +21015,10 @@ var pushOutbox = async ({ adapter, env, api }) => {
   for (; ; ) {
     const pending = await listPendingOps(adapter, { limit: SYNC_LIMITS.pushMaxOps });
     if (pending.length === 0) break;
-    const ops = pending.map((op) => JSON.parse(op.payload));
+    const ops = pending.map((op) => {
+      const raw = JSON.parse(op.payload);
+      return toCurrentOp(raw) ?? raw;
+    });
     const response = await api.push(ops);
     const rejectedAt = isoAt(env.now());
     const later = response.rejected.filter(({ reason }) => reason === "clock_ahead");
@@ -20914,7 +21037,7 @@ var pushOutbox = async ({ adapter, env, api }) => {
   }
   return { pushed, rejected };
 };
-var bootstrap = async ({ adapter, env, api }) => {
+var bootstrap = async ({ adapter, env, api }, resync) => {
   const rows = [];
   let cursor;
   let seq;
@@ -20927,7 +21050,7 @@ var bootstrap = async ({ adapter, env, api }) => {
     rows.push(...page.rows);
     cursor = page.nextCursor ?? void 0;
   } while (cursor !== void 0);
-  const { skipped } = await applySnapshot(adapter, env, rows, { seq: seq ?? 0 });
+  const { skipped } = await applySnapshot(adapter, env, rows, { seq: seq ?? 0, resync });
   return skipped;
 };
 var pullLog = async ({ adapter, env, api }) => {
@@ -20940,7 +21063,7 @@ var pullLog = async ({ adapter, env, api }) => {
       const applied = await applyRemoteOps(
         adapter,
         env,
-        page.ops.map(({ op }) => opSchema.parse(op)),
+        page.ops.flatMap(({ op }) => readPulledOp(op) ?? []),
         { lastPulledSeq: page.lastSeq }
       );
       skipped += applied.skipped;
@@ -20952,17 +21075,17 @@ var pullLog = async ({ adapter, env, api }) => {
 };
 var syncOnce = async (deps) => {
   const { pushed, rejected } = await pushOutbox(deps);
-  const unbootstrapped = !(await getSyncState(deps.adapter)).bootstrapped;
-  const skippedAtBootstrap = unbootstrapped ? await bootstrap(deps) : 0;
+  const { bootstrapped, resync } = await getSyncState(deps.adapter);
+  const skippedAtBootstrap = !bootstrapped || resync ? await bootstrap(deps, resync) : 0;
   const { pulled, skipped } = await pullLog(deps);
   await updateSyncState(deps.adapter, { lastSyncedAt: isoAt(deps.env.now()) });
   return { pushed, rejected, pulled, skipped: skippedAtBootstrap + skipped };
 };
 
-// <89012c4>/packages/storage/src/node/adapter.ts
+// <4463fdf>/packages/storage/src/node/adapter.ts
 import { DatabaseSync } from "node:sqlite";
 
-// <89012c4>/packages/storage/src/serial-queue.ts
+// <4463fdf>/packages/storage/src/serial-queue.ts
 var DEFAULT_WAIT_MS = 1e4;
 var createSerialQueue = ({ waitMs = DEFAULT_WAIT_MS } = {}) => {
   let tail = Promise.resolve();
@@ -21002,7 +21125,7 @@ var createSerialQueue = ({ waitMs = DEFAULT_WAIT_MS } = {}) => {
   return { run };
 };
 
-// <89012c4>/packages/storage/src/node/adapter.ts
+// <4463fdf>/packages/storage/src/node/adapter.ts
 var toBindable = (value, index) => {
   if (value === void 0) {
     throw new Error(
@@ -21123,7 +21246,7 @@ var createNodeAdapter = (options = {}) => {
   };
 };
 
-// <89012c4>/packages/db-schema/src/migrations/001-initial.ts
+// <4463fdf>/packages/db-schema/src/migrations/001-initial.ts
 var migration001 = {
   number: 1,
   name: "initial",
@@ -21287,7 +21410,7 @@ var migration001 = {
   ]
 };
 
-// <89012c4>/packages/db-schema/src/migrations/002-search-without-apostrophes.ts
+// <4463fdf>/packages/db-schema/src/migrations/002-search-without-apostrophes.ts
 var migration002 = {
   number: 2,
   name: "search-without-apostrophes",
@@ -21325,35 +21448,35 @@ var migration002 = {
   ]
 };
 
-// <89012c4>/packages/db-schema/src/migrations/003-archived-entries.ts
+// <4463fdf>/packages/db-schema/src/migrations/003-archived-entries.ts
 var migration003 = {
   number: 3,
   name: "archived-entries",
   statements: [`ALTER TABLE library_entries ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`]
 };
 
-// <89012c4>/packages/db-schema/src/migrations/004-shelved-entries.ts
+// <4463fdf>/packages/db-schema/src/migrations/004-shelved-entries.ts
 var migration004 = {
   number: 4,
   name: "shelved-entries",
   statements: [`ALTER TABLE library_entries ADD COLUMN shelved INTEGER NOT NULL DEFAULT 0`]
 };
 
-// <89012c4>/packages/db-schema/src/migrations/005-library-owner.ts
+// <4463fdf>/packages/db-schema/src/migrations/005-library-owner.ts
 var migration005 = {
   number: 5,
   name: "library-owner",
   statements: [`ALTER TABLE sync_state ADD COLUMN owner_user_id TEXT`]
 };
 
-// <89012c4>/packages/db-schema/src/migrations/006-theme.ts
+// <4463fdf>/packages/db-schema/src/migrations/006-theme.ts
 var migration006 = {
   number: 6,
   name: "theme",
   statements: [`ALTER TABLE sync_state ADD COLUMN theme TEXT NOT NULL DEFAULT 'auto'`]
 };
 
-// <89012c4>/packages/db-schema/src/migrations/007-sync-transport.ts
+// <4463fdf>/packages/db-schema/src/migrations/007-sync-transport.ts
 var migration007 = {
   number: 7,
   name: "sync-transport",
@@ -21372,14 +21495,26 @@ var migration007 = {
   ]
 };
 
-// <89012c4>/packages/db-schema/src/migrations/008-game-developer.ts
+// <4463fdf>/packages/db-schema/src/migrations/008-game-developer.ts
 var migration008 = {
   number: 8,
   name: "game-developer",
   statements: [`ALTER TABLE games ADD COLUMN developer TEXT`]
 };
 
-// <89012c4>/packages/db-schema/src/migrations/index.ts
+// <4463fdf>/packages/db-schema/src/migrations/009-rating-scale.ts
+var migration009 = {
+  number: 9,
+  name: "rating-scale",
+  statements: [
+    `UPDATE library_entries SET rating = rating * 10 WHERE rating IS NOT NULL`,
+    // A synced device may hold values it received downcast; it re-reads the snapshot (ADR-017).
+    `ALTER TABLE sync_state ADD COLUMN resync INTEGER NOT NULL DEFAULT 0`,
+    `UPDATE sync_state SET resync = bootstrapped`
+  ]
+};
+
+// <4463fdf>/packages/db-schema/src/migrations/index.ts
 var MIGRATIONS = [
   migration001,
   migration002,
@@ -21388,11 +21523,12 @@ var MIGRATIONS = [
   migration005,
   migration006,
   migration007,
-  migration008
+  migration008,
+  migration009
 ];
 var LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]?.number ?? 0;
 
-// <89012c4>/packages/db-schema/src/migrate.ts
+// <4463fdf>/packages/db-schema/src/migrate.ts
 var readVersion = async (executor) => {
   const rows = await executor.execute("PRAGMA user_version");
   return rows[0]?.user_version ?? 0;
@@ -21427,14 +21563,14 @@ var migrate = async (executor, migrations = MIGRATIONS) => {
   return { from, to: await readVersion(executor), applied: pending.map(({ number: number4 }) => number4) };
 };
 
-// <89012c4>/packages/storage/src/node/migrated.ts
+// <4463fdf>/packages/storage/src/node/migrated.ts
 var createMigratedNodeAdapter = async (options = {}) => {
   const adapter = createNodeAdapter(options);
   await migrate(adapter);
   return adapter;
 };
 
-// <89012c4>/apps/mobile/src/data/sync-api.ts
+// <4463fdf>/apps/mobile/src/data/sync-api.ts
 var SyncRequestError = class extends Error {
   kind;
   constructor(kind) {
@@ -21494,6 +21630,7 @@ var createSyncApi = ({
         throw new SyncRequestError("ended");
       }
     }
+    if (answer.status === 426) throw new SyncRequestError("update_required");
     if (answer.status >= 500) throw new SyncRequestError("offline");
     if (answer.status !== 200) throw new SyncRequestError("failed");
     const body = schema.safeParse(parseJson(answer.text));

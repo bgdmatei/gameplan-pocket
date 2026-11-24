@@ -1,7 +1,5 @@
-import type { SnapshotRow } from '@gameplan/contracts';
 import { z } from 'zod';
-import { DELETE_CLOCK } from '../merge/merge';
-import { FIELD_SCHEMAS, buildOpSchema, isSyncedEntity, opSchema } from '../op/schema';
+import { FIELD_SCHEMAS, buildOpSchema, opSchema } from '../op/schema';
 import type { FieldSchemas, Op, SyncedEntity } from '../op/schema';
 
 // Frozen copy of v1's allowlist: never edit. A field added to SYNCED_FIELDS later is one v1 doesn't know.
@@ -92,18 +90,4 @@ export const downcastOp = (op: Op, to: 1): OpV1 | null => {
     op.entity === 'library_entry' ? withRating(known, (r) => Math.round(r / STEP)) : known;
   if (Object.keys(fields).length === 0) return null;
   return opV1Schema.parse({ ...op, schemaVersion: to, fields });
-};
-
-export const downcastRow = (row: SnapshotRow): SnapshotRow => {
-  if (!isSyncedEntity(row.entity)) return row;
-  const known = v1Fields(row.entity, row.fields);
-  const deletedAt = row.fieldHlc[DELETE_CLOCK];
-  return {
-    ...row,
-    fields: row.entity === 'library_entry' ? withRating(known, (r) => Math.round(r / STEP)) : known,
-    fieldHlc: {
-      ...v1Fields(row.entity, row.fieldHlc),
-      ...(deletedAt !== undefined && { [DELETE_CLOCK]: deletedAt }),
-    },
-  };
 };

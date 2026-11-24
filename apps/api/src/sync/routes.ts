@@ -17,7 +17,7 @@ import type { Logger } from '../logger';
 import { parseBody, parseQuery } from '../parse-body';
 import type { PokeHub } from './events/hub';
 import type { SyncService } from './service';
-import { protocolOf, schemaReadBy } from '../version-gate';
+import { protocolOf, servedAs } from '../version-gate';
 import type { ProtocolRange } from '../version-gate';
 
 /** Often enough that proxies keep an idle stream open, and the phone's 60 s stall check never trips on a live one. */
@@ -37,7 +37,7 @@ export const createSyncRoutes = (
   const routes = new Hono<{ Variables: UserVariables }>();
   routes.use('*', requireUser(auth));
 
-  const reads = (c: Context) => schemaReadBy(protocolOf(c, protocols) ?? protocols.max);
+  const reads = (c: Context) => servedAs(protocolOf(c, protocols) ?? protocols.max);
 
   routes.post('/push', async (c) => {
     const body = await parseBody(c, pushRequestSchema);
