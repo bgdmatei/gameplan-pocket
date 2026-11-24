@@ -54,7 +54,7 @@ pnpm exec prettier --check <paths>
 
 A task is done when `pnpm typecheck && pnpm lint && pnpm lint:boundaries && pnpm test` pass and Prettier is clean on changed files.
 
-**Review before committing.** Run `/code-review medium` on the diff before each commit, naming the issue it closes (if any) and the milestone's later issues as out of scope, and `/security-review` on `origin/main...dev` before each module PR: the repo's default branch is `dev`, so the skill's own diff comes back empty, and an empty diff is a review that didn't happen. Fix what's real; log each rejected finding with its reason in `review-log.md` (local, gitignored), so false positives become visible over time.
+**Review before committing.** Run `/code-review medium` on the diff before each commit, naming the issue it closes (if any) and the milestone's later issues as out of scope: it hunts correctness bugs. Before each module PR, run `/mattpocock-skills:code-review` on `origin/main...dev` with the module's issues and spec, since standards and spec drift build up across commits, and `/security-review` on `origin/main...dev`. Name that range for both: the repo's default branch is `dev`, so a skill's default diff comes back empty, and an empty diff is a review that didn't happen. Fix what's real; log each rejected finding with its reason in `review-log.md` (local, gitignored), so false positives become visible over time.
 
 **Never judge a command by truncated output.** `| tail -3` once hid a typecheck failure behind a success-looking summary. Grep for `error`, `Failed`, `ERROR`, or check the exit code.
 
