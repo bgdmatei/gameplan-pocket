@@ -3,14 +3,12 @@ import { SYNC_LIMITS } from '@gameplan/contracts';
 import { compareHlc, isTooFarAhead, toCurrentOp } from '@gameplan/sync';
 import type { Op, SyncedEntity } from '@gameplan/sync';
 
-/**
- * Entities the server accepts. `note_conflict` waits for its server table;
- * no client creates one yet.
- */
+/** Entities the server accepts: an entity added to the op schema waits here until it has a table. */
 export const SERVER_ENTITIES: ReadonlySet<SyncedEntity> = new Set([
   'library_entry',
   'entry_tag',
   'note_item',
+  'note_conflict',
   'list',
   'list_item',
 ]);
@@ -50,7 +48,11 @@ const idOf = (raw: unknown): string | undefined => {
  * column (`userId`, `deleted`, `fieldHlc`) fails it like any malformed value.
  * Nothing here says whose op it is: the caller takes the user from the token.
  */
-export const checkOp = (raw: unknown, nowMs: number): CheckResult => {
+export const checkOp = (
+  raw: unknown,
+  nowMs: number,
+  entities: ReadonlySet<SyncedEntity> = SERVER_ENTITIES,
+): CheckResult => {
   const op = toCurrentOp(raw);
   if (op === null) return { ok: false, reason: 'invalid_op', opId: idOf(raw) };
 
@@ -62,7 +64,7 @@ export const checkOp = (raw: unknown, nowMs: number): CheckResult => {
   if (hasUnstorableText(op)) {
     return { ok: false, reason: 'invalid_op', opId: op.id };
   }
-  if (!SERVER_ENTITIES.has(op.entity)) {
+  if (!entities.has(op.entity)) {
     return { ok: false, reason: 'unsupported_entity', opId: op.id };
   }
   if (isTooFarAhead(op.hlc, nowMs)) return { ok: false, reason: 'clock_ahead', opId: op.id };

@@ -174,6 +174,16 @@ export type NoteItemsTable = MaterialisedRow &
     created_at: string;
   }>;
 
+export type NoteConflictsTable = MaterialisedRow &
+  Nullable<{
+    note_item_id: string;
+    text: string;
+    from_node_id: string;
+    hlc: string;
+    created_at: string;
+    resolved: boolean;
+  }>;
+
 export type ListsTable = MaterialisedRow &
   Nullable<{ name: string; description: string; created_at: string }>;
 
@@ -196,6 +206,7 @@ export type Database = {
   library_entries: LibraryEntriesTable;
   entry_tags: EntryTagsTable;
   note_items: NoteItemsTable;
+  note_conflicts: NoteConflictsTable;
   lists: ListsTable;
   list_items: ListItemsTable;
 };

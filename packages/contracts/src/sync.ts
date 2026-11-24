@@ -38,7 +38,7 @@ export const REJECTION_REASONS = [
   // Fails the op schema, including the field allowlist: a server-managed
   // column (`userId`, `deleted`, `fieldHlc`) or a malformed value.
   'invalid_op',
-  // An entity the server doesn't sync yet (`note_conflict` until module 10).
+  // An entity the server doesn't sync yet: one in the op schema before its table.
   'unsupported_entity',
   // Its clock is too far ahead of the server's (`isTooFarAhead`, ADR-007).
   'clock_ahead',

@@ -16,9 +16,25 @@ const op = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+const conflict = (fields: Record<string, unknown> = {}) =>
+  op({
+    entity: 'note_conflict',
+    entityId: '5b1c0d38-1f0b-5a8e-9d7c-2a4e6f8b0c1d',
+    fields: {
+      noteItemId: 'note-1',
+      text: 'Lever behind the waterfall',
+      fromNodeId: '3f9a2c1b7d4e8f60',
+      hlc: clockAt(NOW - 1_000),
+      createdAt: '2026-11-10T10:00:00.000Z',
+      resolved: false,
+      ...fields,
+    },
+  });
+
 describe('checkOp', () => {
   it('lets a well-formed op in', () => {
     expect(checkOp(op(), NOW)).toEqual({ ok: true, op: op() });
+    expect(checkOp(conflict(), NOW)).toEqual({ ok: true, op: conflict() });
   });
 
   it("lets an older app's op in at the current version", () => {
@@ -51,11 +67,6 @@ describe('checkOp', () => {
       reason: 'invalid_op',
     },
     {
-      label: 'an entity the server does not sync yet',
-      raw: op({ entity: 'note_conflict', fields: { resolved: true } }),
-      reason: 'unsupported_entity',
-    },
-    {
       label: 'a clock more than a minute ahead',
       raw: op({ hlc: clockAt(NOW + 61_000) }),
       reason: 'clock_ahead',
@@ -76,6 +87,16 @@ describe('checkOp', () => {
       reason: 'invalid_op',
     },
     { label: 'an unknown schema version', raw: op({ schemaVersion: 3 }), reason: 'invalid_op' },
+    // A conflict's text is note text: the same allowlist and limits apply.
+    ...[
+      { label: 'a conflict naming userId', fields: { userId: 'someone-else' } },
+      { label: 'a conflict naming deleted', fields: { deleted: true } },
+      { label: 'a conflict naming fieldHlc', fields: { fieldHlc: '{}' } },
+      { label: 'a conflict naming a seq', fields: { seq: 1 } },
+      { label: 'a conflict naming an unknown field', fields: { colour: 'gold' } },
+      { label: 'conflict text over the note limit', fields: { text: 'x'.repeat(5_001) } },
+      { label: 'conflict text with a NUL', fields: { text: 'a\u0000b' } },
+    ].map(({ label, fields }) => ({ label, raw: conflict(fields), reason: 'invalid_op' })),
     {
       label: 'a note text built on a base no older than itself',
       raw: op({ entity: 'note_item', fields: { text: 'Lever' }, baseHlc: clockAt(NOW + 1) }),
@@ -88,6 +109,16 @@ describe('checkOp', () => {
     },
   ])('refuses $label, naming the op', ({ raw, reason }) => {
     expect(checkOp(raw, NOW)).toEqual({ ok: false, reason, opId: op().id });
+  });
+
+  // Every synced entity has a table today, so the refusal for one that
+  // doesn't is proven with a narrower set.
+  it('refuses an entity in the op schema that has no server table yet', () => {
+    expect(checkOp(conflict(), NOW, new Set(['list']))).toEqual({
+      ok: false,
+      reason: 'unsupported_entity',
+      opId: op().id,
+    });
   });
 
   // Review finding: the first NUL check searched the op's JSON, so a literal

@@ -1,7 +1,7 @@
 import type { SYNCED_FIELDS, SyncedEntity } from '@gameplan/sync';
 import type { Database } from '../db/schema';
 
-type ServerEntity = Exclude<SyncedEntity, 'note_conflict'>;
+type ServerEntity = SyncedEntity;
 
 type ColumnsOf<E extends ServerEntity> = {
   readonly [F in keyof (typeof SYNCED_FIELDS)[E]]: string;
@@ -16,7 +16,7 @@ type EntityTable<E extends ServerEntity> = {
 };
 
 /**
- * Where each synced entity lives on the server (migration 003). The type
+ * Where each synced entity lives on the server (migrations 003 and 006). The type
  * demands a column for every synced field, so a field added to the op schema
  * without one fails to compile rather than vanishing on the server.
  */
@@ -53,6 +53,18 @@ export const ENTITY_TABLES: { readonly [E in ServerEntity]: EntityTable<E> } = {
       location: 'location',
       resolved: 'resolved',
       createdAt: 'created_at',
+    },
+    json: new Set(),
+  },
+  note_conflict: {
+    table: 'note_conflicts',
+    columns: {
+      noteItemId: 'note_item_id',
+      text: 'text',
+      fromNodeId: 'from_node_id',
+      hlc: 'hlc',
+      createdAt: 'created_at',
+      resolved: 'resolved',
     },
     json: new Set(),
   },

@@ -34,6 +34,7 @@ describe('database roles', () => {
     'library_entries',
     'entry_tags',
     'note_items',
+    'note_conflicts',
     'lists',
     'list_items',
   ])('lets the API read and write %s', async (table) => {

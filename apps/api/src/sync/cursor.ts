@@ -8,6 +8,8 @@ export const SNAPSHOT_ORDER = [
   'list',
   'list_item',
   'note_item',
+  // Last, so a snapshot paging across the deploy that added it skips nothing.
+  'note_conflict',
 ] as const satisfies readonly ServerEntity[];
 
 const cursorSchema = z

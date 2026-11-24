@@ -54,10 +54,18 @@ describe('GET /sync/pull and /sync/snapshot', () => {
     return rows;
   };
 
-  // Five lists, four tags and a delete: rows across two tables, so a page
-  // boundary falls both inside a table and between tables.
+  // Five lists, four tags, a note conflict and a delete: rows across three
+  // tables, so a page boundary falls both inside a table and between tables.
   const seed = async (token: string) => {
     await kit.push(token, [
+      kit.setOp('note_conflict', 'c-1', {
+        noteItemId: 'n-1',
+        text: 'Lever behind the waterfall',
+        fromNodeId: '3f9a2c1b7d4e8f60',
+        hlc: kit.nextHlc(),
+        createdAt: '2026-11-10T10:00:00.000Z',
+        resolved: false,
+      }),
       ...['l-0', 'l-1', 'l-2', 'l-3', 'l-4'].map((id) => kit.setOp('list', id, { name: id })),
       ...['t-0', 't-1', 't-2', 't-3'].map((id) =>
         kit.setOp('entry_tag', id, { entryId: 'e-1', tag: id }),
@@ -75,7 +83,7 @@ describe('GET /sync/pull and /sync/snapshot', () => {
       [1, 2, 3],
       [4, 5, 6],
       [7, 8, 9],
-      [10],
+      [10, 11],
     ]);
 
     const rows: SnapshotRow[] = [];
@@ -97,6 +105,7 @@ describe('GET /sync/pull and /sync/snapshot', () => {
       'list:l-2 (deleted)',
       'list:l-3',
       'list:l-4',
+      'note_conflict:c-1',
     ]);
   });
 
@@ -134,7 +143,7 @@ describe('GET /sync/pull and /sync/snapshot', () => {
     const after = (await pullAll(token, first.seq)).flatMap((page) => page.ops.map((o) => o.op));
     const everything = (await pullAll(token, 0)).flatMap((page) => page.ops.map((o) => o.op));
 
-    expect(first.seq).toBe(10);
+    expect(first.seq).toBe(11);
     expect(replay(after, bootstrapped)).toEqual(replay(everything));
   });
 
