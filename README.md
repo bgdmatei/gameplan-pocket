@@ -158,6 +158,8 @@ packages/
   config/       Shared tsconfig, ESLint and Prettier presets
   test-utils/   Shared test helpers
 docs/adr/       Architecture decision records
+docs/style-guide.md
+                The mobile design system: tokens, components, states
 ```
 
 Dependencies only point inward: `apps → packages`, never the reverse, and `domain` imports nothing from the other packages. Only the API may import `sync-server`, so server logic never ships in the app. ESLint enforces this (`eslint-plugin-boundaries`). `pnpm lint:boundaries` keeps fixtures that break the rules on purpose and fails if lint ever stops flagging them, so a rule can't be switched off by accident.

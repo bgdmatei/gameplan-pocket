@@ -57,6 +57,8 @@ coverage/
 # ...and the shared agent workflow and glossary
 !docs/agents/*.md
 !CONTEXT.md
+# ...and the style guide, the UI patterns future features reuse
+!docs/style-guide.md
 
 # The original architecture plan: local only, the repo is public
 docs/plan/
