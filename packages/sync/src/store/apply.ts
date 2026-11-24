@@ -9,10 +9,10 @@ import type { StorageAdapter, Transaction } from '@gameplan/storage';
 import type { SnapshotRow } from '@gameplan/contracts';
 import { receive } from '../clock/hlc';
 import {
-  BASE_TEXT_CLOCK,
-  KNOWN_RESERVED,
   fieldClocks,
   isDeleted,
+  isEditClock,
+  knownReservedClocks,
   mergeOp,
   mergeRow,
 } from '../merge/merge';
@@ -171,17 +171,12 @@ export const applySnapshot = async (
         fields: knownFields(row.entity, row.fields),
         clocks: {
           ...knownFields(row.entity, fieldClocks(row.fieldHlc)),
-          ...Object.fromEntries(
-            KNOWN_RESERVED.flatMap((key) => {
-              const clock = row.fieldHlc[key];
-              return clock === undefined ? [] : [[key, clock]];
-            }),
-          ),
+          ...knownReservedClocks(row.fieldHlc),
         },
       };
-      const merged = mergeRow(before, remote);
+      const merged = mergeRow(entity, before, remote);
       for (const [key, hlc] of Object.entries(row.fieldHlc)) {
-        if (key !== BASE_TEXT_CLOCK) clock = receive(clock, hlc, nowMs, nodeId);
+        if (isEditClock(key)) clock = receive(clock, hlc, nowMs, nodeId);
       }
       if (merged === before) continue;
 

@@ -121,9 +121,25 @@ describe('merge', () => {
   ])('mergeRow $rule', ({ remote, base }) => {
     const local = replay([created, textEdit(at(2), at(1))]);
 
-    const merged = mergeRow(local, replay(remote));
+    const merged = mergeRow('note_item', local, replay(remote));
 
     expect(merged.clocks[BASE_TEXT_CLOCK]).toBe(base);
+  });
+
+  // A row written before bases were recorded, repaired by a snapshot or a
+  // pull of the same edit alike.
+  it('fills in a base only the incoming side holds, for the same text edit', () => {
+    const edit = textEdit(at(2), at(1));
+    const remote = replay([created, edit]);
+    const withoutBase = {
+      ...remote,
+      clocks: Object.fromEntries(
+        Object.entries(remote.clocks).filter(([key]) => key !== BASE_TEXT_CLOCK),
+      ),
+    };
+
+    expect(mergeRow('note_item', withoutBase, remote).clocks[BASE_TEXT_CLOCK]).toBe(at(1));
+    expect(mergeOp(withoutBase, edit).clocks[BASE_TEXT_CLOCK]).toBe(at(1));
   });
 
   it('keeps concurrent edits to different fields, in either order', () => {

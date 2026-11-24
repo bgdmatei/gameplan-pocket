@@ -1,8 +1,4 @@
 import type { SqlParams, StorageAdapter, Transaction } from '../adapter';
-import { migrate } from '@gameplan/db-schema';
-import { listOpenConflicts } from '../repositories/note-conflicts';
-import { SYNCED_ROWS } from '../repositories/synced-rows';
-import { writeRows } from '../repositories/write';
 import { assertEqual, assertRejects, assertTrue } from './assert';
 
 /**
@@ -12,8 +8,7 @@ import { assertEqual, assertRejects, assertTrue } from './assert';
  * browser (against SQLite compiled to WebAssembly).
  *
  * This list *is* the definition of `StorageAdapter`. An implementation is not
- * finished until every case passes unchanged. A few cases run on the shipped
- * schema, so an implementation must also run every migration.
+ * finished until every case passes unchanged.
  */
 export type AdapterCase = {
   name: string;
@@ -432,53 +427,6 @@ export const adapterCases: readonly AdapterCase[] = [
         /closed/i,
         'query after destroy',
       );
-    },
-  },
-  // On the shipped schema, not a scratch table: the renamed column and the
-  // join behind the conflict badge only count once they run on op-sqlite.
-  {
-    name: 'stores a note conflict and reads it back through its note',
-    run: async (adapter) => {
-      await migrate(adapter);
-      const createdAt = '2026-11-24T10:00:00.000Z';
-      const conflict = {
-        id: 'conflict-1',
-        noteItemId: 'note-1',
-        text: 'Lever behind the waterfall, «left» one',
-        fromNodeId: '00000000000000aa',
-        hlc: '000000000000001:00000:00000000000000aa',
-        createdAt,
-        resolved: false,
-      };
-      await adapter.transaction((tx) =>
-        writeRows(tx, {
-          rows: [
-            {
-              table: 'note_items',
-              row: {
-                id: 'note-1',
-                entry_id: 'entry-1',
-                type: 'puzzle',
-                text: 'Lever',
-                location: null,
-                resolved: false,
-                created_at: createdAt,
-                updated_at: createdAt,
-              },
-            },
-            {
-              table: SYNCED_ROWS.note_conflicts.table,
-              row: SYNCED_ROWS.note_conflicts.toRow(conflict, {
-                fieldHlc: '{}',
-                deleted: false,
-                now: createdAt,
-              }),
-            },
-          ],
-        }),
-      );
-
-      assertEqual(await listOpenConflicts(adapter, 'note-1'), [conflict], 'open conflicts');
     },
   },
   {

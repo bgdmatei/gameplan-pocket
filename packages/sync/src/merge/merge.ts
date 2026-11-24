@@ -1,4 +1,4 @@
-import type { Op } from '../op/schema';
+import type { Op, SyncedEntity } from '../op/schema';
 
 /** The reserved clock key holding the latest delete's clock (ADR-008). */
 export const DELETE_CLOCK = '$delete';
@@ -27,18 +27,57 @@ export type RowState = {
 
 export const EMPTY_ROW: RowState = { fields: {}, clocks: {} };
 
+const omitKeys = (
+  clocks: RowState['clocks'],
+  drop: (key: string) => boolean,
+): Record<string, string> =>
+  Object.fromEntries(Object.entries(clocks).filter(([key]) => !drop(key)));
+
 /** The clocks of fields only. The one way to read field clocks, so no reserved key passes for a field. */
 export const fieldClocks = (clocks: RowState['clocks']): Record<string, string> =>
-  Object.fromEntries(Object.entries(clocks).filter(([key]) => !isReservedKey(key)));
+  omitKeys(clocks, isReservedKey);
+
+/** The reserved keys this build knows, from clocks sent by elsewhere; a newer server's others are dropped. */
+export const knownReservedClocks = (clocks: RowState['clocks']): Record<string, string> =>
+  Object.fromEntries(
+    KNOWN_RESERVED.flatMap((key) => {
+      const clock = clocks[key];
+      return clock === undefined ? [] : [[key, clock]];
+    }),
+  );
+
+/** Whether a clock key holds an edit's clock, which a device's own clock must learn: a base doesn't, nor does a reserved key this build doesn't know. */
+export const isEditClock = (key: string): boolean => !isReservedKey(key) || key === DELETE_CLOCK;
+
+const recordsTextBase = (entity: SyncedEntity): boolean => entity === 'note_item';
+
+/** Whether a change names a note's text, whose base the clocks then record. By key, as clocks are stamped. */
+export const carriesTextBase = (entity: SyncedEntity, fields: object): boolean =>
+  recordsTextBase(entity) && 'text' in fields;
+
+/**
+ * The same text edit on both sides, its base known only to the incoming one
+ * (a row written before bases were recorded): take the base, so a row repaired
+ * by a pull matches one repaired by a snapshot.
+ */
+const fillsMissingBase = (
+  entity: SyncedEntity,
+  held: RowState['clocks'],
+  textClock: string | undefined,
+  base: string | undefined,
+): boolean =>
+  recordsTextBase(entity) &&
+  textClock !== undefined &&
+  fieldClocks(held).text === textClock &&
+  held[BASE_TEXT_CLOCK] === undefined &&
+  base !== undefined;
 
 /** Sets the text's base, or drops it when the winning text edit had none. */
 export const withTextBase = (
-  clocks: Record<string, string>,
+  clocks: RowState['clocks'],
   base: string | undefined,
 ): Record<string, string> => {
-  const rest = Object.fromEntries(
-    Object.entries(clocks).filter(([key]) => key !== BASE_TEXT_CLOCK),
-  );
+  const rest = omitKeys(clocks, (key) => key === BASE_TEXT_CLOCK);
   return base === undefined ? rest : { ...rest, [BASE_TEXT_CLOCK]: base };
 };
 
@@ -63,17 +102,21 @@ export const mergeOp = (state: RowState, op: Op): RowState => {
     const current = held[field];
     return current === undefined || current < op.hlc;
   });
-  // Nothing newer: hand back the same state, so callers can skip the write.
-  if (newer.length === 0) return state;
+  const base = op.entity === 'note_item' ? op.baseHlc : undefined;
+  if (newer.length === 0) {
+    const fill = 'text' in op.fields && fillsMissingBase(op.entity, state.clocks, op.hlc, base);
+    // Nothing newer: hand back the same state, so callers can skip the write.
+    return fill ? { fields: state.fields, clocks: withTextBase(state.clocks, base) } : state;
+  }
 
   const clocks = {
     ...state.clocks,
     ...Object.fromEntries(newer.map(([field]) => [field, op.hlc])),
   };
-  const textWon = newer.some(([field]) => field === 'text');
+  const won = Object.fromEntries(newer);
   return {
-    fields: { ...state.fields, ...Object.fromEntries(newer) },
-    clocks: op.entity === 'note_item' && textWon ? withTextBase(clocks, op.baseHlc) : clocks,
+    fields: { ...state.fields, ...won },
+    clocks: carriesTextBase(op.entity, won) ? withTextBase(clocks, base) : clocks,
   };
 };
 
@@ -82,7 +125,7 @@ export const mergeOp = (state: RowState, op: Op): RowState => {
  * the newer clock wins, exactly as if every op behind `remote` were applied
  * with `mergeOp`. Returns `local` itself when nothing is newer.
  */
-export const mergeRow = (local: RowState, remote: RowState): RowState => {
+export const mergeRow = (entity: SyncedEntity, local: RowState, remote: RowState): RowState => {
   const isNewer = (key: string, clock: string): boolean => {
     const current = local.clocks[key];
     return current === undefined || current < clock;
@@ -92,7 +135,14 @@ export const mergeRow = (local: RowState, remote: RowState): RowState => {
   );
   const deletedAt = remote.clocks[DELETE_CLOCK];
   const deleteWon = deletedAt !== undefined && isNewer(DELETE_CLOCK, deletedAt);
-  if (newer.length === 0 && !deleteWon) return local;
+  const remoteBase = remote.clocks[BASE_TEXT_CLOCK];
+  const baseMissing = fillsMissingBase(
+    entity,
+    local.clocks,
+    fieldClocks(remote.clocks).text,
+    remoteBase,
+  );
+  if (newer.length === 0 && !deleteWon && !baseMissing) return local;
 
   const fields = { ...local.fields };
   for (const [field] of newer) fields[field] = remote.fields[field] ?? null;
@@ -102,11 +152,8 @@ export const mergeRow = (local: RowState, remote: RowState): RowState => {
     ...Object.fromEntries(newer),
     ...(deleteWon && { [DELETE_CLOCK]: deletedAt }),
   };
-  const textWon = newer.some(([field]) => field === 'text');
-  return {
-    fields,
-    clocks: textWon ? withTextBase(clocks, remote.clocks[BASE_TEXT_CLOCK]) : clocks,
-  };
+  const textWon = carriesTextBase(entity, Object.fromEntries(newer)) || baseMissing;
+  return { fields, clocks: textWon ? withTextBase(clocks, remoteBase) : clocks };
 };
 
 /**

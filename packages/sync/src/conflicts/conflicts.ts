@@ -14,21 +14,13 @@ const NOTE_CONFLICT_NAMESPACE = '0bd2d32f-e445-4a62-8af5-734b4dfa5661';
 export type TextEdit = Pick<Extract<Op, { entity: 'note_item'; type: 'set' }>, 'hlc' | 'baseHlc'>;
 
 /**
- * Neither edit was made on top of the other, so per-field LWW would lose one
- * text (ADR-009). `held` is the text this device has, its base read from
- * `$base:text`.
- *
- * "Built on" is an exact base match, never clock order: a held text at the end
- * of a chain has a base newer than an edit it raced. The cost is a rare extra
- * conflict for a text two steps back in a chain; a lost text is the worse one.
- *
- * Callers skip this device's own edits coming back in a pull: its first save,
- * pulled back after later ones, matches neither base. Two edits from one
- * device can still race (an editor open across a "keep both"), so the rule
- * itself never trusts the node.
- *
- * An incoming edit with no base is never concurrent: guessing would invent
- * conflicts. A held text with no base can still race the incoming edit.
+ * Neither edit was made on top of the other, so one text would be lost
+ * (ADR-009). `held.baseHlc` is the row's `$base:text`. Two traps: "built on"
+ * is an exact base match, as clock order waves a race through when the held
+ * text ends a chain; and the node is never trusted, as an editor open across
+ * a "keep both" races its own device's write. Callers skip this device's own
+ * edits pulled back. An incoming edit with no base never races; a held text
+ * with no base still can, or a race against it would lose a text.
  */
 export const isConcurrentTextEdit = (incoming: TextEdit, held: TextEdit): boolean =>
   incoming.baseHlc !== undefined &&
@@ -37,7 +29,7 @@ export const isConcurrentTextEdit = (incoming: TextEdit, held: TextEdit): boolea
   held.baseHlc !== incoming.hlc;
 
 /** The same race spotted on two devices yields one id, so the copies merge as one row. */
-export const conflictId = (noteItemId: string, losingHlc: string): string =>
+const conflictId = (noteItemId: string, losingHlc: string): string =>
   v5(`${noteItemId}\u0000${losingHlc}`, NOTE_CONFLICT_NAMESPACE);
 
 /**

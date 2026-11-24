@@ -37,7 +37,6 @@ export {
 } from './repositories/note-items';
 export type { ListNoteOptions } from './repositories/note-items';
 export {
-  CONFLICTED_GAME_TABLES,
   NOTE_CONFLICT_TABLES,
   listGamesWithOpenConflicts,
   listOpenConflicts,

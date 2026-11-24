@@ -22,7 +22,7 @@ const rowArb: fc.Arbitrary<RowState> = clocksArb.map((clocks) => ({
   clocks,
 }));
 
-const withoutReserved = (clocks: Record<string, string>): Record<string, string> =>
+const fieldAndDeleteClocks = (clocks: Record<string, string>): Record<string, string> =>
   Object.fromEntries(
     Object.entries(clocks).filter(([key]) => key === DELETE_CLOCK || !key.startsWith('$')),
   );
@@ -31,11 +31,11 @@ describe('reserved clock keys', () => {
   it('never surface as fields, nor decide whether a row is deleted', () => {
     fc.assert(
       fc.property(rowArb, rowArb, (local, remote) => {
-        const merged = mergeRow(local, remote);
+        const merged = mergeRow('note_item', local, remote);
 
         expect(Object.keys(merged.fields).filter((key) => key.startsWith('$'))).toEqual([]);
         for (const row of [local, remote, merged]) {
-          expect(isDeleted(row.clocks)).toBe(isDeleted(withoutReserved(row.clocks)));
+          expect(isDeleted(row.clocks)).toBe(isDeleted(fieldAndDeleteClocks(row.clocks)));
         }
       }),
     );

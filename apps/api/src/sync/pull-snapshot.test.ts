@@ -1,6 +1,6 @@
 import { pullResponseSchema, snapshotResponseSchema } from '@gameplan/contracts';
 import type { PullResponse, SnapshotResponse, SnapshotRow } from '@gameplan/contracts';
-import { EMPTY_ROW, mergeOp, mergeRow, opSchema } from '@gameplan/sync';
+import { EMPTY_ROW, isSyncedEntity, mergeOp, mergeRow, opSchema } from '@gameplan/sync';
 import type { RowState } from '@gameplan/sync';
 import type { Hono } from 'hono';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -125,10 +125,11 @@ describe('GET /sync/pull and /sync/snapshot', () => {
     }
 
     const bootstrapped = new Map(
-      rows.map((row) => [
-        `${row.entity}:${row.id}`,
-        mergeRow(EMPTY_ROW, { fields: row.fields, clocks: row.fieldHlc }),
-      ]),
+      rows.map((row) => {
+        if (!isSyncedEntity(row.entity)) throw new Error(`Unknown entity ${row.entity}.`);
+        const state = mergeRow(row.entity, EMPTY_ROW, { fields: row.fields, clocks: row.fieldHlc });
+        return [`${row.entity}:${row.id}`, state];
+      }),
     );
     const after = (await pullAll(token, first.seq)).flatMap((page) => page.ops.map((o) => o.op));
     const everything = (await pullAll(token, 0)).flatMap((page) => page.ops.map((o) => o.op));

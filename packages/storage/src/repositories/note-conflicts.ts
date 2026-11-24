@@ -3,13 +3,10 @@ import type { NoteConflict } from '@gameplan/domain';
 import type { StorageAdapter } from '../adapter';
 import type { Row } from './write';
 
-/** A conflict shows only while its note is live, so a note's delete must refresh both queries. */
-export const NOTE_CONFLICT_TABLES = ['note_conflicts', 'note_items'] as const;
+/** A conflict shows only while its note and game are live, and either can land after it on a pull. */
+export const NOTE_CONFLICT_TABLES = ['note_conflicts', 'note_items', 'library_entries'] as const;
 
-/** The cover marker's query also joins the entry, which can land after its note on a pull. */
-export const CONFLICTED_GAME_TABLES = [...NOTE_CONFLICT_TABLES, 'library_entries'] as const;
-
-export const toRow = (conflict: NoteConflict, fieldHlc?: string): Row => ({
+export const toRow = (conflict: NoteConflict, fieldHlc: string): Row => ({
   id: conflict.id,
   note_item_id: conflict.noteItemId,
   text: conflict.text,
@@ -17,7 +14,7 @@ export const toRow = (conflict: NoteConflict, fieldHlc?: string): Row => ({
   hlc: conflict.hlc,
   created_at: conflict.createdAt,
   resolved: conflict.resolved,
-  field_hlc: fieldHlc ?? '{}',
+  field_hlc: fieldHlc,
 });
 
 export type NoteConflictRow = {
@@ -41,9 +38,11 @@ export const toConflict = (row: NoteConflictRow): NoteConflict =>
     resolved: row.resolved === 1,
   });
 
-// Open conflicts: unresolved, on a note this device holds and hasn't deleted.
-const WITH_LIVE_NOTE = 'note_conflicts c JOIN note_items n ON n.id = c.note_item_id';
-const OPEN = 'c.resolved = 0 AND c.deleted = 0 AND n.deleted = 0';
+// Open conflicts: unresolved, on a note and game this device holds and hasn't deleted.
+const OPEN_CONFLICTS = `note_conflicts c
+  JOIN note_items n ON n.id = c.note_item_id
+  JOIN library_entries e ON e.id = n.entry_id
+  WHERE c.resolved = 0 AND c.deleted = 0 AND n.deleted = 0 AND e.deleted = 0`;
 
 /** A note's unresolved conflicts, oldest first: the order the user resolves them in. */
 export const listOpenConflicts = async (
@@ -52,8 +51,7 @@ export const listOpenConflicts = async (
 ): Promise<NoteConflict[]> => {
   const rows = await adapter.execute<NoteConflictRow>(
     `SELECT c.id, c.note_item_id, c.text, c.from_node_id, c.hlc, c.created_at, c.resolved
-     FROM ${WITH_LIVE_NOTE}
-     WHERE ${OPEN} AND c.note_item_id = ?
+     FROM ${OPEN_CONFLICTS} AND c.note_item_id = ?
      ORDER BY c.created_at, c.id`,
     [noteItemId],
   );
@@ -64,8 +62,7 @@ export const listOpenConflicts = async (
 export const listGamesWithOpenConflicts = async (adapter: StorageAdapter): Promise<number[]> => {
   const rows = await adapter.execute<{ game_id: number }>(
     `SELECT DISTINCT e.game_id
-     FROM ${WITH_LIVE_NOTE} JOIN library_entries e ON e.id = n.entry_id
-     WHERE ${OPEN}
+     FROM ${OPEN_CONFLICTS}
      ORDER BY e.game_id`,
   );
   return rows.map((row) => row.game_id);
