@@ -28,9 +28,9 @@ export const space = {
 
 export const radius = {
   /** Cover art in grids and rows. */
-  cover: 14,
+  cover: 16,
   /** Inputs and small controls. */
-  small: 14,
+  small: 16,
   /** Cards, notes and image cards. */
   card: 24,
   /** Sheets and the floating tab bar. */
