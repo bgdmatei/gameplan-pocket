@@ -1,4 +1,9 @@
-import { CATALOG_TABLES, getReference } from '@gameplan/storage';
+import {
+  CATALOG_TABLES,
+  NOTE_CONFLICT_TABLES,
+  getReference,
+  listGamesWithOpenConflicts,
+} from '@gameplan/storage';
 import type { LibraryGridRow, ListLibraryOptions } from '@gameplan/storage';
 import { FlashList } from '@shopify/flash-list';
 import type { FlashListRef } from '@shopify/flash-list';
@@ -31,6 +36,8 @@ export const LibraryGrid = ({ filters, header, empty, bottomInset = 0, onShown }
   const { state, loadMore } = useLibraryPages(filters);
   const reference = useQuery(getReference, CATALOG_TABLES, []);
   const known = reference.status === 'ready' ? reference.data.platforms : [];
+  const conflicts = useQuery(listGamesWithOpenConflicts, NOTE_CONFLICT_TABLES, []);
+  const conflicted = new Set(conflicts.status === 'ready' ? conflicts.data : []);
   const [onScroll] = useState(createScrollFpsMeter);
   const list = useRef<FlashListRef<LibraryGridRow>>(null);
   const filterKey = JSON.stringify(filters);
@@ -84,6 +91,7 @@ export const LibraryGrid = ({ filters, header, empty, bottomInset = 0, onShown }
             onPress={open}
             platform={platform === null ? null : platformLabel(platform)}
             platformName={platform?.name ?? null}
+            conflicted={conflicted.has(item.gameId)}
           />
         );
       }}

@@ -6,6 +6,7 @@ import type { DimensionValue } from 'react-native';
 import { displayMaxScale, gradients, radius, space, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { localCoverUri } from '@/data/cover-store';
+import { ConflictMarker } from './conflict-marker';
 import { PressableScale } from './pressable-scale';
 
 type Props = {
@@ -24,6 +25,8 @@ type Props = {
   accessibilityHint?: string;
   /** `small`: a smaller title and tighter padding, for a row of several cards. */
   size?: 'regular' | 'small';
+  /** A note of this game has an unresolved conflict: the marker at the top right. */
+  conflicted?: boolean;
 };
 
 /**
@@ -43,11 +46,18 @@ export const ImageCard = ({
   onLongPress,
   accessibilityHint,
   size = 'regular',
+  conflicted = false,
 }: Props) => {
   const { colors } = useTheme();
   const small = size === 'small';
   const uri = localCoverUri(imageId) ?? coverUrl(imageId, 'cover_big');
-  const spoken = [title, spokenCaption ?? caption ?? label].filter(Boolean).join(', ');
+  const spoken = [
+    title,
+    spokenCaption ?? caption ?? label,
+    conflicted ? 'a note changed on two devices' : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
 
   return (
     <PressableScale
@@ -73,6 +83,7 @@ export const ImageCard = ({
         locations={gradients.overImage.locations}
         style={StyleSheet.absoluteFill}
       />
+      {conflicted ? <ConflictMarker style={styles.corner} /> : null}
       <View style={[styles.text, small && styles.smallText]}>
         {label === undefined ? null : (
           <Text style={[type.label, { color: colors.onImageMuted }]}>{label.toUpperCase()}</Text>
@@ -99,6 +110,7 @@ export const ImageCard = ({
 
 const styles = StyleSheet.create({
   card: { aspectRatio: 3 / 4, borderRadius: radius.small, overflow: 'hidden' },
+  corner: { position: 'absolute', top: space.sm, right: space.sm },
   text: {
     position: 'absolute',
     left: 0,
