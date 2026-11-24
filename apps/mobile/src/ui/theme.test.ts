@@ -32,6 +32,8 @@ const pairs = (scheme: ColorScheme): Pair[] => {
     ['onAccent on accentFill', c.onAccent, c.accentFill, BODY],
     ['noteLabel on noteFill', c.noteLabel, c.noteFill, BODY],
     ['muted on noteFill', c.muted, c.noteFill, BODY],
+    // The conflict badge on an open note's card.
+    ['accent on noteFill', c.accent, c.noteFill, BODY],
     ['danger on surface', c.danger, c.surface, BODY],
     ['danger on background', c.danger, c.background, BODY],
     // Toasts: their text and icon on each tone's fill.

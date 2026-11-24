@@ -14,7 +14,11 @@ import { createNodeAdapter } from '../node/adapter';
 import { putRows } from '../testing/rows';
 import { listEntryTags, listTagsInUse } from './entry-tags';
 import { listGamesOf, listItemsOf } from './lists';
-import { listGamesWithOpenConflicts, listOpenConflicts } from './note-conflicts';
+import {
+  listConflictedNoteIds,
+  listGamesWithOpenConflicts,
+  listOpenConflicts,
+} from './note-conflicts';
 import { countOpenNotes, listNoteItems } from './note-items';
 import { SYNCED_ROWS } from './synced-rows';
 
@@ -139,10 +143,12 @@ describe('user data', () => {
         'later',
       ]);
       expect(await listGamesWithOpenConflicts(adapter)).toEqual([1942]);
+      expect(await listConflictedNoteIds(adapter, ENTRY_ID)).toEqual([note.id]);
 
       await putRows(adapter, SYNCED_ROWS.note_items, [note], { now: NOW, deleted: true });
       expect(await listOpenConflicts(adapter, note.id)).toEqual([]);
       expect(await listGamesWithOpenConflicts(adapter)).toEqual([]);
+      expect(await listConflictedNoteIds(adapter, ENTRY_ID)).toEqual([]);
     });
   });
 

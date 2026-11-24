@@ -66,6 +66,8 @@ The rules that go with them:
 - **`SortDropdown` and `GenreFilter`** (`library-options.tsx`): the library's sort (choosing the current one again reverses it) and genre filter.
 - **`LibraryGrid`:** the paged cover grid shared by Library and Archive.
 - **`KeyboardDismiss`:** hides the keyboard on a tap outside the field, never on a drag or scroll.
+- **`ConflictMarker`:** a note changed on two devices at once: the notes icon with an exclamation mark on the gold `accentFill` badge. On grid covers it takes the open-note count's place; on Now Playing cards it sits at the top right. A conflicted note's card in the notes list shows an `accent` alert icon at the top right instead.
+- **`ConflictDrawer`** (`features/notes/`): over the bottom quarter of the note screen, frosted, `radius.sheet`. The other version scrolls; three equal plain pills (`surface` with a `line` border, not frosted: one blur per region) make the choice. No swipe or tap closes it, and the form above ignores touches until a choice.
 - **One icon family:** `@expo/vector-icons/Ionicons`. Never use text glyphs as icons.
 
 ## Screens

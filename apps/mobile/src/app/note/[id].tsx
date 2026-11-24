@@ -1,14 +1,30 @@
 import { DomainValidationError } from '@gameplan/domain';
-import type { NoteItem, NoteItemPatch } from '@gameplan/domain';
-import { NOTE_ITEM_TABLES, getNoteItem } from '@gameplan/storage';
+import type { ConflictChoice, NoteItem, NoteItemPatch } from '@gameplan/domain';
+import {
+  NOTE_CONFLICT_TABLES,
+  NOTE_ITEM_TABLES,
+  getNoteItem,
+  listOpenConflicts,
+} from '@gameplan/storage';
+import { commitConflictResolution, readFieldClock } from '@gameplan/sync';
 import { Stack, router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  Alert,
+  Keyboard,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase } from '@/data/database';
 import { syncEnv } from '@/data/env';
 import { useQuery } from '@/data/use-query';
+import { ConflictDrawer } from '@/features/notes/conflict-drawer';
 import { NoteForm } from '@/features/notes/note-form';
 import type { NoteDraft } from '@/features/notes/note-form';
 import { deleteNote, openNoteSession } from '@/features/notes/note-session';
@@ -65,10 +81,88 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
     session.current = openNoteSession(adapter, syncEnv, note.id);
   }, [adapter, note.id]);
 
+  // Oldest first, one at a time: the next follows each choice.
+  const conflicts = useQuery((db) => listOpenConflicts(db, note.id), NOTE_CONFLICT_TABLES, [
+    note.id,
+  ]);
+  const conflict = conflicts.status === 'ready' ? conflicts.data[0] : undefined;
+  // The text clock when this conflict was shown: what the choice is judged
+  // against, so an edit arriving meanwhile becomes a conflict.
+  const [shown, setShown] = useState<{ id: string; base: string | null } | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  // Set before the re-render that disables the pills, so a double tap runs once.
+  const inFlight = useRef(false);
+  const { height } = useWindowDimensions();
+
+  useEffect(() => {
+    if (conflict === undefined) return;
+    // The keyboard would cover the drawer's choices.
+    Keyboard.dismiss();
+    let current = true;
+    readFieldClock(adapter, 'note_item', note.id, 'text').then(
+      (base) => {
+        if (current) setShown({ id: conflict.id, base });
+      },
+      () => {
+        if (current) toast.show('This conflict couldn’t be read. Open the note again.', 'problem');
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [adapter, note.id, conflict?.id]);
+
+  /**
+   * The form is closed while a conflict is open, so after a choice it takes
+   * the note's new text and a fresh session: a later save is then built on
+   * the resolution, not racing it.
+   */
+  const resolve = async (choice: ConflictChoice): Promise<void> => {
+    if (conflict === undefined || shown?.id !== conflict.id || inFlight.current) return;
+    inFlight.current = true;
+    setChoosing(true);
+    try {
+      await commitConflictResolution(adapter, syncEnv, {
+        conflictId: conflict.id,
+        choice,
+        baseHlc: shown.base,
+      });
+      if (choice === 'keep_both') toast.show('The two versions were joined.', 'success');
+      const fresh = await getNoteItem(adapter, note.id);
+      if (fresh !== null) {
+        setDraft({ type: fresh.type, text: fresh.text, location: fresh.location ?? '' });
+        setResolved(fresh.resolved);
+      }
+      session.current = openNoteSession(adapter, syncEnv, note.id);
+    } catch (error) {
+      toast.show(
+        error instanceof DomainValidationError
+          ? 'Too long to join: keep one version, or shorten first.'
+          : 'The choice couldn’t be saved. Try again.',
+        'problem',
+      );
+    } finally {
+      inFlight.current = false;
+      setChoosing(false);
+    }
+  };
+
   const dirty =
     draft.type !== note.type ||
     draft.text !== note.text ||
     draft.location !== (note.location ?? '');
+
+  // A choice reloads the form, so changes typed before the conflict arrived ask first.
+  const choose = (choice: ConflictChoice): void => {
+    if (!dirty) {
+      void resolve(choice);
+      return;
+    }
+    Alert.alert('Discard your changes?', 'What you changed isn’t saved.', [
+      { text: 'Keep editing', style: 'cancel' },
+      { text: 'Discard', style: 'destructive', onPress: () => void resolve(choice) },
+    ]);
+  };
 
   usePreventRemove(dirty && !leaving, ({ data }) => {
     Alert.alert('Discard your changes?', 'What you changed isn’t saved.', [
@@ -92,7 +186,8 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
   };
 
   const saveDraft = async (): Promise<void> => {
-    if (leaving) return;
+    // A save now would race the choice still waiting below.
+    if (leaving || conflict !== undefined) return;
     setLeaving(true);
     // An unchanged draft writes nothing: the session sends no op for it.
     if (await save({ type: draft.type, text: draft.text, location: draft.location })) {
@@ -121,74 +216,93 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
       },
     ]);
 
-  return (
-    <ScrollView
-      contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}
-      automaticallyAdjustKeyboardInsets
-      keyboardShouldPersistTaps="handled"
-    >
-      <Stack.Screen
-        options={{
-          // iOS 26 groups `headerRight` into one glass pill; as native bar
-          // items that don't share a background, delete and save get a pill each.
-          unstable_headerRightItems: () => [
-            {
-              type: 'button',
-              label: 'Delete note',
-              icon: { type: 'sfSymbol', name: 'trash' },
-              tintColor: colors.danger,
-              sharesBackground: false,
-              onPress: confirmDelete,
-            },
-            {
-              type: 'button',
-              label: 'Save note',
-              icon: { type: 'sfSymbol', name: 'checkmark' },
-              tintColor: colors.accent,
-              sharesBackground: false,
-              onPress: () => void saveDraft(),
-            },
-          ],
-          // Android and older iOS.
-          headerRight: () => (
-            <View style={styles.headerActions}>
-              <HeaderIconButton
-                icon="trash-outline"
-                label="Delete note"
-                danger
-                onPress={confirmDelete}
-              />
-              <HeaderIconButton
-                icon="checkmark"
-                label="Save note"
-                onPress={() => void saveDraft()}
-              />
-            </View>
-          ),
-        }}
-      />
-      <NoteForm draft={draft} onChange={setDraft} />
+  // Room to scroll the whole note above the drawer while it is up.
+  const below = conflict === undefined ? insets.bottom : height / 4 + insets.bottom;
 
-      <View
-        style={[styles.switchRow, { backgroundColor: colors.surface, borderColor: colors.line }]}
+  return (
+    <View style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={[styles.page, { paddingBottom: space.xl + below }]}
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
       >
-        <Text style={[type.body, { color: colors.text }]}>Resolved</Text>
-        <Switch
-          value={resolved}
-          onValueChange={(next) => {
-            setResolved(next);
-            void save({ resolved: next });
+        <Stack.Screen
+          options={{
+            // iOS 26 groups `headerRight` into one glass pill; as native bar
+            // items that don't share a background, delete and save get a pill each.
+            unstable_headerRightItems: () => [
+              {
+                type: 'button',
+                label: 'Delete note',
+                icon: { type: 'sfSymbol', name: 'trash' },
+                tintColor: colors.danger,
+                sharesBackground: false,
+                onPress: confirmDelete,
+              },
+              {
+                type: 'button',
+                label: 'Save note',
+                icon: { type: 'sfSymbol', name: 'checkmark' },
+                tintColor: colors.accent,
+                sharesBackground: false,
+                onPress: () => void saveDraft(),
+              },
+            ],
+            // Android and older iOS.
+            headerRight: () => (
+              <View style={styles.headerActions}>
+                <HeaderIconButton
+                  icon="trash-outline"
+                  label="Delete note"
+                  danger
+                  onPress={confirmDelete}
+                />
+                <HeaderIconButton
+                  icon="checkmark"
+                  label="Save note"
+                  onPress={() => void saveDraft()}
+                />
+              </View>
+            ),
           }}
-          trackColor={{ true: colors.accentFill, false: colors.line }}
-          accessibilityLabel="Resolved"
         />
-      </View>
-    </ScrollView>
+        <View pointerEvents={conflict === undefined ? 'auto' : 'none'} style={styles.form}>
+          <NoteForm draft={draft} onChange={setDraft} />
+
+          <View
+            style={[
+              styles.switchRow,
+              { backgroundColor: colors.surface, borderColor: colors.line },
+            ]}
+          >
+            <Text style={[type.body, { color: colors.text }]}>Resolved</Text>
+            <Switch
+              value={resolved}
+              onValueChange={(next) => {
+                setResolved(next);
+                void save({ resolved: next });
+              }}
+              trackColor={{ true: colors.accentFill, false: colors.line }}
+              accessibilityLabel="Resolved"
+            />
+          </View>
+        </View>
+      </ScrollView>
+      {conflict === undefined ? null : (
+        <ConflictDrawer
+          conflict={conflict}
+          ready={shown?.id === conflict.id && !choosing}
+          onChoose={choose}
+        />
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
   page: { padding: space.lg, gap: space.xl },
+  form: { gap: space.xl },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   // A soft card row, like Favourite on the game.
   switchRow: {

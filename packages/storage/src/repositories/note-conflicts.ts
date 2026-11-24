@@ -58,6 +58,20 @@ export const listOpenConflicts = async (
   return rows.map(toConflict);
 };
 
+/** A game's notes with at least one unresolved conflict, for the badge in its notes list. */
+export const listConflictedNoteIds = async (
+  adapter: StorageAdapter,
+  entryId: string,
+): Promise<string[]> => {
+  const rows = await adapter.execute<{ id: string }>(
+    `SELECT DISTINCT n.id AS id
+     FROM ${OPEN_CONFLICTS} AND n.entry_id = ?
+     ORDER BY n.id`,
+    [entryId],
+  );
+  return rows.map((row) => row.id);
+};
+
 /** Games with at least one unresolved conflict on a live note, for the library cover marker. */
 export const listGamesWithOpenConflicts = async (adapter: StorageAdapter): Promise<number[]> => {
   const rows = await adapter.execute<{ game_id: number }>(
