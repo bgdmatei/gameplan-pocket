@@ -32,7 +32,7 @@ const V1_SYNCED = {
   note_conflict: {
     noteItemId: true,
     text: true,
-    fromDeviceId: true,
+    fromNodeId: true,
     hlc: true,
     createdAt: true,
     resolved: true,
