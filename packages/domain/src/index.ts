@@ -38,6 +38,8 @@ export {
 export type { NoteItem, NoteItemType } from './note-item/schema';
 export { noteConflictSchema } from './note-conflict/schema';
 export type { NoteConflict } from './note-conflict/schema';
+export { conflictChoiceSchema, resolveConflict } from './note-conflict/resolve';
+export type { ConflictChoice, ConflictResolution } from './note-conflict/resolve';
 
 export {
   TAG_MAX_LENGTH,

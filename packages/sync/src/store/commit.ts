@@ -1,4 +1,6 @@
 import { getSyncState, readSyncedRow, updateSyncState, writeRows } from '@gameplan/storage';
+import { resolveConflict } from '@gameplan/domain';
+import type { ConflictChoice, NoteConflict, NoteItem } from '@gameplan/domain';
 import type { StorageAdapter, Transaction } from '@gameplan/storage';
 import { tick } from '../clock/hlc';
 import { newId } from '../ids';
@@ -121,6 +123,52 @@ export const commitLocalEdit = async <E extends StoredEntity>(
     if (Object.keys(change.changed).length === 0) return null;
 
     return writeChange(tx, env, entity, change, stored.fieldHlc);
+  });
+
+/**
+ * Commits the user's choice for one note conflict: the note's text, when the
+ * choice changes it, and the conflict marked resolved, in one transaction, so
+ * a crash never leaves the text changed and the conflict still open.
+ *
+ * `baseHlc` is the note's text clock when the choice was shown, as a note
+ * editor's session base: an edit that arrived after that makes the choice a
+ * race, and the text it would replace becomes a conflict, never lost (ADR-009).
+ *
+ * @throws {DomainValidationError} when keeping both would pass the note
+ * limit; nothing is written.
+ */
+export const commitConflictResolution = async (
+  adapter: StorageAdapter,
+  env: SyncEnv,
+  {
+    conflictId,
+    choice,
+    baseHlc,
+  }: { conflictId: string; choice: ConflictChoice; baseHlc: string | null },
+): Promise<Op[]> =>
+  adapter.transaction(async (tx) => {
+    // A deleted row counts as gone: an edit newer than a delete brings the row
+    // back, so writing the text would revive a note deleted while choosing.
+    const conflict = await readSyncedRow(tx, codecFor('note_conflict'), conflictId);
+    if (conflict === null || conflict.deleted) {
+      throw new Error(`Cannot resolve conflict ${conflictId}: it does not exist.`);
+    }
+    const held = conflict.value as NoteConflict;
+    const note = await readSyncedRow(tx, codecFor('note_item'), held.noteItemId);
+    if (note === null || note.deleted) {
+      throw new Error(`Cannot resolve conflict ${conflictId}: its note is gone.`);
+    }
+
+    const resolution = resolveConflict(note.value as NoteItem, held, choice);
+    const ops: Op[] = [];
+    if (resolution.note !== undefined) {
+      const edit = { ...resolution.note, ...(baseHlc === null ? {} : { baseHlc }) };
+      ops.push(await writeChange(tx, env, 'note_item', edit, note.fieldHlc));
+    }
+    if (Object.keys(resolution.conflict.changed).length > 0) {
+      ops.push(await writeChange(tx, env, 'note_conflict', resolution.conflict, conflict.fieldHlc));
+    }
+    return ops;
   });
 
 /**

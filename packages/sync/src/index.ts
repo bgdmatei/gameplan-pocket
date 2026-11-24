@@ -32,7 +32,12 @@ export {
   mergeRow,
 } from './merge/merge';
 export type { RowState } from './merge/merge';
-export { commitLocalCreate, commitLocalDelete, commitLocalEdit } from './store/commit';
+export {
+  commitConflictResolution,
+  commitLocalCreate,
+  commitLocalDelete,
+  commitLocalEdit,
+} from './store/commit';
 export type { LocalChange, LocalEdit } from './store/commit';
 export { readFieldClock } from './store/read';
 export type { DeletableEntity, EntityValues, StoredEntity, SyncEnv } from './store/entities';

@@ -16,7 +16,12 @@ import { syncOnce } from '../transport/sync-once';
 import type { SyncApi } from '../transport/sync-once';
 import type { FakeEnv } from '../testing/env';
 import { applyRemoteOps, applySnapshot } from './apply';
-import { commitLocalCreate, commitLocalEdit } from './commit';
+import {
+  commitConflictResolution,
+  commitLocalCreate,
+  commitLocalDelete,
+  commitLocalEdit,
+} from './commit';
 import { readFieldClock } from './read';
 
 const START = Date.UTC(2026, 10, 24, 10);
@@ -289,5 +294,61 @@ describe('conflicts found on pull', () => {
     await syncOnce({ adapter: phone.adapter, env: phone.env, api });
 
     expect(sent.filter((op) => (op as Op).entity === 'note_conflict')).toHaveLength(1);
+  });
+
+  // Owner, 2026-11-24 (#65): a resolution is based on the text shown when
+  // the choice opened. The tablet's newer edit, pulled while it was open, is
+  // raced by the choice and kept as a conflict, not overwritten unseen.
+  // Proven by basing the choice on the clock read when it is committed.
+  it('turns a resolution over a text that arrived while choosing into a conflict', async () => {
+    const { phone, tablet } = await twoDevices();
+    const base = await open(phone);
+    const fromPhone = await save(phone, 'Lever, left one', base, 1_000);
+    const fromTablet = await save(tablet, 'Lever, right one', base, 2_000);
+    await pull(phone, [fromTablet]);
+    await pull(tablet, [fromPhone]);
+    const [conflict] = await listOpenConflicts(phone.adapter, NOTE);
+    if (conflict === undefined) throw new Error('No conflict to resolve.');
+
+    const shown = await open(phone);
+    const later = await save(tablet, 'Lever behind the falls', await open(tablet), 1_000);
+    await pull(phone, [later]);
+    phone.env.advance(5_000);
+    const resolution = await commitConflictResolution(phone.adapter, phone.env, {
+      conflictId: conflict.id,
+      choice: 'keep_other',
+      baseHlc: shown ?? null,
+    });
+    await pull(tablet, resolution);
+    await pull(phone, await queuedConflicts(tablet));
+
+    expect(await openTexts(tablet)).toEqual(['Lever behind the falls']);
+    expect(await openTexts(phone)).toEqual(['Lever behind the falls']);
+  });
+
+  // Review of #65: an edit newer than a delete brings the row back, so a
+  // choice made after the note was deleted elsewhere would revive it.
+  it('refuses a resolution once its note is deleted, writing nothing', async () => {
+    const { phone, tablet } = await twoDevices();
+    const base = await open(phone);
+    await save(phone, 'Lever, left one', base, 1_000);
+    const fromTablet = await save(tablet, 'Lever, right one', base, 2_000);
+    await pull(phone, [fromTablet]);
+    const [conflict] = await listOpenConflicts(phone.adapter, NOTE);
+    if (conflict === undefined) throw new Error('No conflict to resolve.');
+    const shown = (await open(phone)) ?? null;
+    await pull(phone, [
+      await commitLocalDelete(tablet.adapter, tablet.env, { entity: 'note_item', entityId: NOTE }),
+    ]);
+    const queued = await listPendingOps(phone.adapter);
+
+    await expect(
+      commitConflictResolution(phone.adapter, phone.env, {
+        conflictId: conflict.id,
+        choice: 'keep_other',
+        baseHlc: shown,
+      }),
+    ).rejects.toThrow(/its note is gone/);
+    expect(await listPendingOps(phone.adapter)).toEqual(queued);
   });
 });
