@@ -1,5 +1,6 @@
 import { materialise } from '@gameplan/sync-server';
 import type { PullQuery, PullResponse, SnapshotRow } from '@gameplan/contracts';
+import { fieldClocks } from '@gameplan/sync';
 import type { Op, RowState } from '@gameplan/sync';
 import { sql } from 'kysely';
 import type { Kysely, Transaction } from 'kysely';
@@ -37,9 +38,10 @@ type Row = Record<string, unknown>;
 const toRowState = (entity: ServerEntity, row: Row | undefined): RowState => {
   if (row === undefined) return { fields: {}, clocks: {} };
   const clocks = row['field_hlc'] as Record<string, string>;
+  const set = fieldClocks(clocks);
   const fields: Record<string, unknown> = {};
   for (const [field, column] of Object.entries(ENTITY_TABLES[entity].columns)) {
-    if (clocks[field] !== undefined) fields[field] = row[column] ?? null;
+    if (set[field] !== undefined) fields[field] = row[column] ?? null;
   }
   return { fields, clocks };
 };

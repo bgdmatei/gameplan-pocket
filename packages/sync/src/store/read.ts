@@ -1,5 +1,6 @@
 import { readSyncedRow } from '@gameplan/storage';
 import type { Transaction } from '@gameplan/storage';
+import { fieldClocks } from '../merge/merge';
 import { codecFor, parseClocks } from './entities';
 import type { EntityValues, StoredEntity } from './entities';
 
@@ -19,5 +20,5 @@ export const readFieldClock = async <E extends StoredEntity>(
 ): Promise<string | null> => {
   const stored = await readSyncedRow(db, codecFor(entity), id);
   if (stored === null) return null;
-  return parseClocks(stored.fieldHlc)[field] ?? null;
+  return fieldClocks(parseClocks(stored.fieldHlc))[field] ?? null;
 };

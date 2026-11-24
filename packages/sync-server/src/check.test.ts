@@ -77,6 +77,11 @@ describe('checkOp', () => {
     },
     { label: 'an unknown schema version', raw: op({ schemaVersion: 3 }), reason: 'invalid_op' },
     {
+      label: 'a note text built on a base no older than itself',
+      raw: op({ entity: 'note_item', fields: { text: 'Lever' }, baseHlc: clockAt(NOW + 1) }),
+      reason: 'invalid_op',
+    },
+    {
       label: 'a v1 op with a clock more than a minute ahead',
       raw: op({ schemaVersion: 1, hlc: clockAt(NOW + 61_000) }),
       reason: 'clock_ahead',

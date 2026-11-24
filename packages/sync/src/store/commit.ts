@@ -2,7 +2,7 @@ import { getSyncState, readSyncedRow, updateSyncState, writeRows } from '@gamepl
 import type { StorageAdapter, Transaction } from '@gameplan/storage';
 import { tick } from '../clock/hlc';
 import { newId } from '../ids';
-import { DELETE_CLOCK, isDeleted } from '../merge/merge';
+import { DELETE_CLOCK, isDeleted, withTextBase } from '../merge/merge';
 import { OP_SCHEMA_VERSION, opSchema } from '../op/schema';
 import type { Op } from '../op/schema';
 import { codecFor, isoAt, parseClocks, stringifyClocks } from './entities';
@@ -70,8 +70,10 @@ const writeChange = async <E extends StoredEntity>(
   const codec = codecFor(entity);
   const { hlc, nowMs } = await nextClock(tx, env);
 
-  const clocks = parseClocks(fieldHlc);
+  let clocks = parseClocks(fieldHlc);
   for (const field of Object.keys(changed)) clocks[field] = hlc;
+  if (entity === 'note_item' && 'text' in changed && changed.text !== undefined)
+    clocks = withTextBase(clocks, baseHlc);
 
   const { op, pending } = queue(
     {

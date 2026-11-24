@@ -15,7 +15,15 @@ export { OP_SCHEMA_VERSION, SYNCED_ENTITIES, SYNCED_FIELDS, opSchema } from './o
 export { downcastOp, downcastRow, opV1Schema, toCurrentOp, upcastOp } from './compat/v1';
 export type { OpV1 } from './compat/v1';
 export type { Op, SyncedEntity } from './op/schema';
-export { DELETE_CLOCK, EMPTY_ROW, isDeleted, mergeOp, mergeRow } from './merge/merge';
+export {
+  BASE_TEXT_CLOCK,
+  DELETE_CLOCK,
+  EMPTY_ROW,
+  fieldClocks,
+  isDeleted,
+  mergeOp,
+  mergeRow,
+} from './merge/merge';
 export type { RowState } from './merge/merge';
 export { commitLocalCreate, commitLocalDelete, commitLocalEdit } from './store/commit';
 export type { LocalChange, LocalEdit } from './store/commit';

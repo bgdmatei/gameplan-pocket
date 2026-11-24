@@ -8,7 +8,14 @@ import {
 import type { StorageAdapter, Transaction } from '@gameplan/storage';
 import type { SnapshotRow } from '@gameplan/contracts';
 import { receive } from '../clock/hlc';
-import { DELETE_CLOCK, isDeleted, mergeOp, mergeRow } from '../merge/merge';
+import {
+  BASE_TEXT_CLOCK,
+  KNOWN_RESERVED,
+  fieldClocks,
+  isDeleted,
+  mergeOp,
+  mergeRow,
+} from '../merge/merge';
 import type { RowState } from '../merge/merge';
 import { toCurrentOp } from '../compat/v1';
 import { isSyncedEntity, knownFields, opSchema } from '../op/schema';
@@ -157,18 +164,25 @@ export const applySnapshot = async (
         fields: stored === null ? {} : withoutId(stored.value),
         clocks: parseClocks(stored?.fieldHlc),
       };
-      // Fields a newer server sends are dropped with their clocks (ADR-017);
-      // the clock still learns every value it has seen.
-      const deletedAt = row.fieldHlc[DELETE_CLOCK];
+      // Fields and reserved keys a newer server sends are dropped with their
+      // clocks (ADR-017); the clock still learns every edit's clock it has
+      // seen. A base is no edit's clock, so it never moves the clock.
       const remote = {
         fields: knownFields(row.entity, row.fields),
         clocks: {
-          ...knownFields(row.entity, row.fieldHlc),
-          ...(deletedAt !== undefined && { [DELETE_CLOCK]: deletedAt }),
+          ...knownFields(row.entity, fieldClocks(row.fieldHlc)),
+          ...Object.fromEntries(
+            KNOWN_RESERVED.flatMap((key) => {
+              const clock = row.fieldHlc[key];
+              return clock === undefined ? [] : [[key, clock]];
+            }),
+          ),
         },
       };
       const merged = mergeRow(before, remote);
-      for (const hlc of Object.values(row.fieldHlc)) clock = receive(clock, hlc, nowMs, nodeId);
+      for (const [key, hlc] of Object.entries(row.fieldHlc)) {
+        if (key !== BASE_TEXT_CLOCK) clock = receive(clock, hlc, nowMs, nodeId);
+      }
       if (merged === before) continue;
 
       const outcome = await writeMerged(tx, entity, row.id, merged, {

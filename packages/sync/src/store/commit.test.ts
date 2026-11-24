@@ -1,8 +1,22 @@
-import { DomainValidationError, applyEntryChange, createEntry } from '@gameplan/domain';
-import { countPendingOps, getLibraryEntry, getSyncState, listPendingOps } from '@gameplan/storage';
+import {
+  DomainValidationError,
+  applyEntryChange,
+  applyNoteItemChange,
+  createEntry,
+  createNoteItem,
+} from '@gameplan/domain';
+import {
+  SYNCED_ROWS,
+  countPendingOps,
+  getLibraryEntry,
+  getSyncState,
+  listPendingOps,
+  readSyncedRow,
+} from '@gameplan/storage';
 import { createMigratedNodeAdapter } from '@gameplan/storage/node';
 import { describe, expect, it } from 'vitest';
 import { entryId } from '../ids';
+import { BASE_TEXT_CLOCK } from '../merge/merge';
 import { fakeEnv } from '../testing/env';
 import { applyRemoteOps } from './apply';
 import { commitLocalCreate, commitLocalEdit } from './commit';
@@ -113,5 +127,32 @@ describe('commitLocalEdit', () => {
     expect(await getLibraryEntry(adapter, entry.id)).toEqual(entry);
     expect(await countPendingOps(adapter)).toBe(1);
     expect((await getSyncState(adapter)).hlcLast).toBe(op.hlc);
+  });
+
+  // Unrecorded, this device's own text would look built on nothing, and
+  // detection would take the next edit from elsewhere for a race.
+  it("records the base of the device's own text edit", async () => {
+    const adapter = await createMigratedNodeAdapter();
+    const env = fakeEnv();
+    const note = createNoteItem({
+      id: '01890a5d-ac96-774b-bcce-b302099a8057',
+      entryId: entry.id,
+      createdAt: '2026-09-23T10:00:00.000Z',
+      type: 'puzzle',
+      text: 'Lever',
+    });
+    const created = await commitLocalCreate(adapter, env, { entity: 'note_item', next: note });
+
+    await commitLocalEdit(adapter, env, {
+      entity: 'note_item',
+      id: note.id,
+      update: (current) => ({
+        ...applyNoteItemChange(current, { text: 'Lever behind the waterfall' }),
+        baseHlc: created.hlc,
+      }),
+    });
+
+    const stored = await readSyncedRow(adapter, SYNCED_ROWS.note_items, note.id);
+    expect(JSON.parse(stored?.fieldHlc ?? '{}')).toMatchObject({ [BASE_TEXT_CLOCK]: created.hlc });
   });
 });
