@@ -18,7 +18,7 @@ The glossary of the game logbook: the words used in code, specs, issues and comm
 
 - **Note item** (a note): playthrough writing attached to a game, typed `puzzle`, `secret`, `npc_hint` or `other`, with an optional location and a resolved flag. Its text never leaves the device except through sync.
 - **Open note**: a note item not yet resolved; counted on covers.
-- **Note conflict**: the losing side of a concurrent edit to a note's text, kept so no writing is lost (ADR-009 in the original architecture plan; not yet in `docs/adr/`). Resolved by the user, never automatically.
+- **Note conflict**: the losing side of a concurrent edit to a note's text, kept so no writing is lost (ADR-009). Resolved by the user, never automatically.
 
 ## Sync
 
