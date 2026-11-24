@@ -28,6 +28,22 @@ export const isConcurrentTextEdit = (incoming: TextEdit, held: TextEdit): boolea
   incoming.baseHlc !== held.hlc &&
   held.baseHlc !== incoming.hlc;
 
+/** A note's text as one side holds it: the text, its clock and the base it was written on. */
+export type HeldText = { text: string; hlc: string; baseHlc?: string | undefined };
+
+/**
+ * The text a race would lose, the one with the older clock, or `null` when
+ * there is no race or both sides wrote the same text: nothing to choose between.
+ */
+export const losingText = (
+  held: HeldText,
+  incoming: HeldText,
+): { text: string; hlc: string } | null => {
+  if (!isConcurrentTextEdit(incoming, held) || incoming.text === held.text) return null;
+  const loser = incoming.hlc < held.hlc ? incoming : held;
+  return { text: loser.text, hlc: loser.hlc };
+};
+
 /** The same race spotted on two devices yields one id, so the copies merge as one row. */
 const conflictId = (noteItemId: string, losingHlc: string): string =>
   v5(`${noteItemId}\u0000${losingHlc}`, NOTE_CONFLICT_NAMESPACE);

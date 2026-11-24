@@ -7,8 +7,12 @@ import {
 } from '@gameplan/storage';
 import type { StorageAdapter, Transaction } from '@gameplan/storage';
 import type { SnapshotRow } from '@gameplan/contracts';
-import { receive } from '../clock/hlc';
+import { parseHlc, receive } from '../clock/hlc';
+import { conflictFromLosingEdit, losingText } from '../conflicts/conflicts';
+import type { HeldText } from '../conflicts/conflicts';
+import { newId } from '../ids';
 import {
+  BASE_TEXT_CLOCK,
   fieldClocks,
   isDeleted,
   isEditClock,
@@ -18,10 +22,11 @@ import {
 } from '../merge/merge';
 import type { RowState } from '../merge/merge';
 import { toCurrentOp } from '../compat/v1';
-import { isSyncedEntity, knownFields, opSchema } from '../op/schema';
+import { OP_SCHEMA_VERSION, isSyncedEntity, knownFields, opSchema } from '../op/schema';
 import type { Op } from '../op/schema';
 import { SCHEMAS, codecFor, isoAt, parseClocks, stringifyClocks } from './entities';
 import type { StoredEntity, SyncEnv } from './entities';
+import { queue } from './commit';
 import { ensureNodeId } from './node-id';
 
 const withoutId = (value: object): Record<string, unknown> =>
@@ -70,15 +75,92 @@ const tally = (count: Applied, outcome: 'written' | 'skipped' | 'unneeded'): voi
   if (outcome === 'skipped') count.skipped += 1;
 };
 
+type Detect = { env: SyncEnv; nowMs: number; nodeId: string };
+
+/**
+ * Keeps the text a pulled edit raced as a note conflict, in the caller's
+ * transaction (ADR-009). Never for this device's own edits coming back: their
+ * races are found by the devices that held the other text. Nor for a text
+ * another edit in the same pull was built on: that one was replaced on purpose.
+ *
+ * The conflict's op carries the losing clock, not a fresh one, and merges into
+ * whatever row is there: every device that spots the race writes the same row
+ * at the same clock, so a late copy can't reopen a resolved conflict. It is
+ * queued only when it changed the row; one that arrived from elsewhere is
+ * already on the server. A conflict that fails its checks is skipped, never
+ * thrown: a throw here would stop every later pull (#26).
+ */
+const keepLosingText = async (
+  tx: Transaction,
+  noteItemId: string,
+  held: RowState,
+  incoming: HeldText,
+  { env, nowMs, nodeId, replaced }: Detect & { replaced: ReadonlySet<string> },
+): Promise<void> => {
+  if (parseHlc(incoming.hlc).nodeId === nodeId) return;
+  const heldClock = fieldClocks(held.clocks).text;
+  const heldText = held.fields.text;
+  if (heldClock === undefined || typeof heldText !== 'string') return;
+  const losing = losingText(
+    { text: heldText, hlc: heldClock, baseHlc: held.clocks[BASE_TEXT_CLOCK] },
+    incoming,
+  );
+  if (losing === null || replaced.has(losing.hlc)) return;
+
+  const { id, ...fields } = conflictFromLosingEdit(noteItemId, losing);
+  const op = opSchema.safeParse({
+    id: newId(env.randomBytes, nowMs),
+    entity: 'note_conflict',
+    entityId: id,
+    type: 'set',
+    fields,
+    hlc: losing.hlc,
+    schemaVersion: OP_SCHEMA_VERSION,
+  });
+  if (!op.success) return;
+  const codec = codecFor('note_conflict');
+  const stored = await readSyncedRow(tx, codec, id);
+  const current = {
+    fields: stored === null ? {} : withoutId(stored.value),
+    clocks: parseClocks(stored?.fieldHlc),
+  };
+  const merged = mergeOp(current, op.data);
+  if (merged === current) return;
+  const value = SCHEMAS.note_conflict.safeParse({ id, ...merged.fields });
+  if (!value.success) return;
+
+  const { pending } = queue(op.data, nowMs);
+  const meta = {
+    fieldHlc: stringifyClocks(merged.clocks),
+    deleted: isDeleted(merged.clocks),
+    now: isoAt(nowMs),
+  };
+  await writeRows(tx, {
+    rows: [{ table: codec.table, row: codec.toRow(value.data, meta) }],
+    ops: [pending],
+  });
+};
+
+/** A pulled note text edit, as the other side of a possible race. */
+const textEditOf = (op: Op): HeldText | null =>
+  op.entity === 'note_item' && op.type === 'set' && op.fields.text !== undefined
+    ? { text: op.fields.text, hlc: op.hlc, baseHlc: op.baseHlc }
+    : null;
+
 const mergeOps = async (
   tx: Transaction,
   ops: readonly Op[],
-  { nowMs, nodeId, clock: start }: { nowMs: number; nodeId: string; clock: string | null },
+  { env, nowMs, nodeId, clock: start }: Detect & { clock: string | null },
   count: Applied,
 ): Promise<string | null> => {
   let clock = start;
-  for (const incoming of ops) {
-    const op = opSchema.parse(incoming);
+  const parsed = ops.map((op) => opSchema.parse(op));
+  // Texts some edit in this pull was built on: replaced on purpose, not lost.
+  // Per page: a chain split across pages can raise an extra conflict, the
+  // accepted cost (ADR-009); a lost text is never one.
+  const replaced = new Set(parsed.flatMap((op) => textEditOf(op)?.baseHlc ?? []));
+
+  for (const op of parsed) {
     const { entity } = op;
     const stored = await readSyncedRow(tx, codecFor(entity), op.entityId);
 
@@ -86,6 +168,10 @@ const mergeOps = async (
       fields: stored === null ? {} : withoutId(stored.value),
       clocks: parseClocks(stored?.fieldHlc),
     };
+    const edit = textEditOf(op);
+    if (edit !== null) {
+      await keepLosingText(tx, op.entityId, before, edit, { env, nowMs, nodeId, replaced });
+    }
     const merged = mergeOp(before, op);
     clock = receive(clock, op.hlc, nowMs, nodeId);
     if (merged === before) continue;
@@ -125,7 +211,7 @@ export const applyRemoteOps = async (
     const clock = await mergeOps(
       tx,
       ops,
-      { nowMs: env.now(), nodeId, clock: state.hlcLast },
+      { env, nowMs: env.now(), nodeId, clock: state.hlcLast },
       count,
     );
     await updateSyncState(tx, { hlcLast: clock, lastPulledSeq });
@@ -174,6 +260,17 @@ export const applySnapshot = async (
           ...knownReservedClocks(row.fieldHlc),
         },
       };
+      const remoteText = remote.fields.text;
+      const remoteClock = fieldClocks(remote.clocks).text;
+      if (entity === 'note_item' && typeof remoteText === 'string' && remoteClock !== undefined) {
+        const incoming = {
+          text: remoteText,
+          hlc: remoteClock,
+          baseHlc: remote.clocks[BASE_TEXT_CLOCK],
+        };
+        const replaced = new Set<string>();
+        await keepLosingText(tx, row.id, before, incoming, { env, nowMs, nodeId, replaced });
+      }
       const merged = mergeRow(entity, before, remote);
       for (const [key, hlc] of Object.entries(row.fieldHlc)) {
         if (isEditClock(key)) clock = receive(clock, hlc, nowMs, nodeId);
@@ -198,7 +295,7 @@ export const applySnapshot = async (
         if (op === null) count.skipped += 1;
         return op ?? [];
       });
-      clock = await mergeOps(tx, outbox, { nowMs, nodeId, clock }, count);
+      clock = await mergeOps(tx, outbox, { env, nowMs, nodeId, clock }, count);
     }
     await updateSyncState(tx, {
       hlcLast: clock,

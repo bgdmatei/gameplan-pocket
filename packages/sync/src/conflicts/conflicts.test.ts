@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatHlc } from '../clock/hlc';
-import { conflictFromLosingEdit, isConcurrentTextEdit } from './conflicts';
+import { conflictFromLosingEdit, isConcurrentTextEdit, losingText } from './conflicts';
 
 const NOTE = '01890a5d-ac96-774b-bcce-b302099a8057';
 const PHONE = '00000000000000aa';
@@ -72,6 +72,35 @@ describe('isConcurrentTextEdit', () => {
     },
   ])('$case: $concurrent', ({ incoming, held, concurrent }) => {
     expect(isConcurrentTextEdit(incoming, held)).toBe(concurrent);
+  });
+});
+
+describe('losingText', () => {
+  const held = { text: 'Lever', hlc: at(2), baseHlc: at(1) };
+
+  it.each([
+    {
+      case: 'the held text, when a later edit races it',
+      incoming: { text: 'Key', hlc: at(3, TABLET), baseHlc: at(1) },
+      losing: { text: 'Lever', hlc: at(2) },
+    },
+    {
+      case: 'the incoming text, when an earlier edit races',
+      incoming: { text: 'Key', hlc: at(1, TABLET), baseHlc: at(0) },
+      losing: { text: 'Key', hlc: at(1, TABLET) },
+    },
+    {
+      case: 'nothing, when both races wrote the same text',
+      incoming: { text: 'Lever', hlc: at(3, TABLET), baseHlc: at(1) },
+      losing: null,
+    },
+    {
+      case: 'nothing, for an edit on top of the held text',
+      incoming: { text: 'Key', hlc: at(3, TABLET), baseHlc: at(2) },
+      losing: null,
+    },
+  ])('$case', ({ incoming, losing }) => {
+    expect(losingText(held, incoming)).toEqual(losing);
   });
 });
 

@@ -47,7 +47,7 @@ const nextClock = async (tx: Transaction, env: SyncEnv) => {
  * Validated against the allowlist before it is queued: an op this device could
  * not push would sit in the outbox forever.
  */
-const queue = (op: unknown, nowMs: number) => {
+export const queue = (op: unknown, nowMs: number) => {
   const parsed = opSchema.parse(op);
   return {
     op: parsed,

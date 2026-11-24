@@ -8,6 +8,7 @@ import type {
 import {
   deletePendingOps,
   getSyncState,
+  latestPendingSeq,
   listPendingOps,
   rejectPendingOps,
   updateSyncState,
@@ -62,8 +63,9 @@ const pushOutbox = async ({ adapter, env, api }: SyncDeps) => {
     const rejectedAt = isoAt(env.now());
     // `clock_ahead` means "not yet": this device's clock runs fast, and the op
     // goes through once the server's time catches up. Dropping it would leave
-    // later edits to its row without the row (review of #19). Every op queued
-    // after it carries a later clock, so pushing stops for this sync.
+    // later edits to its row without the row (review of #19). Ops queued after
+    // it may depend on it, so pushing stops for this sync; a conflict op queued
+    // behind it with an older clock waits one sync too.
     const later = response.rejected.filter(({ reason }) => reason === 'clock_ahead');
     const rejections = response.rejected
       .filter(({ reason }) => reason !== 'clock_ahead')
@@ -78,14 +80,14 @@ const pushOutbox = async ({ adapter, env, api }: SyncDeps) => {
     await rejectPendingOps(adapter, rejections);
     pushed += response.accepted.length;
     rejected += rejections.length;
-    if (later.length > 0) break;
+    if (later.length > 0) return { pushed, rejected, deferred: true };
     // A server that answers for none of the batch would loop here forever.
     if (response.accepted.length + rejections.length === 0) {
       throw new Error('The server answered a push without accepting or rejecting any op.');
     }
   }
 
-  return { pushed, rejected };
+  return { pushed, rejected, deferred: false };
 };
 
 /** Reads every snapshot page first, so one transaction applies them all. */
@@ -139,12 +141,27 @@ const pullLog = async ({ adapter, env, api }: SyncDeps) => {
  * means this device's own edits are in the log before it reads the log.
  */
 export const syncOnce = async (deps: SyncDeps): Promise<SyncResult> => {
-  const { pushed, rejected } = await pushOutbox(deps);
+  const { pushed, rejected, deferred } = await pushOutbox(deps);
   const { bootstrapped, resync } = await getSyncState(deps.adapter);
+  // Read before the snapshot and the pull: both can find a note conflict and queue it.
+  const queuedBefore = await latestPendingSeq(deps.adapter);
   const skippedAtBootstrap = !bootstrapped || resync ? await bootstrap(deps, resync) : 0;
   const { pulled, skipped } = await pullLog(deps);
+  // Send a conflict found here now, not at the next sync, which a sign-out
+  // (destroying the database) could pre-empt. Best effort: the pull already
+  // landed, and an op that fails to go stays queued. Not behind an op the
+  // first push held back for a fast clock: it would be held again.
+  let again = { pushed: 0, rejected: 0 };
+  if (!deferred && (await latestPendingSeq(deps.adapter)) !== queuedBefore) {
+    again = await pushOutbox(deps).catch(() => again);
+  }
   await updateSyncState(deps.adapter, { lastSyncedAt: isoAt(deps.env.now()) });
-  return { pushed, rejected, pulled, skipped: skippedAtBootstrap + skipped };
+  return {
+    pushed: pushed + again.pushed,
+    rejected: rejected + again.rejected,
+    pulled,
+    skipped: skippedAtBootstrap + skipped,
+  };
 };
 
 /** `syncOnce`, one at a time: a call made mid-sync shares one run after it. */
