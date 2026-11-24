@@ -20,6 +20,15 @@ Offline-first, multi-device game logbook: Expo (React Native) + Hono API + a cus
 
 Work follows spec → plan → issues → implement, with a human review gate between phases: the owner labels an issue `ready-for-agent`. Don't start a module without an approved spec, and don't overwrite a plan whose milestone still has open issues — archive it instead.
 
+**Before writing a spec or plan, audit what earlier modules built, in code, not in docs.** For every field, table, op or endpoint the new module relies on:
+
+- grep it end to end through every hop it crosses (phone → push (upcast) → server check → Postgres log and rows → pull and snapshot (downcast) → phone), and read each hop's code;
+- check the real persistence (the Postgres repository, migrations, op-sqlite), never only the in-memory fakes;
+- read `tasks/archive/` where a plan exists, and the matching entries in `review-log.md`, for limits and known gaps;
+- write down what you found: each assumption with the file that proves it, in the spec's assumptions (a gap may change its contracts) and the plan; each gap becomes its own task.
+
+Why: `notes-conflicts` was planned on "phone and server share the merge", but `baseHlc`, sent by `packages/sync`, was never stored by the Postgres op log (`apps/api/src/sync/repository.ts`). The in-memory server kept it, so tests would have passed; the gap surfaced mid-implementation (#59, split out as #69). Grepping `baseHlc` in `apps/api` would have caught it.
+
 `*.md` is gitignored (see `.gitignore`), so specs and plans stay local. The versioned exceptions are `CLAUDE.md`, `README.md`, `CONTEXT.md`, `docs/agents/*.md`, `docs/adr/*.md` and `PERFORMANCE.md`; anything written there gets committed.
 
 **Keep `README.md` current.** It is the versioned record of how to run the project and the tests, the decisions behind it, and what is done, written for people reading the repo or running the app; verification recipes (`curl` checks, log lines) belong in the spec. When a change touches any of those (a command, a setup step, a decision revisited, a module finished), update the README in the same commit.
