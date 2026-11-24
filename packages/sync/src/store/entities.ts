@@ -3,9 +3,17 @@ import {
   libraryEntrySchema,
   listItemSchema,
   listSchema,
+  noteConflictSchema,
   noteItemSchema,
 } from '@gameplan/domain';
-import type { EntryTag, LibraryEntry, List, ListItem, NoteItem } from '@gameplan/domain';
+import type {
+  EntryTag,
+  LibraryEntry,
+  List,
+  ListItem,
+  NoteConflict,
+  NoteItem,
+} from '@gameplan/domain';
 import type { z } from 'zod';
 import { SYNCED_ROWS } from '@gameplan/storage';
 import type { SyncedRowCodec } from '@gameplan/storage';
@@ -24,6 +32,7 @@ export type EntityValues = {
   library_entry: LibraryEntry;
   entry_tag: EntryTag;
   note_item: NoteItem;
+  note_conflict: NoteConflict;
   list: List;
   list_item: ListItem;
 };
@@ -37,6 +46,7 @@ const CODECS: { [E in StoredEntity]: SyncedRowCodec<EntityValues[E]> } = {
   library_entry: SYNCED_ROWS.library_entries,
   entry_tag: SYNCED_ROWS.entry_tags,
   note_item: SYNCED_ROWS.note_items,
+  note_conflict: SYNCED_ROWS.note_conflicts,
   list: SYNCED_ROWS.lists,
   list_item: SYNCED_ROWS.list_items,
 };
@@ -49,26 +59,13 @@ export const SCHEMAS: { [E in StoredEntity]: z.ZodType<EntityValues[E]> } = {
   library_entry: libraryEntrySchema,
   entry_tag: entryTagSchema,
   note_item: noteItemSchema,
+  note_conflict: noteConflictSchema,
   list: listSchema,
   list_item: listItemSchema,
 };
 
-/**
- * `note_conflict` is a synced entity with no repository yet: `notes-conflicts`
- * (module 10) adds one. Until then an op for it cannot be stored, and saying
- * so beats dropping it.
- */
-export const storedEntity = (entity: SyncedEntity): StoredEntity => {
-  if (entity === 'note_conflict') {
-    throw new Error(
-      'note_conflict ops are not yet supported; notes-conflicts (module 10) adds them.',
-    );
-  }
-  return entity;
-};
-
 export const codecFor = (entity: SyncedEntity): SyncedRowCodec<EntityValues[StoredEntity]> =>
-  CODECS[storedEntity(entity)] as SyncedRowCodec<EntityValues[StoredEntity]>;
+  CODECS[entity] as SyncedRowCodec<EntityValues[StoredEntity]>;
 
 export type Clocks = Record<string, string>;
 

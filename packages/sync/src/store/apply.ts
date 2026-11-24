@@ -20,7 +20,7 @@ import type { RowState } from '../merge/merge';
 import { toCurrentOp } from '../compat/v1';
 import { isSyncedEntity, knownFields, opSchema } from '../op/schema';
 import type { Op } from '../op/schema';
-import { SCHEMAS, codecFor, isoAt, parseClocks, storedEntity, stringifyClocks } from './entities';
+import { SCHEMAS, codecFor, isoAt, parseClocks, stringifyClocks } from './entities';
 import type { StoredEntity, SyncEnv } from './entities';
 import { ensureNodeId } from './node-id';
 
@@ -79,7 +79,7 @@ const mergeOps = async (
   let clock = start;
   for (const incoming of ops) {
     const op = opSchema.parse(incoming);
-    const entity = storedEntity(op.entity);
+    const { entity } = op;
     const stored = await readSyncedRow(tx, codecFor(entity), op.entityId);
 
     const before = {
@@ -158,7 +158,7 @@ export const applySnapshot = async (
       if (!isSyncedEntity(row.entity)) {
         throw new Error(`Cannot apply snapshot row: unknown entity ${row.entity}.`);
       }
-      const entity = storedEntity(row.entity);
+      const { entity } = row;
       const stored = await readSyncedRow(tx, codecFor(entity), row.id);
       const before = {
         fields: stored === null ? {} : withoutId(stored.value),

@@ -7,6 +7,7 @@ import { migration006 } from './006-theme';
 import { migration007 } from './007-sync-transport';
 import { migration008 } from './008-game-developer';
 import { migration009 } from './009-rating-scale';
+import { migration010 } from './010-note-conflict-node-id';
 import type { Migration } from './types';
 
 /**
@@ -24,6 +25,7 @@ export const MIGRATIONS: readonly Migration[] = [
   migration007,
   migration008,
   migration009,
+  migration010,
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]?.number ?? 0;

@@ -4,8 +4,8 @@ import { compareHlc, isTooFarAhead, toCurrentOp } from '@gameplan/sync';
 import type { Op, SyncedEntity } from '@gameplan/sync';
 
 /**
- * Entities the server accepts. `note_conflict` waits for `notes-conflicts`
- * (module 10): no client creates one yet, and the phone can't apply one.
+ * Entities the server accepts. `note_conflict` waits for its server table;
+ * no client creates one yet.
  */
 export const SERVER_ENTITIES: ReadonlySet<SyncedEntity> = new Set([
   'library_entry',

@@ -5,6 +5,7 @@ import {
   createList,
   createListItem,
   createNoteItem,
+  noteConflictSchema,
   tagIdentityKey,
 } from '@gameplan/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -13,6 +14,7 @@ import { createNodeAdapter } from '../node/adapter';
 import { putRows } from '../testing/rows';
 import { listEntryTags, listTagsInUse } from './entry-tags';
 import { listGamesOf, listItemsOf } from './lists';
+import { listGamesWithOpenConflicts, listOpenConflicts } from './note-conflicts';
 import { countOpenNotes, listNoteItems } from './note-items';
 import { SYNCED_ROWS } from './synced-rows';
 
@@ -97,6 +99,50 @@ describe('user data', () => {
         ['a', 'c'],
       );
       expect(await countOpenNotes(adapter, ENTRY_ID)).toBe(2);
+    });
+  });
+
+  describe('note conflicts', () => {
+    const note = createNoteItem({
+      id: 'note-1',
+      entryId: ENTRY_ID,
+      createdAt: NOW,
+      type: 'puzzle',
+      text: 'Lever',
+    });
+    const conflict = (id: string, createdAt: string, resolved = false) =>
+      noteConflictSchema.parse({
+        id,
+        noteItemId: note.id,
+        text: `Text ${id}`,
+        fromNodeId: '00000000000000aa',
+        hlc: '000000000000001:00000:00000000000000aa',
+        createdAt,
+        resolved,
+      });
+
+    it("lists a live note's open conflicts oldest first, and hides a deleted note's", async () => {
+      await putRows(adapter, SYNCED_ROWS.note_items, [note], { now: NOW });
+      await putRows(
+        adapter,
+        SYNCED_ROWS.note_conflicts,
+        [
+          conflict('later', '2026-09-18T12:00:00.000Z'),
+          conflict('earlier', '2026-09-18T11:00:00.000Z'),
+          conflict('done', '2026-09-18T10:00:00.000Z', true),
+        ],
+        { now: NOW },
+      );
+
+      expect((await listOpenConflicts(adapter, note.id)).map((c) => c.id)).toEqual([
+        'earlier',
+        'later',
+      ]);
+      expect(await listGamesWithOpenConflicts(adapter)).toEqual([1942]);
+
+      await putRows(adapter, SYNCED_ROWS.note_items, [note], { now: NOW, deleted: true });
+      expect(await listOpenConflicts(adapter, note.id)).toEqual([]);
+      expect(await listGamesWithOpenConflicts(adapter)).toEqual([]);
     });
   });
 

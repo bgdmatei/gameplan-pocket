@@ -1,4 +1,11 @@
-import type { EntryTag, LibraryEntry, List, ListItem, NoteItem } from '@gameplan/domain';
+import type {
+  EntryTag,
+  LibraryEntry,
+  List,
+  ListItem,
+  NoteConflict,
+  NoteItem,
+} from '@gameplan/domain';
 import type { SqlValue, Transaction } from '../adapter';
 import { toTag, toRow as tagToRow } from './entry-tags';
 import type { TagRow } from './entry-tags';
@@ -6,6 +13,8 @@ import { toRow as entryToRow, toEntry } from './library-entries';
 import type { EntryRow } from './library-entries';
 import { toList, toListItem, toListItemRow, toListRow } from './lists';
 import type { ListItemRow, ListRow } from './lists';
+import { toRow as conflictToRow, toConflict } from './note-conflicts';
+import type { NoteConflictRow } from './note-conflicts';
 import { toRow as noteToRow, toNote } from './note-items';
 import type { NoteRow } from './note-items';
 import type { Row } from './write';
@@ -39,7 +48,6 @@ const codec = <T, R>(
  *
  * Built from the repositories' own mappers, so the column mapping still lives
  * in one place per entity: a column added to a repository reaches sync too.
- * `note_conflicts` has no repository yet; `notes-conflicts` (module 10) adds it.
  */
 export const SYNCED_ROWS = {
   library_entries: codec<LibraryEntry, EntryRow>(
@@ -65,6 +73,11 @@ export const SYNCED_ROWS = {
       deleted,
     }),
     toNote,
+  ),
+  note_conflicts: codec<NoteConflict, NoteConflictRow>(
+    'note_conflicts',
+    (conflict, { fieldHlc, deleted }) => ({ ...conflictToRow(conflict, fieldHlc), deleted }),
+    toConflict,
   ),
   lists: codec<List, ListRow>(
     'lists',

@@ -10,6 +10,7 @@ import { createMigratedNodeAdapter } from '@gameplan/storage/node';
 import type { StorageAdapter } from '@gameplan/storage';
 import { describe, expect, it } from 'vitest';
 import { formatHlc } from '../clock/hlc';
+import { conflictFromLosingEdit } from '../conflicts/conflicts';
 import { entryId } from '../ids';
 import type { Op } from '../op/schema';
 import { fakeEnv } from '../testing/env';
@@ -122,5 +123,27 @@ describe('applyRemoteOps', () => {
     });
     expect((await stored(adapter)).entry).toBeNull();
     expect((await getSyncState(adapter)).lastPulledSeq).toBe(1);
+  });
+
+  it('stores a note conflict pulled from another device', async () => {
+    const adapter = await createMigratedNodeAdapter();
+    const hlc = formatHlc({ wallMs: START, counter: 0, nodeId: '00000000000000aa' });
+    const { id, ...fields } = conflictFromLosingEdit('note-1', { text: 'Lever', hlc });
+    const op: Op = {
+      id: '01890a5d-ac96-774b-bcce-b302099a8057',
+      entity: 'note_conflict',
+      entityId: id,
+      type: 'set',
+      fields,
+      hlc,
+      schemaVersion: 2,
+    };
+
+    await applyRemoteOps(adapter, fakeEnv(), [op], { lastPulledSeq: 1 });
+
+    const row = await adapter.transaction((tx) =>
+      readSyncedRow(tx, SYNCED_ROWS.note_conflicts, id),
+    );
+    expect(row?.value).toEqual({ id, ...fields });
   });
 });
