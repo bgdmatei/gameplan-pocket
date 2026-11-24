@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
     gap: space.sm,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderRadius: radius.card,
+    borderRadius: radius.small,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -98,7 +98,7 @@ export const ImageCard = ({
 };
 
 const styles = StyleSheet.create({
-  card: { aspectRatio: 3 / 4, borderRadius: radius.card, overflow: 'hidden' },
+  card: { aspectRatio: 3 / 4, borderRadius: radius.small, overflow: 'hidden' },
   text: {
     position: 'absolute',
     left: 0,

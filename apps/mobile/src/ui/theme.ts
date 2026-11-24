@@ -8,8 +8,8 @@ export type { ColorScheme, Colors } from './palette';
 export { gradients } from './palette';
 
 /**
- * Design tokens for the visual-design direction (SPEC-visual-design.md,
- * 2026-10-23, replacing "Arcade Night"): image-led cards over dark gradients,
+ * Design tokens for the visual-design direction (docs/style-guide.md, which
+ * says which token to use where): image-led cards over dark gradients,
  * Fraunces for headlines, the system font for everything else, soft large
  * radii, one warm gold accent. Colours live in `palette.ts` (pure, so the
  * contrast test can read them); sizes, type and motion live here. Screens use
@@ -29,9 +29,9 @@ export const space = {
 export const radius = {
   /** Cover art in grids and rows. */
   cover: 16,
-  /** Inputs and small controls. */
+  /** Image cards, list rows, inputs and small controls. */
   small: 16,
-  /** Cards, notes and image cards. */
+  /** Soft cards and notes. */
   card: 24,
   /** Sheets and the floating tab bar. */
   sheet: 28,
