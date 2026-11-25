@@ -25,15 +25,18 @@ const conflict: NoteConflict = {
 
 describe('resolveConflict', () => {
   it.each([
-    { choice: 'keep_current' as const, text: undefined },
-    { choice: 'keep_other' as const, text: 'Lever, right one' },
-    { choice: 'keep_both' as const, text: 'Lever, left one\n\nLever, right one' },
-  ])('$choice resolves the conflict and sets the text to $text', ({ choice, text }) => {
-    const resolution = resolveConflict(note, conflict, choice);
+    { choice: 'keep_current' as const, other: undefined, text: undefined },
+    { choice: 'keep_other' as const, other: undefined, text: 'Lever, right one' },
+    { choice: 'keep_both' as const, other: undefined, text: 'Lever, left one\n\nLever, right one' },
+    // Nothing in the other version the note lacks: resolved, text untouched.
+    { choice: 'keep_both' as const, other: 'Lever, left one', text: undefined },
+  ])('$choice resolves the conflict and sets the text to $text', ({ choice, other, text }) => {
+    const held = { ...conflict, text: other ?? conflict.text };
+    const resolution = resolveConflict(note, held, choice);
 
     expect(resolution.note?.changed).toEqual(text === undefined ? undefined : { text });
     expect(resolution.conflict).toEqual({
-      next: { ...conflict, resolved: true },
+      next: { ...held, resolved: true },
       changed: { resolved: true },
     });
   });

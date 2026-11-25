@@ -113,12 +113,15 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
     inFlight.current = true;
     setChoosing(true);
     try {
-      await commitConflictResolution(adapter, syncEnv, {
+      const ops = await commitConflictResolution(adapter, syncEnv, {
         conflictId: conflict.id,
         choice,
         baseHlc: shown.base,
       });
-      if (choice === 'keep_both') toast.show('The two versions were joined.', 'success');
+      // Silent when the other version held nothing new: the note didn't change.
+      if (choice === 'keep_both' && ops.some((op) => op.entity === 'note_item')) {
+        toast.show('The two versions were joined.', 'success');
+      }
       const fresh = await getNoteItem(adapter, note.id);
       if (fresh !== null) {
         setDraft({ type: fresh.type, text: fresh.text, location: fresh.location ?? '' });
