@@ -10,21 +10,12 @@ import { commitConflictResolution, readFieldClock } from '@gameplan/sync';
 import { Stack, router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  Keyboard,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { Alert, Keyboard, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase } from '@/data/database';
 import { syncEnv } from '@/data/env';
 import { useQuery } from '@/data/use-query';
-import { ConflictDrawer } from '@/features/notes/conflict-drawer';
+import { ConflictDrawer, conflictDrawerSpace } from '@/features/notes/conflict-drawer';
 import { NoteForm } from '@/features/notes/note-form';
 import type { NoteDraft } from '@/features/notes/note-form';
 import { deleteNote, openNoteSession } from '@/features/notes/note-session';
@@ -90,9 +81,9 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
   // against, so an edit arriving meanwhile becomes a conflict.
   const [shown, setShown] = useState<{ id: string; base: string | null } | null>(null);
   const [choosing, setChoosing] = useState(false);
+  const [drawerHeight, setDrawerHeight] = useState(0);
   // Set before the re-render that disables the pills, so a double tap runs once.
   const inFlight = useRef(false);
-  const { height } = useWindowDimensions();
 
   useEffect(() => {
     if (conflict === undefined) return;
@@ -217,7 +208,8 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
     ]);
 
   // Room to scroll the whole note above the drawer while it is up.
-  const below = conflict === undefined ? insets.bottom : height / 4 + insets.bottom;
+  const below =
+    conflict === undefined ? insets.bottom : conflictDrawerSpace(drawerHeight, insets.bottom);
 
   return (
     <View style={styles.screen}>
@@ -243,8 +235,9 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
                 type: 'button',
                 label: 'Save note',
                 icon: { type: 'sfSymbol', name: 'checkmark' },
-                tintColor: colors.accent,
+                tintColor: colors.success,
                 sharesBackground: false,
+                disabled: !dirty || conflict !== undefined,
                 onPress: () => void saveDraft(),
               },
             ],
@@ -260,6 +253,8 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
                 <HeaderIconButton
                   icon="checkmark"
                   label="Save note"
+                  success
+                  disabled={!dirty || conflict !== undefined}
                   onPress={() => void saveDraft()}
                 />
               </View>
@@ -293,6 +288,7 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
           conflict={conflict}
           ready={shown?.id === conflict.id && !choosing}
           onChoose={choose}
+          onHeight={setDrawerHeight}
         />
       )}
     </View>

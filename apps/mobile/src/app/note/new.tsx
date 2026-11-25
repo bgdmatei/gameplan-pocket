@@ -23,6 +23,8 @@ const NewNoteScreen = () => {
   const [saving, setSaving] = useState(false);
   const navigation = useNavigation();
   const dirty = draft.text.trim() !== '' || draft.location.trim() !== '';
+  // A note without text can't exist, so Add would only show a rejection.
+  const addable = draft.text.trim() !== '';
 
   // Back, a swipe back and Android back all land here: typed text is
   // never dropped without asking. Saving leaves the page on purpose.
@@ -60,7 +62,14 @@ const NewNoteScreen = () => {
     >
       <Stack.Screen
         options={{
-          headerRight: () => <HeaderButton label="Add" emphasis onPress={() => void add()} />,
+          headerRight: () => (
+            <HeaderButton
+              label="Add"
+              emphasis
+              disabled={!addable || saving}
+              onPress={() => void add()}
+            />
+          ),
         }}
       />
       <NoteForm draft={draft} onChange={setDraft} autoFocus />

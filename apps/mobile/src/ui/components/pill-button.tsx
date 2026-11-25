@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps, ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { minTouchTarget, radius, space, type } from '../theme';
+import { buttonDepth, minTouchTarget, radius, space, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { Frosted } from './frosted';
 import { PressableScale } from './pressable-scale';
@@ -52,7 +52,15 @@ export const PillButton = ({
       {filled ? (
         // Solid gold: blur would cost frames for nothing, and its Reduce
         // Transparency fallback would paint over the gold.
-        <View style={[styles.fill, { backgroundColor: colors.accentFill }]}>{content}</View>
+        <View
+          style={[
+            styles.fill,
+            { backgroundColor: colors.accentFill },
+            !disabled && { boxShadow: buttonDepth(colors, colors.accentFill) },
+          ]}
+        >
+          {content}
+        </View>
       ) : (
         <Frosted style={[styles.fill, { borderColor: colors.line }, styles.edge]}>
           {content}
@@ -99,7 +107,15 @@ export const RoundButton = ({
       style={styles.round}
     >
       {filled ? (
-        <View style={[styles.roundFill, { backgroundColor: colors.accentFill }]}>
+        <View
+          style={[
+            styles.roundFill,
+            {
+              backgroundColor: colors.accentFill,
+              boxShadow: buttonDepth(colors, colors.accentFill),
+            },
+          ]}
+        >
           {drawn(colors.onAccent)}
         </View>
       ) : (

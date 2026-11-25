@@ -55,6 +55,17 @@ const pairs = (scheme: ColorScheme): Pair[] => {
   ];
 };
 
+describe('button depth', () => {
+  // buttonDepth appends a hex alpha to the fill for its glow: anything but a
+  // six-digit hex would make the whole boxShadow invalid, silently.
+  it.each(['dark', 'light'] as const)('%s theme fills are six-digit hex', (scheme) => {
+    const { accentFill, destructiveFill } = palettes[scheme];
+    expect([accentFill, destructiveFill].filter((fill) => !/^#[0-9A-Fa-f]{6}$/.test(fill))).toEqual(
+      [],
+    );
+  });
+});
+
 describe('theme contrast', () => {
   it('measures the extremes as WCAG does', () => {
     expect(contrastRatio('#000000', '#FFFFFF')).toBeCloseTo(21, 5);

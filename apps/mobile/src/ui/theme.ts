@@ -98,6 +98,23 @@ export const press = {
   spring: { damping: 18, stiffness: 420, mass: 0.6 },
 } as const;
 
+/** How strongly a filled button glows in its own colour, as a hex alpha. */
+const GLOW_ALPHA = '59';
+
+/**
+ * Depth for a solid-filled button: light along the top, a darker line at the
+ * bottom, a tight shadow under it and a soft glow in its own colour. `fill` is
+ * a six-digit hex from the palette. Frosted buttons stay flat: a glow on glass
+ * reads as dirt.
+ */
+export const buttonDepth = (colors: Colors, fill: string): string =>
+  [
+    `inset 0 1px 0 ${colors.buttonHighlight}`,
+    `inset 0 -2px 0 ${colors.buttonEdge}`,
+    `0 1px 2px ${colors.buttonShadow}`,
+    `0 8px 24px ${fill}${GLOW_ALPHA}`,
+  ].join(', ');
+
 /** The smallest touch target on either platform. */
 export const minTouchTarget = 44;
 

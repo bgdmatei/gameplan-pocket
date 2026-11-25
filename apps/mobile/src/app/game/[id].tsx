@@ -240,7 +240,6 @@ const GameScreen = () => {
             </View>
           )}
 
-          {/* In a card like the page's other sections, not loose at the foot (#32). */}
           {game.summary === null && facts.length === 0 ? null : (
             <View
               style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}
