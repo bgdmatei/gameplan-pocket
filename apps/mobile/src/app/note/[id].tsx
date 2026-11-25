@@ -21,7 +21,7 @@ import { ConflictDrawer, conflictDrawerSpace } from '@/features/notes/conflict-d
 import { conflictView } from '@/features/notes/conflict-view';
 import { NoteForm } from '@/features/notes/note-form';
 import type { NoteDraft } from '@/features/notes/note-form';
-import { deleteNote, openNoteSession } from '@/features/notes/note-session';
+import { deleteNote, openNoteSession, reopenNote } from '@/features/notes/note-session';
 import type { NoteSession } from '@/features/notes/note-session';
 import { HeaderIconButton } from '@/ui/components/header-button';
 import { LoadFailed } from '@/ui/components/load-failed';
@@ -59,7 +59,7 @@ const draftOf = (note: NoteItem): NoteDraft => ({
  * location are a draft until Save, which writes them as one op; leaving
  * with unsaved changes asks first, as adding a note does. Resolved is a
  * toggle and saves at once. A refresh from the database never overwrites
- * the draft.
+ * the draft, except an untouched, locked one when a conflict closes (ADR-009).
  */
 const NoteEditor = ({ note }: { note: NoteItem }) => {
   const insets = useSafeAreaInsets();
@@ -91,8 +91,12 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
     note.id,
   ]);
   const conflict = conflicts.status === 'ready' ? conflicts.data[0] : undefined;
+  // The conflict this screen last saw, and the one a choice here closed.
+  const previousConflict = useRef<string | undefined>(undefined);
+  const chosenHere = useRef<string | null>(null);
   // Saving waits until the list is known: a save now would race a choice not
-  // yet shown. A failed list doesn't lock the note.
+  // yet shown. A failed list doesn't lock the note: a save that races then
+  // keeps the other text as a conflict, so nothing is lost.
   const blocked = conflicts.status === 'loading' || conflict !== undefined;
   // Which side is this device's own: known before the drawer shows, or it
   // would flash the stored sides first.
@@ -129,9 +133,64 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
           conflict,
           ownNodeId,
         );
-  // The form's text while a choice saves, so it doesn't flash the old draft
-  // between the conflict closing and the reload.
+  // The form's text, locked, from a conflict closing until the reload lands,
+  // so nothing flashes and nothing typed meanwhile is overwritten. Each
+  // freeze takes a token; only the latest reloads or unfreezes.
   const [frozen, setFrozen] = useState<string | null>(null);
+  const freezeToken = useRef(0);
+  // The text the form showed in the last committed render, for the freeze
+  // when a conflict closes elsewhere. Updated by an effect declared after the
+  // close effect, so that one still reads the previous render's text.
+  const displayed = useRef<string>(draft.text);
+  // Whether the screen is still there for a reload.
+  const mounted = useRef(true);
+  useEffect(() => {
+    // Set here too: StrictMode runs effects twice in development.
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  /**
+   * The note as stored and a session on exactly that text, from one read: a
+   * pull between two reads would pair a text with a newer clock, and a later
+   * save would look built on an edit the form never showed.
+   */
+  const refresh = async (token: number): Promise<NoteItem | null> => {
+    const fresh = await reopenNote(adapter, syncEnv, note.id);
+    if (fresh === null || !mounted.current || token !== freezeToken.current) return null;
+    reload(fresh.note);
+    setResolved(fresh.note.resolved);
+    session.current = Promise.resolve(fresh.session);
+    return fresh.note;
+  };
+  /** `refresh`, saying so when it fails: `null` when the note is gone or unread. */
+  const tryRefresh = async (token: number): Promise<NoteItem | null> => {
+    try {
+      return await refresh(token);
+    } catch {
+      if (mounted.current) toast.show('This note couldn’t be refreshed. Open it again.', 'problem');
+      return null;
+    }
+  };
+  const freeze = (text: string): number => {
+    freezeToken.current += 1;
+    setFrozen(text);
+    return freezeToken.current;
+  };
+  const unfreeze = (token: number): void => {
+    if (mounted.current && token === freezeToken.current) setFrozen(null);
+  };
+  /** Freezes on `text` and reloads: `null` when the note is gone or unread. */
+  const refreshFrozen = async (text: string): Promise<NoteItem | null> => {
+    const token = freeze(text);
+    try {
+      return await tryRefresh(token);
+    } finally {
+      unfreeze(token);
+    }
+  };
   const [choosing, setChoosing] = useState(false);
   const [drawerHeight, setDrawerHeight] = useState(0);
   // Set before the re-render that disables the pills, so a double tap runs once.
@@ -164,41 +223,68 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
     if (conflict === undefined || shown?.id !== conflict.id || inFlight.current) return;
     if (view === undefined) return;
     inFlight.current = true;
+    const chosen = conflict.id;
+    chosenHere.current = chosen;
     setChoosing(true);
-    setFrozen(view.current);
+    const token = freeze(view.current);
     try {
-      await commitConflictResolution(adapter, syncEnv, {
-        conflictId: conflict.id,
-        choice,
-        baseHlc: shown.base,
-      });
-      const fresh = await getNoteItem(adapter, note.id);
-      if (fresh !== null) {
-        // Judged against what this device showed as its own: silent when the
-        // other version added nothing to it.
-        if (choice === 'keep_both' && fresh.text !== view.current) {
-          toast.show('Notes merged.', 'success');
+      try {
+        await commitConflictResolution(adapter, syncEnv, {
+          conflictId: chosen,
+          choice,
+          baseHlc: shown.base,
+        });
+      } catch (error) {
+        chosenHere.current = null;
+        // Closed on another device meanwhile: nothing to try again, and the
+        // close was skipped as chosen here, so reload now.
+        if (previousConflict.current !== chosen) {
+          await tryRefresh(token);
+          return;
         }
-        reload(fresh);
-        setResolved(fresh.resolved);
+        toast.show(
+          error instanceof DomainValidationError
+            ? 'Too long to join: keep one version, or shorten first.'
+            : 'The choice couldn’t be saved. Try again.',
+          'problem',
+        );
+        return;
       }
-      session.current = openNoteSession(adapter, syncEnv, note.id);
-    } catch (error) {
-      toast.show(
-        error instanceof DomainValidationError
-          ? 'Too long to join: keep one version, or shorten first.'
-          : 'The choice couldn’t be saved. Try again.',
-        'problem',
-      );
+      const fresh = await tryRefresh(token);
+      // Judged against what this device showed as its own: silent when the
+      // other version added nothing to it.
+      if (choice === 'keep_both' && fresh !== null && fresh.text !== view.current) {
+        toast.show('Notes merged.', 'success');
+      }
     } finally {
       inFlight.current = false;
       setChoosing(false);
-      setFrozen(null);
+      unfreeze(token);
     }
   };
 
   const dirty =
     draft.type !== loaded.type || draft.text !== loaded.text || draft.location !== loaded.location;
+
+  // A conflict that closes without a choice made here (resolved on another
+  // device) leaves the form showing the text it loaded, not the resolution.
+  // The form was locked while it was open, so an untouched one takes the
+  // note's text and a fresh session; typing is still never replaced.
+  useEffect(() => {
+    if (conflicts.status !== 'ready') return;
+    const before = previousConflict.current;
+    previousConflict.current = conflict?.id;
+    if (before === undefined || before === conflict?.id || before === chosenHere.current) return;
+    if (dirty) return;
+    void refreshFrozen(displayed.current);
+  }, [conflicts.status, conflict?.id]);
+
+  // This device's side of an open conflict unless something is typed (typing is
+  // never hidden), or the frozen text while a reload lands.
+  const formText = frozen ?? (view !== undefined && !dirty ? view.current : draft.text);
+  useEffect(() => {
+    displayed.current = formText;
+  });
 
   // A choice reloads the form, so changes typed before the conflict arrived ask first.
   const choose = (picked: ConflictChoice): void => {
@@ -254,13 +340,12 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
     // the drawer opens now rather than on the next visit.
     try {
       if ((await listOpenConflicts(adapter, note.id)).length > 0) {
-        const fresh = await getNoteItem(adapter, note.id);
-        if (fresh !== null) {
-          reload(fresh);
-          setResolved(fresh.resolved);
-        }
         // A fresh session: a later save builds on this one, not the old base.
-        session.current = openNoteSession(adapter, syncEnv, note.id);
+        // A note gone meanwhile has nothing to stay for.
+        if ((await refreshFrozen(draft.text)) === null) {
+          router.back();
+          return;
+        }
         setLeaving(false);
         return;
       }
@@ -344,19 +429,8 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
             ),
           }}
         />
-        <View pointerEvents={conflict === undefined ? 'auto' : 'none'} style={styles.form}>
-          <NoteForm
-            // This device's side of an open conflict, unless something is typed:
-            // unsaved typing is never hidden.
-            draft={
-              frozen !== null
-                ? { ...draft, text: frozen }
-                : view !== undefined && !dirty
-                  ? { ...draft, text: view.current }
-                  : draft
-            }
-            onChange={setDraft}
-          />
+        <View pointerEvents={!blocked && frozen === null ? 'auto' : 'none'} style={styles.form}>
+          <NoteForm draft={{ ...draft, text: formText }} onChange={setDraft} />
 
           <View
             style={[

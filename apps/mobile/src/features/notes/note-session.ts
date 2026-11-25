@@ -1,5 +1,5 @@
 import { applyNoteItemChange, createNoteItem } from '@gameplan/domain';
-import type { NoteItemPatch, NoteItemType } from '@gameplan/domain';
+import type { NoteItem, NoteItemPatch, NoteItemType } from '@gameplan/domain';
 import type { StorageAdapter } from '@gameplan/storage';
 import {
   commitLocalCreate,
@@ -7,6 +7,7 @@ import {
   commitLocalEdit,
   newId,
   readFieldClock,
+  readNoteForEditing,
 } from '@gameplan/sync';
 import type { SyncEnv } from '@gameplan/sync';
 
@@ -57,12 +58,12 @@ export type NoteSession = {
  * a later save look based on the session's own earlier one, and hide an edit
  * made meanwhile on another device (ADR-009).
  */
-export const openNoteSession = async (
+const sessionFrom = (
   adapter: StorageAdapter,
   env: SyncEnv,
   id: string,
-): Promise<NoteSession> => {
-  const baseHlc = await readFieldClock(adapter, 'note_item', id, 'text');
+  baseHlc: string | null,
+): NoteSession => {
   // This session's own text saves: typed on top of, so never a race at save.
   const saved: string[] = [];
 
@@ -83,4 +84,26 @@ export const openNoteSession = async (
       return op !== null;
     },
   };
+};
+
+export const openNoteSession = async (
+  adapter: StorageAdapter,
+  env: SyncEnv,
+  id: string,
+): Promise<NoteSession> =>
+  sessionFrom(adapter, env, id, await readFieldClock(adapter, 'note_item', id, 'text'));
+
+/**
+ * The note as stored now and a fresh session on exactly that text: what the
+ * editor reloads after a conflict closes. `null` when the note is gone.
+ */
+export const reopenNote = async (
+  adapter: StorageAdapter,
+  env: SyncEnv,
+  id: string,
+): Promise<{ note: NoteItem; session: NoteSession } | null> => {
+  const read = await readNoteForEditing(adapter, id);
+  return read === null
+    ? null
+    : { note: read.note, session: sessionFrom(adapter, env, id, read.textClock) };
 };

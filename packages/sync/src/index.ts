@@ -39,7 +39,7 @@ export {
   commitLocalEdit,
 } from './store/commit';
 export type { LocalChange, LocalEdit } from './store/commit';
-export { readFieldClock } from './store/read';
+export { readFieldClock, readNoteForEditing } from './store/read';
 export type { DeletableEntity, EntityValues, StoredEntity, SyncEnv } from './store/entities';
 export { applyRemoteOps, applySnapshot } from './store/apply';
 export { ensureNodeId } from './store/node-id';
