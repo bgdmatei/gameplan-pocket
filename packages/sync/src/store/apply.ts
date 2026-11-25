@@ -8,9 +8,8 @@ import {
 import type { StorageAdapter, Transaction } from '@gameplan/storage';
 import type { SnapshotRow } from '@gameplan/contracts';
 import { parseHlc, receive } from '../clock/hlc';
-import { conflictFromLosingEdit, losingText } from '../conflicts/conflicts';
+import { losingText } from '../conflicts/conflicts';
 import type { HeldText } from '../conflicts/conflicts';
-import { newId } from '../ids';
 import {
   BASE_TEXT_CLOCK,
   fieldClocks,
@@ -22,11 +21,11 @@ import {
 } from '../merge/merge';
 import type { RowState } from '../merge/merge';
 import { toCurrentOp } from '../compat/v1';
-import { OP_SCHEMA_VERSION, isSyncedEntity, knownFields, opSchema } from '../op/schema';
+import { isSyncedEntity, knownFields, opSchema } from '../op/schema';
 import type { Op } from '../op/schema';
 import { SCHEMAS, codecFor, isoAt, parseClocks, stringifyClocks } from './entities';
 import type { StoredEntity, SyncEnv } from './entities';
-import { queue } from './commit';
+import { keepConflict } from './keep-conflict';
 import { ensureNodeId } from './node-id';
 
 const withoutId = (value: object): Record<string, unknown> =>
@@ -82,13 +81,6 @@ type Detect = { env: SyncEnv; nowMs: number; nodeId: string };
  * transaction (ADR-009). Never for this device's own edits coming back: their
  * races are found by the devices that held the other text. Nor for a text
  * another edit in the same pull was built on: that one was replaced on purpose.
- *
- * The conflict's op carries the losing clock, not a fresh one, and merges into
- * whatever row is there: every device that spots the race writes the same row
- * at the same clock, so a late copy can't reopen a resolved conflict. It is
- * queued only when it changed the row; one that arrived from elsewhere is
- * already on the server. A conflict that fails its checks is skipped, never
- * thrown: a throw here would stop every later pull (#26).
  */
 const keepLosingText = async (
   tx: Transaction,
@@ -107,38 +99,7 @@ const keepLosingText = async (
   );
   if (losing === null || replaced.has(losing.hlc)) return;
 
-  const { id, ...fields } = conflictFromLosingEdit(noteItemId, losing);
-  const op = opSchema.safeParse({
-    id: newId(env.randomBytes, nowMs),
-    entity: 'note_conflict',
-    entityId: id,
-    type: 'set',
-    fields,
-    hlc: losing.hlc,
-    schemaVersion: OP_SCHEMA_VERSION,
-  });
-  if (!op.success) return;
-  const codec = codecFor('note_conflict');
-  const stored = await readSyncedRow(tx, codec, id);
-  const current = {
-    fields: stored === null ? {} : withoutId(stored.value),
-    clocks: parseClocks(stored?.fieldHlc),
-  };
-  const merged = mergeOp(current, op.data);
-  if (merged === current) return;
-  const value = SCHEMAS.note_conflict.safeParse({ id, ...merged.fields });
-  if (!value.success) return;
-
-  const { pending } = queue(op.data, nowMs);
-  const meta = {
-    fieldHlc: stringifyClocks(merged.clocks),
-    deleted: isDeleted(merged.clocks),
-    now: isoAt(nowMs),
-  };
-  await writeRows(tx, {
-    rows: [{ table: codec.table, row: codec.toRow(value.data, meta) }],
-    ops: [pending],
-  });
+  await keepConflict(tx, env, nowMs, noteItemId, losing);
 };
 
 /** A pulled note text edit, as the other side of a possible race. */

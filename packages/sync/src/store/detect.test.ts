@@ -68,7 +68,13 @@ const pull = async (device: Device, ops: readonly Op[]) => {
 const open = async (device: Device) =>
   (await readFieldClock(device.adapter, 'note_item', NOTE, 'text')) ?? undefined;
 
-const save = async (device: Device, text: string, baseHlc: string | undefined, afterMs: number) => {
+const save = async (
+  device: Device,
+  text: string,
+  baseHlc: string | undefined,
+  afterMs: number,
+  builtOn: readonly string[] = [],
+) => {
   device.env.advance(afterMs);
   const op = await commitLocalEdit(device.adapter, device.env, {
     entity: 'note_item',
@@ -76,6 +82,7 @@ const save = async (device: Device, text: string, baseHlc: string | undefined, a
     update: (current) => ({
       ...applyNoteItemChange(current, { text }),
       ...(baseHlc === undefined ? {} : { baseHlc }),
+      builtOn,
     }),
   });
   if (op === null) throw new Error('The save changed nothing.');
@@ -180,6 +187,35 @@ describe('conflicts found on pull', () => {
 
     await pull(tablet, await queuedConflicts(phone));
     expect(await openTexts(tablet)).toEqual(['Lever, left one']);
+  });
+
+  // Detected only on pull, the saving device met its own conflict a sync
+  // later, after its editor had closed (owner, 2026-11-25).
+  it('keeps the pulled text the moment a save races it, as the row the other device makes', async () => {
+    const { phone, tablet } = await twoDevices();
+    const editorOpened = await open(tablet);
+    const fromPhone = await save(phone, 'Lever, left one', await open(phone), 1_000);
+    await pull(tablet, [fromPhone]);
+    const fromTablet = await save(tablet, 'Lever, right one', editorOpened, 2_000);
+
+    expect(await openTexts(tablet)).toEqual(['Lever, left one']);
+    // Queued after the save that made it: a device pulling the conflict
+    // first could resolve it while still holding the losing text.
+    const queued = (await listPendingOps(tablet.adapter)).map(({ id }) => id);
+    const [kept] = await queuedConflicts(tablet);
+    expect(queued.indexOf(fromTablet.id)).toBeLessThan(queued.indexOf(kept?.id ?? ''));
+    await pull(phone, [fromTablet]);
+    const ids = async (device: Device) => (await queuedConflicts(device)).map((op) => op.entityId);
+    expect(await ids(phone)).toEqual(await ids(tablet));
+  });
+
+  it("never counts an editor's second save as racing its first", async () => {
+    const { tablet } = await twoDevices();
+    const editorOpened = await open(tablet);
+    const first = await save(tablet, 'Lever, left one', editorOpened, 1_000);
+    await save(tablet, 'Lever, left one, then up', editorOpened, 1_000, [first.hlc]);
+
+    expect(await openTexts(tablet)).toEqual([]);
   });
 
   // Review of #60: a snapshot carries only the end of the tablet's chain
@@ -319,6 +355,8 @@ describe('conflicts found on pull', () => {
       choice: 'keep_other',
       baseHlc: shown ?? null,
     });
+    // Kept on the choosing device at once, not a sync later.
+    expect(await openTexts(phone)).toEqual(['Lever behind the falls']);
     await pull(tablet, resolution);
     await pull(phone, await queuedConflicts(tablet));
 
