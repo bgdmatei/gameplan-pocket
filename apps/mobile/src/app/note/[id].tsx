@@ -121,7 +121,7 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
       });
       // Silent when the other version held nothing new: the note didn't change.
       if (choice === 'keep_both' && ops.some((op) => op.entity === 'note_item')) {
-        toast.show('The two versions were joined.', 'success');
+        toast.show('Notes merged.', 'success');
       }
       const fresh = await getNoteItem(adapter, note.id);
       if (fresh !== null) {
