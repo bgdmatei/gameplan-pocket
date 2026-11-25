@@ -109,6 +109,21 @@ describe('GET /sync/pull and /sync/snapshot', () => {
     ]);
   });
 
+  // The ops table once had no column for baseHlc, so every pulled text edit
+  // looked base-less and conflict detection on pull never fired.
+  it('pulls a text edit back with its base, and an edit without one without the key', async () => {
+    const { token } = await kit.account();
+    const base = kit.nextHlc();
+    const pushed = [
+      { ...kit.setOp('note_item', 'n-1', { text: 'Lever behind the waterfall' }), baseHlc: base },
+      kit.setOp('note_item', 'n-2', { text: 'Boss weak to fire' }),
+    ];
+    await kit.push(token, pushed);
+
+    const [page] = await pullAll(token, 0);
+    expect(page?.ops.map(({ op }) => op)).toEqual(pushed);
+  });
+
   // ADR-023: pages are separate requests, so later pages may hold rows newer
   // than the snapshot's position. Pulling from that position must still end
   // exactly where a device that replayed the whole log would.

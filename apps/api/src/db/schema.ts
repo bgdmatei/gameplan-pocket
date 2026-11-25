@@ -126,6 +126,8 @@ export type OpsTable = {
   /** Null for a delete. */
   fields: MaybeJson;
   hlc: string;
+  /** Null when the op carried no `baseHlc`, or was logged before migration 007. */
+  base_hlc: string | null;
   schema_version: number;
   received_at: CreatedAt;
 };

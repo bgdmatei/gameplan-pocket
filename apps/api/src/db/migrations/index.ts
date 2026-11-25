@@ -5,6 +5,7 @@ import { migration003 } from './003-sync';
 import { migration004 } from './004-game-developer';
 import { migration005 } from './005-rating-scale';
 import { migration006 } from './006-note-conflicts';
+import { migration007 } from './007-op-base-hlc';
 
 /**
  * Every migration, keyed by a name that sorts in the order they run.
@@ -17,4 +18,5 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   '004-game-developer': migration004,
   '005-rating-scale': migration005,
   '006-note-conflicts': migration006,
+  '007-op-base-hlc': migration007,
 };
