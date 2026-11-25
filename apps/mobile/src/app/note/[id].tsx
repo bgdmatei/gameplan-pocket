@@ -4,9 +4,10 @@ import {
   NOTE_CONFLICT_TABLES,
   NOTE_ITEM_TABLES,
   getNoteItem,
+  getSyncState,
   listOpenConflicts,
 } from '@gameplan/storage';
-import { commitConflictResolution, readFieldClock } from '@gameplan/sync';
+import { commitConflictResolution, isHlc, parseHlc, readFieldClock } from '@gameplan/sync';
 import { Stack, router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -17,6 +18,7 @@ import { useDatabase } from '@/data/database';
 import { syncEnv } from '@/data/env';
 import { useQuery } from '@/data/use-query';
 import { ConflictDrawer, conflictDrawerSpace } from '@/features/notes/conflict-drawer';
+import { conflictView } from '@/features/notes/conflict-view';
 import { NoteForm } from '@/features/notes/note-form';
 import type { NoteDraft } from '@/features/notes/note-form';
 import { deleteNote, openNoteSession } from '@/features/notes/note-session';
@@ -46,6 +48,12 @@ const NoteScreen = () => {
   return <NoteEditor note={note.data} />;
 };
 
+const draftOf = (note: NoteItem): NoteDraft => ({
+  type: note.type,
+  text: note.text,
+  location: note.location ?? '',
+});
+
 /**
  * Edits one note in a session (see `openNoteSession`). Type, text and
  * location are a draft until Save, which writes them as one op; leaving
@@ -59,11 +67,16 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
   const adapter = useDatabase();
   const toast = useToast();
   const navigation = useNavigation();
-  const [draft, setDraft] = useState<NoteDraft>({
-    type: note.type,
-    text: note.text,
-    location: note.location ?? '',
-  });
+  const [draft, setDraft] = useState<NoteDraft>(() => draftOf(note));
+  // What the form last loaded. Unsaved changes are measured against it, not
+  // the live note: a text pulled from another device updates the note but
+  // never the form, and once made an untouched form look edited.
+  const [loaded, setLoaded] = useState<NoteDraft>(() => draftOf(note));
+  const reload = (fresh: NoteItem): void => {
+    const next = draftOf(fresh);
+    setDraft(next);
+    setLoaded(next);
+  };
   const [resolved, setResolved] = useState(note.resolved);
   // Saving or deleting leaves the page on purpose, without the discard question.
   const [leaving, setLeaving] = useState(false);
@@ -78,9 +91,47 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
     note.id,
   ]);
   const conflict = conflicts.status === 'ready' ? conflicts.data[0] : undefined;
+  // Saving waits until the list is known: a save now would race a choice not
+  // yet shown. A failed list doesn't lock the note.
+  const blocked = conflicts.status === 'loading' || conflict !== undefined;
+  // Which side is this device's own: known before the drawer shows, or it
+  // would flash the stored sides first.
+  // Read once: the node id never changes, and sync_state changes on every write.
+  const syncState = useQuery((db) => getSyncState(db), [], []);
+  const ownNodeId =
+    syncState.status === 'ready'
+      ? syncState.data.nodeId
+      : // Unreadable: show the stored sides rather than lock the note.
+        syncState.status === 'failed'
+        ? null
+        : undefined;
   // The text clock when this conflict was shown: what the choice is judged
   // against, so an edit arriving meanwhile becomes a conflict.
   const [shown, setShown] = useState<{ id: string; base: string | null } | null>(null);
+  // Who wrote the text the note holds now, live: a pull can replace it while
+  // the drawer is up.
+  const textClock = useQuery(
+    (db) => readFieldClock(db, 'note_item', note.id, 'text'),
+    NOTE_ITEM_TABLES,
+    [note.id],
+  );
+  const view =
+    conflict === undefined || ownNodeId === undefined || textClock.status === 'loading'
+      ? undefined
+      : conflictView(
+          {
+            text: note.text,
+            nodeId:
+              textClock.status === 'ready' && textClock.data !== null && isHlc(textClock.data)
+                ? parseHlc(textClock.data).nodeId
+                : null,
+          },
+          conflict,
+          ownNodeId,
+        );
+  // The form's text while a choice saves, so it doesn't flash the old draft
+  // between the conflict closing and the reload.
+  const [frozen, setFrozen] = useState<string | null>(null);
   const [choosing, setChoosing] = useState(false);
   const [drawerHeight, setDrawerHeight] = useState(0);
   // Set before the re-render that disables the pills, so a double tap runs once.
@@ -111,21 +162,24 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
    */
   const resolve = async (choice: ConflictChoice): Promise<void> => {
     if (conflict === undefined || shown?.id !== conflict.id || inFlight.current) return;
+    if (view === undefined) return;
     inFlight.current = true;
     setChoosing(true);
+    setFrozen(view.current);
     try {
-      const ops = await commitConflictResolution(adapter, syncEnv, {
+      await commitConflictResolution(adapter, syncEnv, {
         conflictId: conflict.id,
         choice,
         baseHlc: shown.base,
       });
-      // Silent when the other version held nothing new: the note didn't change.
-      if (choice === 'keep_both' && ops.some((op) => op.entity === 'note_item')) {
-        toast.show('Notes merged.', 'success');
-      }
       const fresh = await getNoteItem(adapter, note.id);
       if (fresh !== null) {
-        setDraft({ type: fresh.type, text: fresh.text, location: fresh.location ?? '' });
+        // Judged against what this device showed as its own: silent when the
+        // other version added nothing to it.
+        if (choice === 'keep_both' && fresh.text !== view.current) {
+          toast.show('Notes merged.', 'success');
+        }
+        reload(fresh);
         setResolved(fresh.resolved);
       }
       session.current = openNoteSession(adapter, syncEnv, note.id);
@@ -139,16 +193,17 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
     } finally {
       inFlight.current = false;
       setChoosing(false);
+      setFrozen(null);
     }
   };
 
   const dirty =
-    draft.type !== note.type ||
-    draft.text !== note.text ||
-    draft.location !== (note.location ?? '');
+    draft.type !== loaded.type || draft.text !== loaded.text || draft.location !== loaded.location;
 
   // A choice reloads the form, so changes typed before the conflict arrived ask first.
-  const choose = (choice: ConflictChoice): void => {
+  const choose = (picked: ConflictChoice): void => {
+    if (view === undefined) return;
+    const choice = view.choice(picked);
     if (!dirty) {
       void resolve(choice);
       return;
@@ -182,14 +237,37 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
 
   const saveDraft = async (): Promise<void> => {
     // A save now would race the choice still waiting below.
-    if (leaving || conflict !== undefined) return;
+    if (leaving || blocked) return;
     setLeaving(true);
-    // An unchanged draft writes nothing: the session sends no op for it.
-    if (await save({ type: draft.type, text: draft.text, location: draft.location })) {
-      router.back();
-    } else {
+    // Only the fields typed here: an untouched one would write back the value
+    // loaded, over a newer one pulled from another device meanwhile.
+    const patch: NoteItemPatch = {
+      ...(draft.type !== loaded.type && { type: draft.type }),
+      ...(draft.text !== loaded.text && { text: draft.text }),
+      ...(draft.location !== loaded.location && { location: draft.location }),
+    };
+    if (!(await save(patch))) {
       setLeaving(false);
+      return;
     }
+    // A save that raced a text pulled while typing made a conflict: stay, so
+    // the drawer opens now rather than on the next visit.
+    try {
+      if ((await listOpenConflicts(adapter, note.id)).length > 0) {
+        const fresh = await getNoteItem(adapter, note.id);
+        if (fresh !== null) {
+          reload(fresh);
+          setResolved(fresh.resolved);
+        }
+        // A fresh session: a later save builds on this one, not the old base.
+        session.current = openNoteSession(adapter, syncEnv, note.id);
+        setLeaving(false);
+        return;
+      }
+    } catch {
+      // The save went through; the badge still leads back to any conflict.
+    }
+    router.back();
   };
 
   const confirmDelete = () =>
@@ -242,7 +320,7 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
                 icon: { type: 'sfSymbol', name: 'checkmark' },
                 tintColor: colors.success,
                 sharesBackground: false,
-                disabled: !dirty || conflict !== undefined,
+                disabled: !dirty || blocked,
                 onPress: () => void saveDraft(),
               },
             ],
@@ -259,7 +337,7 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
                   icon="checkmark"
                   label="Save note"
                   success
-                  disabled={!dirty || conflict !== undefined}
+                  disabled={!dirty || blocked}
                   onPress={() => void saveDraft()}
                 />
               </View>
@@ -267,7 +345,18 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
           }}
         />
         <View pointerEvents={conflict === undefined ? 'auto' : 'none'} style={styles.form}>
-          <NoteForm draft={draft} onChange={setDraft} />
+          <NoteForm
+            // This device's side of an open conflict, unless something is typed:
+            // unsaved typing is never hidden.
+            draft={
+              frozen !== null
+                ? { ...draft, text: frozen }
+                : view !== undefined && !dirty
+                  ? { ...draft, text: view.current }
+                  : draft
+            }
+            onChange={setDraft}
+          />
 
           <View
             style={[
@@ -288,9 +377,9 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
           </View>
         </View>
       </KeyboardAwareScrollView>
-      {conflict === undefined ? null : (
+      {conflict === undefined || view === undefined ? null : (
         <ConflictDrawer
-          conflict={conflict}
+          other={view.other}
           ready={shown?.id === conflict.id && !choosing}
           onChoose={choose}
           onHeight={setDrawerHeight}

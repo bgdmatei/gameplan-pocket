@@ -63,6 +63,8 @@ export const openNoteSession = async (
   id: string,
 ): Promise<NoteSession> => {
   const baseHlc = await readFieldClock(adapter, 'note_item', id, 'text');
+  // This session's own text saves: typed on top of, so never a race at save.
+  const saved: string[] = [];
 
   return {
     save: async (patch) => {
@@ -72,9 +74,12 @@ export const openNoteSession = async (
         update: (current) => {
           const change = applyNoteItemChange(current, patch);
           const textChanged = change.changed.text !== undefined;
-          return textChanged && baseHlc !== null ? { ...change, baseHlc } : change;
+          return textChanged && baseHlc !== null ? { ...change, baseHlc, builtOn: saved } : change;
         },
       });
+      if (op?.entity === 'note_item' && op.type === 'set' && op.fields.text !== undefined) {
+        saved.push(op.hlc);
+      }
       return op !== null;
     },
   };

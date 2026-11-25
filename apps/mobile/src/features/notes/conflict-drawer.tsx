@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import type { ConflictChoice, NoteConflict } from '@gameplan/domain';
+import type { ConflictChoice } from '@gameplan/domain';
 import type { ComponentProps } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,7 +25,8 @@ const SIDE_CHOICES: readonly { choice: ConflictChoice; label: string; icon: Icon
 ];
 
 type Props = {
-  conflict: NoteConflict;
+  /** The other device's text, as this device sees the conflict (`conflictView`). */
+  other: string;
   /** False until the text it is judged against is known, and while a choice saves. */
   ready: boolean;
   onChoose: (choice: ConflictChoice) => void;
@@ -39,7 +40,7 @@ type Props = {
  * Back still leaves the note, and the conflict stays. Keep both is the main
  * choice, since it is the only one that loses nothing.
  */
-export const ConflictDrawer = ({ conflict, ready, onChoose, onHeight }: Props) => {
+export const ConflictDrawer = ({ other, ready, onChoose, onHeight }: Props) => {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
@@ -69,7 +70,7 @@ export const ConflictDrawer = ({ conflict, ready, onChoose, onHeight }: Props) =
         style={{ height: Math.max(3 * type.body.lineHeight, height / 12) }}
         accessibilityLabel="Other version"
       >
-        <Text style={[type.body, { color: colors.text }]}>{conflict.text}</Text>
+        <Text style={[type.body, { color: colors.text }]}>{other}</Text>
       </ScrollView>
       <View style={styles.row}>
         {SIDE_CHOICES.map(({ choice, label, icon }) => (
