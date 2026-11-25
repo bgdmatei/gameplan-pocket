@@ -1,9 +1,9 @@
 import type { Migration } from './types';
 
 /**
- * Protocol 3 (ADR-009): a synced device read the log as protocol 2, which
+ * Protocol 3: a synced device read the log as protocol 2, which
  * withheld note conflicts and stripped text bases, and its pull position is
- * past them. It re-reads the snapshot, its outbox on top (ADR-017).
+ * past them. It re-reads the snapshot, its outbox on top.
  */
 export const migration011: Migration = {
   number: 11,

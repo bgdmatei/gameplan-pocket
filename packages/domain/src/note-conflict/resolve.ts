@@ -16,7 +16,7 @@ export type ConflictResolution = {
 };
 
 /**
- * The user's choice for one conflict (ADR-009). Keep current leaves the note
+ * The user's choice for one conflict. Keep current leaves the note
  * alone; keep other makes the conflict's text the note's; keep both merges
  * the two by line (`mergeLines`), and changes nothing when the other version
  * holds no line the note lacks, in any order.

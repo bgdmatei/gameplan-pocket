@@ -48,8 +48,8 @@ describe('resolveConflict', () => {
     });
   });
 
-  // Owner, 2026-11-23: past the note limit nothing changes, and the user
-  // keeps one version or shortens first. The blank line counts.
+  // Past the note limit nothing changes, and the user keeps one version or
+  // shortens first. The blank line counts.
   it.each([
     { joined: NOTE_TEXT_MAX_LENGTH, refused: false },
     { joined: NOTE_TEXT_MAX_LENGTH + 1, refused: true },

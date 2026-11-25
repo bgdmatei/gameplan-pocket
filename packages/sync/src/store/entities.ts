@@ -16,8 +16,9 @@ import type {
 } from '@gameplan/domain';
 import type { z } from 'zod';
 import { SYNCED_ROWS } from '@gameplan/storage';
-import type { SyncedRowCodec } from '@gameplan/storage';
+import type { StoredRow, SyncedRowCodec } from '@gameplan/storage';
 import type { RandomBytes } from '../ids';
+import type { RowState } from '../merge/merge';
 import type { SyncedEntity } from '../op/schema';
 
 /**
@@ -80,3 +81,12 @@ export const stringifyClocks = (clocks: Clocks): string =>
   JSON.stringify(Object.fromEntries(Object.entries(clocks).sort(([a], [b]) => (a < b ? -1 : 1))));
 
 export const isoAt = (nowMs: number): string => new Date(nowMs).toISOString();
+
+/** A stored row as the merge reads it: its fields without the id, and its clocks. */
+export const rowStateOf = (stored: StoredRow<object> | null): RowState => ({
+  fields:
+    stored === null
+      ? {}
+      : Object.fromEntries(Object.entries(stored.value).filter(([field]) => field !== 'id')),
+  clocks: parseClocks(stored?.fieldHlc),
+});

@@ -141,8 +141,8 @@ describe('conflicts found on pull', () => {
     expect(await openTexts(phone)).toEqual([]);
   });
 
-  // Review of #60: a device's first save, pulled back after later ones,
-  // matches neither base, and passed for a race with its own later text.
+  // A device's first save, pulled back after later ones, matches neither
+  // base, and passed for a race with its own later text.
   it("never raises one for a device's own saves coming back", async () => {
     const { phone } = await twoDevices();
     const saves: Op[] = [];
@@ -172,7 +172,7 @@ describe('conflicts found on pull', () => {
     expect(fromPhone.hlc > first.hlc).toBe(true);
   });
 
-  // ADR-009: an open editor counts as offline. The tablet's editor opened
+  // An open editor counts as offline. The tablet's editor opened
   // before the phone's edit and saved after pulling it; the phone, holding
   // the text the save replaced, raises the conflict, and sync carries it back.
   it('turns a save over a text pulled while the editor was open into a conflict', async () => {
@@ -190,7 +190,7 @@ describe('conflicts found on pull', () => {
   });
 
   // Detected only on pull, the saving device met its own conflict a sync
-  // later, after its editor had closed (owner, 2026-11-25).
+  // later, after its editor had closed.
   it('keeps the pulled text the moment a save races it, as the row the other device makes', async () => {
     const { phone, tablet } = await twoDevices();
     const editorOpened = await open(tablet);
@@ -218,9 +218,9 @@ describe('conflicts found on pull', () => {
     expect(await openTexts(tablet)).toEqual([]);
   });
 
-  // Review of #60: a snapshot carries only the end of the tablet's chain
-  // (built on its own earlier edit), whose base is newer than the phone's
-  // racing text. Clock order waved this through. Proven by skipping snapshots.
+  // A snapshot carries only the end of the tablet's chain (built on its own
+  // earlier edit), whose base is newer than the phone's racing text. Clock
+  // order waved this through. Proven by skipping snapshots.
   it('finds a race against the end of a chain that arrives by snapshot', async () => {
     const { phone, tablet } = await twoDevices();
     const fromPhone = await save(phone, 'Lever, left one', await open(phone), 1_000);
@@ -251,9 +251,9 @@ describe('conflicts found on pull', () => {
     expect(fromPhone.hlc < JSON.parse(row.fieldHlc).text).toBe(true);
   });
 
-  // Review of #63: checking only a device's last edit in a pull let its
-  // earlier one replace the held text first, so the last looked built on it
-  // and the phone's own text vanished with no conflict on the phone.
+  // Checking only a device's last edit in a pull let its earlier one replace
+  // the held text first, so the last looked built on it and the phone's own
+  // text vanished with no conflict on the phone.
   it("keeps this device's text when another device's chain overtakes it in one pull", async () => {
     const { phone, tablet } = await twoDevices();
     const base = await open(phone);
@@ -293,7 +293,7 @@ describe('conflicts found on pull', () => {
     expect(await listPendingOps(phone.adapter)).toEqual([]);
   });
 
-  // Second review of #63: the outbox was measured after the snapshot, so a
+  // The outbox was measured after the snapshot, so a
   // conflict the snapshot found waited for the next sync.
   it('sends a conflict found in a snapshot in the same sync', async () => {
     const { phone, tablet } = await twoDevices();
@@ -332,7 +332,7 @@ describe('conflicts found on pull', () => {
     expect(sent.filter((op) => (op as Op).entity === 'note_conflict')).toHaveLength(1);
   });
 
-  // Owner, 2026-11-24 (#65): a resolution is based on the text shown when
+  // A resolution is based on the text shown when
   // the choice opened. The tablet's newer edit, pulled while it was open, is
   // raced by the choice and kept as a conflict, not overwritten unseen.
   // Proven by basing the choice on the clock read when it is committed.
@@ -346,14 +346,14 @@ describe('conflicts found on pull', () => {
     const [conflict] = await listOpenConflicts(phone.adapter, NOTE);
     if (conflict === undefined) throw new Error('No conflict to resolve.');
 
-    const shown = await open(phone);
+    const baseWhenShown = await open(phone);
     const later = await save(tablet, 'Lever behind the falls', await open(tablet), 1_000);
     await pull(phone, [later]);
     phone.env.advance(5_000);
     const resolution = await commitConflictResolution(phone.adapter, phone.env, {
       conflictId: conflict.id,
       choice: 'keep_other',
-      baseHlc: shown ?? null,
+      baseHlc: baseWhenShown ?? null,
     });
     // Kept on the choosing device at once, not a sync later.
     expect(await openTexts(phone)).toEqual(['Lever behind the falls']);
@@ -364,7 +364,7 @@ describe('conflicts found on pull', () => {
     expect(await openTexts(phone)).toEqual(['Lever behind the falls']);
   });
 
-  // Review of #65: an edit newer than a delete brings the row back, so a
+  // An edit newer than a delete brings the row back, so a
   // choice made after the note was deleted elsewhere would revive it.
   it('refuses a resolution once its note is deleted, writing nothing', async () => {
     const { phone, tablet } = await twoDevices();
@@ -374,7 +374,7 @@ describe('conflicts found on pull', () => {
     await pull(phone, [fromTablet]);
     const [conflict] = await listOpenConflicts(phone.adapter, NOTE);
     if (conflict === undefined) throw new Error('No conflict to resolve.');
-    const shown = (await open(phone)) ?? null;
+    const baseWhenShown = (await open(phone)) ?? null;
     await pull(phone, [
       await commitLocalDelete(tablet.adapter, tablet.env, { entity: 'note_item', entityId: NOTE }),
     ]);
@@ -384,7 +384,7 @@ describe('conflicts found on pull', () => {
       commitConflictResolution(phone.adapter, phone.env, {
         conflictId: conflict.id,
         choice: 'keep_other',
-        baseHlc: shown,
+        baseHlc: baseWhenShown,
       }),
     ).rejects.toThrow(/its note is gone/);
     expect(await listPendingOps(phone.adapter)).toEqual(queued);

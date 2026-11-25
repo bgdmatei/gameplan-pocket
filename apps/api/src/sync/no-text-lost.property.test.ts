@@ -16,7 +16,7 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
 /*
- * The module's main promise (ADR-009): no note text is ever lost to a merge.
+ * The module's main promise: no note text is ever lost to a merge.
  * Devices edit one note's text in editor sessions that stay open across
  * syncs, sync and resync in any order; at the end every device holds the
  * same text and the same open conflicts, and every text anyone saved is

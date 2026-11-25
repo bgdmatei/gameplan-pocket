@@ -1,7 +1,7 @@
 import type { Migration } from './types';
 
 /**
- * The conflict's author is a clock's node id, not a `deviceId` (ADR-009). The
+ * The conflict's author is a clock's node id, not a `deviceId`. The
  * table has held no rows before this version, so a rename carries nothing over.
  */
 export const migration010: Migration = {

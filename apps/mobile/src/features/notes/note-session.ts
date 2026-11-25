@@ -56,7 +56,7 @@ export type NoteSession = {
  * editor opens, and every text save of the session carries it as `baseHlc`:
  * the version the user started from. Re-reading it after each save would make
  * a later save look based on the session's own earlier one, and hide an edit
- * made meanwhile on another device (ADR-009).
+ * made meanwhile on another device.
  */
 const sessionFrom = (
   adapter: StorageAdapter,

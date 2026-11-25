@@ -19,8 +19,8 @@ import * as pinned from './client-v2.bundle.js';
 /*
  * The phone code installed today (pinned from 4463fdf, protocol 2) and
  * today's client, signed in to one account, syncing through the real API and
- * Postgres (ADR-017). The pinned build throws on a note conflict, so the
- * server must withhold every one from it (ADR-009).
+ * Postgres. The pinned build throws on a note conflict, so the server must
+ * withhold every one from it.
  */
 
 const GAME = 1942;

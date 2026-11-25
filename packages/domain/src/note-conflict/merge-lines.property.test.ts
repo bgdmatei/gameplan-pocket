@@ -29,7 +29,7 @@ const text = fc
 
 describe('mergeLines', () => {
   // Keep both once joined the two whole texts, so the text both grew from was
-  // copied each time, and a repeated keep both doubled the note (owner, 2026-11-25).
+  // copied each time, and a repeated keep both doubled the note.
   it('keeps the note in order and each line as often as the side holding more, never more', () => {
     fc.assert(
       fc.property(text, text, (current, other) => {

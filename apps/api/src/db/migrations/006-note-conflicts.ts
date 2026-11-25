@@ -3,7 +3,7 @@ import type { Kysely } from 'kysely';
 import type { Migration } from 'kysely/migration';
 
 /**
- * Note conflicts, materialised like every synced table (ADR-009): keyed by
+ * Note conflicts, materialised like every synced table: keyed by
  * user, every synced column nullable with no CHECK and no foreign key, since a
  * merged row can be partial and a merge must never be rejected (migration 003).
  * The key and bookkeeping columns repeat 003's, which can't be edited.

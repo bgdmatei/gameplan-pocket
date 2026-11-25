@@ -31,7 +31,7 @@ import { useQuery } from '@/data/use-query';
 import { Hero } from '@/ui/components/hero';
 import { ImageCard } from '@/ui/components/image-card';
 import { PillButton, RoundButton } from '@/ui/components/pill-button';
-import { minTouchTarget, radius, space, tabularNumbers, type } from '@/ui/theme';
+import { disabledOpacity, minTouchTarget, radius, space, tabularNumbers, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 const TABLES = [...SYNC_STATE_TABLES, ...PENDING_OP_TABLES, ...LIBRARY_ENTRY_TABLES];
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.small,
     borderWidth: 1,
   },
-  disabled: { opacity: 0.4 },
+  disabled: { opacity: disabledOpacity },
 });
 
 export default DebugScreen;

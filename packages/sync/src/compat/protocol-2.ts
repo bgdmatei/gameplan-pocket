@@ -3,7 +3,7 @@ import { DELETE_CLOCK, fieldClocks } from '../merge/merge';
 import type { Op } from '../op/schema';
 
 /*
- * What a protocol-2 app is served (ADR-009, ADR-017). Its builds predate note
+ * What a protocol-2 app is served. Its builds predate note
  * conflicts: they throw on a `note_conflict` op or row, which would stop every
  * later sync, and their merge knows `$delete` as its only reserved key.
  */

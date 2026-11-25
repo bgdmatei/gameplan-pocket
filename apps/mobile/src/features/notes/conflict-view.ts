@@ -4,9 +4,7 @@ import type { ConflictChoice, NoteConflict } from '@gameplan/domain';
 export type ConflictView = {
   /** This device wrote the losing text, so the stored sides are swapped for display. */
   swapped: boolean;
-  /** Shown in the form above the drawer. */
   current: string;
-  /** Shown in the drawer. */
   other: string;
   /** The stored choice that does what the button under this view says. */
   choice: (picked: ConflictChoice) => ConflictChoice;

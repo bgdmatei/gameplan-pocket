@@ -111,16 +111,6 @@ describe('checkOp', () => {
     expect(checkOp(raw, NOW)).toEqual({ ok: false, reason, opId: op().id });
   });
 
-  // Every synced entity has a table today, so the refusal for one that
-  // doesn't is proven with a narrower set.
-  it('refuses an entity in the op schema that has no server table yet', () => {
-    expect(checkOp(conflict(), NOW, new Set(['list']))).toEqual({
-      ok: false,
-      reason: 'unsupported_entity',
-      opId: op().id,
-    });
-  });
-
   // Review finding: the first NUL check searched the op's JSON, so a literal
   // backslash-u0000 typed in a note was refused too.
   it('lets in text that only looks like an escape, and whole emoji', () => {

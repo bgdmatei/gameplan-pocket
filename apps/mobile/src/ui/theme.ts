@@ -101,6 +101,9 @@ export const press = {
 /** The smallest touch target on either platform. */
 export const minTouchTarget = 44;
 
+/** How faint a control is while it can't be used. */
+export const disabledOpacity = 0.4;
+
 export type Theme = {
   scheme: ColorScheme;
   colors: Colors;

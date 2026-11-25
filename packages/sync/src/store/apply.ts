@@ -9,7 +9,7 @@ import type { StorageAdapter, Transaction } from '@gameplan/storage';
 import type { SnapshotRow } from '@gameplan/contracts';
 import { parseHlc, receive } from '../clock/hlc';
 import { losingText } from '../conflicts/conflicts';
-import type { HeldText } from '../conflicts/conflicts';
+import type { TextEdit } from '../conflicts/conflicts';
 import {
   BASE_TEXT_CLOCK,
   fieldClocks,
@@ -23,13 +23,10 @@ import type { RowState } from '../merge/merge';
 import { toCurrentOp } from '../compat/v1';
 import { isSyncedEntity, knownFields, opSchema } from '../op/schema';
 import type { Op } from '../op/schema';
-import { SCHEMAS, codecFor, isoAt, parseClocks, stringifyClocks } from './entities';
+import { SCHEMAS, codecFor, isoAt, rowStateOf, stringifyClocks } from './entities';
 import type { StoredEntity, SyncEnv } from './entities';
 import { keepConflict } from './keep-conflict';
 import { ensureNodeId } from './node-id';
-
-const withoutId = (value: object): Record<string, unknown> =>
-  Object.fromEntries(Object.entries(value).filter(([field]) => field !== 'id'));
 
 /**
  * Writes a merged row, after the shape check. A row this device doesn't hold
@@ -78,7 +75,7 @@ type Detect = { env: SyncEnv; nowMs: number; nodeId: string };
 
 /**
  * Keeps the text a pulled edit raced as a note conflict, in the caller's
- * transaction (ADR-009). Never for this device's own edits coming back: their
+ * transaction. Never for this device's own edits coming back: their
  * races are found by the devices that held the other text. Nor for a text
  * another edit in the same pull was built on: that one was replaced on purpose.
  */
@@ -86,7 +83,7 @@ const keepLosingText = async (
   tx: Transaction,
   noteItemId: string,
   held: RowState,
-  incoming: HeldText,
+  incoming: TextEdit,
   { env, nowMs, nodeId, replaced }: Detect & { replaced: ReadonlySet<string> },
 ): Promise<void> => {
   if (parseHlc(incoming.hlc).nodeId === nodeId) return;
@@ -103,7 +100,7 @@ const keepLosingText = async (
 };
 
 /** A pulled note text edit, as the other side of a possible race. */
-const textEditOf = (op: Op): HeldText | null =>
+const textEditOf = (op: Op): TextEdit | null =>
   op.entity === 'note_item' && op.type === 'set' && op.fields.text !== undefined
     ? { text: op.fields.text, hlc: op.hlc, baseHlc: op.baseHlc }
     : null;
@@ -118,17 +115,14 @@ const mergeOps = async (
   const parsed = ops.map((op) => opSchema.parse(op));
   // Texts some edit in this pull was built on: replaced on purpose, not lost.
   // Per page: a chain split across pages can raise an extra conflict, the
-  // accepted cost (ADR-009); a lost text is never one.
+  // accepted cost; a lost text is never one.
   const replaced = new Set(parsed.flatMap((op) => textEditOf(op)?.baseHlc ?? []));
 
   for (const op of parsed) {
     const { entity } = op;
     const stored = await readSyncedRow(tx, codecFor(entity), op.entityId);
 
-    const before = {
-      fields: stored === null ? {} : withoutId(stored.value),
-      clocks: parseClocks(stored?.fieldHlc),
-    };
+    const before = rowStateOf(stored);
     const edit = textEditOf(op);
     if (edit !== null) {
       await keepLosingText(tx, op.entityId, before, edit, { env, nowMs, nodeId, replaced });
@@ -207,12 +201,9 @@ export const applySnapshot = async (
       }
       const { entity } = row;
       const stored = await readSyncedRow(tx, codecFor(entity), row.id);
-      const before = {
-        fields: stored === null ? {} : withoutId(stored.value),
-        clocks: parseClocks(stored?.fieldHlc),
-      };
+      const before = rowStateOf(stored);
       // Fields and reserved keys a newer server sends are dropped with their
-      // clocks (ADR-017); the clock still learns every edit's clock it has
+      // clocks; the clock still learns every edit's clock it has
       // seen. A base is no edit's clock, so it never moves the clock.
       const remote = {
         fields: knownFields(row.entity, row.fields),

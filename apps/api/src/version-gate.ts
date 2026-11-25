@@ -4,7 +4,7 @@ import type { Context, MiddlewareHandler } from 'hono';
 
 export type ProtocolRange = { min: number; max: number };
 
-// Protocol 3 reads note conflicts; 2 is served without them (ADR-009, ADR-017).
+// Protocol 3 reads note conflicts; 2 is served without them.
 export const SERVED_PROTOCOLS: ProtocolRange = { min: 2, max: 3 };
 
 /** The protocol an answer is shaped for: 3, or 2 for any app below it. */

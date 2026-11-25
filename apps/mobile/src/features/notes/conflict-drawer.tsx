@@ -1,11 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ConflictChoice } from '@gameplan/domain';
+import { useState } from 'react';
 import type { ComponentProps } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Frosted } from '@/ui/components/frosted';
 import { PressableScale } from '@/ui/components/pressable-scale';
-import { minTouchTarget, radius, space, type } from '@/ui/theme';
+import { disabledOpacity, minTouchTarget, radius, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 const BUTTON_HEIGHT = minTouchTarget + 4;
@@ -43,12 +44,27 @@ type Props = {
 export const ConflictDrawer = ({ other, ready, onChoose, onHeight }: Props) => {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
+  const { height, fontScale } = useWindowDimensions();
+  const [textHeight, setTextHeight] = useState(0);
+  // Measured: the drawer less the box is what its fixed parts take.
+  const [drawerHeight, setDrawerHeight] = useState(0);
+  const [boxHeight, setBoxHeight] = useState(0);
+  const threeLines = 3 * type.body.lineHeight * fontScale;
+  // The drawer's top stays below the middle of the screen, unless its fixed
+  // parts alone (large text on a small phone) need more: then the box keeps
+  // its three lines and the drawer grows past it, rather than spilling.
+  const boxCap = Math.max(
+    threeLines,
+    height / 2 - lift(insets.bottom) - (drawerHeight - boxHeight),
+  );
 
   return (
     // The shadow lives here: Frosted clips to its corners, and would clip it.
     <View
-      onLayout={(event) => onHeight(event.nativeEvent.layout.height)}
+      onLayout={(event) => {
+        setDrawerHeight(event.nativeEvent.layout.height);
+        onHeight(event.nativeEvent.layout.height);
+      }}
       style={[
         styles.drawer,
         {
@@ -66,8 +82,10 @@ export const ConflictDrawer = ({ other, ready, onChoose, onHeight }: Props) => {
       </View>
       <Text style={[type.label, { color: colors.muted }]}>OTHER VERSION</Text>
       <ScrollView
-        // Sized by the screen, never below three lines, so a small phone still shows the text.
-        style={{ height: Math.max(3 * type.body.lineHeight, height / 12) }}
+        // As tall as the text, scrolling past the cap; never under three lines.
+        style={[styles.other, { minHeight: Math.min(textHeight, threeLines), maxHeight: boxCap }]}
+        onContentSizeChange={(_, contentHeight) => setTextHeight(contentHeight)}
+        onLayout={(event) => setBoxHeight(event.nativeEvent.layout.height)}
         accessibilityLabel="Other version"
       >
         <Text style={[type.body, { color: colors.text }]}>{other}</Text>
@@ -85,7 +103,7 @@ export const ConflictDrawer = ({ other, ready, onChoose, onHeight }: Props) => {
               styles.choice,
               styles.side,
               { backgroundColor: colors.surface, borderColor: colors.line },
-              { opacity: ready ? 1 : 0.4 },
+              { opacity: ready ? 1 : disabledOpacity },
             ]}
           >
             <Ionicons name={icon} size={18} color={colors.text} />
@@ -101,7 +119,10 @@ export const ConflictDrawer = ({ other, ready, onChoose, onHeight }: Props) => {
         accessibilityRole="button"
         accessibilityLabel="Keep both"
         accessibilityState={{ disabled: !ready }}
-        style={[styles.choice, { backgroundColor: colors.accentFill, opacity: ready ? 1 : 0.4 }]}
+        style={[
+          styles.choice,
+          { backgroundColor: colors.accentFill, opacity: ready ? 1 : disabledOpacity },
+        ]}
       >
         <Ionicons name="layers-outline" size={18} color={colors.onAccent} />
         <Text style={[type.callout, styles.label, { color: colors.onAccent }]} numberOfLines={1}>
@@ -124,6 +145,7 @@ const styles = StyleSheet.create({
   backdrop: { borderRadius: radius.sheet, borderWidth: StyleSheet.hairlineWidth },
   warning: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: space.sm },
   warningText: { flex: 1 },
+  other: { flexGrow: 0 },
   row: { flexDirection: 'row', gap: space.sm },
   choice: {
     minHeight: BUTTON_HEIGHT,

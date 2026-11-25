@@ -25,7 +25,7 @@ const CONTENT_WEIGHT = 8192;
 const MAX_CELLS = 1_000_000;
 
 /**
- * Keep both (ADR-009): the note with every line of the other version it
+ * Keep both: the note with every line of the other version it
  * lacks, counting copies, so nothing is lost and nothing is doubled: lines
  * the two share stay once, even reordered, and keeping both again when the
  * other side holds nothing new changes nothing. New lines go where they sit

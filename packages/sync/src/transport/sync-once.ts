@@ -63,7 +63,7 @@ const pushOutbox = async ({ adapter, env, api }: SyncDeps) => {
     const rejectedAt = isoAt(env.now());
     // `clock_ahead` means "not yet": this device's clock runs fast, and the op
     // goes through once the server's time catches up. Dropping it would leave
-    // later edits to its row without the row (review of #19). Ops queued after
+    // later edits to its row without the row. Ops queued after
     // it may depend on it, so pushing stops for this sync; a conflict op queued
     // behind it with an older clock waits one sync too.
     const later = response.rejected.filter(({ reason }) => reason === 'clock_ahead');
@@ -151,14 +151,14 @@ export const syncOnce = async (deps: SyncDeps): Promise<SyncResult> => {
   // (destroying the database) could pre-empt. Best effort: the pull already
   // landed, and an op that fails to go stays queued. Not behind an op the
   // first push held back for a fast clock: it would be held again.
-  let again = { pushed: 0, rejected: 0 };
+  let conflictPush = { pushed: 0, rejected: 0 };
   if (!deferred && (await latestPendingSeq(deps.adapter)) !== queuedBefore) {
-    again = await pushOutbox(deps).catch(() => again);
+    conflictPush = await pushOutbox(deps).catch(() => conflictPush);
   }
   await updateSyncState(deps.adapter, { lastSyncedAt: isoAt(deps.env.now()) });
   return {
-    pushed: pushed + again.pushed,
-    rejected: rejected + again.rejected,
+    pushed: pushed + conflictPush.pushed,
+    rejected: rejected + conflictPush.rejected,
     pulled,
     skipped: skippedAtBootstrap + skipped,
   };

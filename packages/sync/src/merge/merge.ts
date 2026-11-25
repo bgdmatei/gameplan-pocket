@@ -5,11 +5,11 @@ export const DELETE_CLOCK = '$delete';
 
 /**
  * The reserved key holding the `baseHlc` of the edit whose note text won:
- * the version that text was written on top of (ADR-009).
+ * the version that text was written on top of.
  */
 export const BASE_TEXT_CLOCK = '$base:text';
 
-/** Reserved keys this build understands; a newer one is dropped like an unknown field (ADR-017). */
+/** Reserved keys this build understands; a newer one is dropped like an unknown field. */
 export const KNOWN_RESERVED = [DELETE_CLOCK, BASE_TEXT_CLOCK] as const;
 
 /** Every clock key starting with `$` is reserved, never a field's clock. */

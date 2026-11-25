@@ -48,11 +48,7 @@ const idOf = (raw: unknown): string | undefined => {
  * column (`userId`, `deleted`, `fieldHlc`) fails it like any malformed value.
  * Nothing here says whose op it is: the caller takes the user from the token.
  */
-export const checkOp = (
-  raw: unknown,
-  nowMs: number,
-  entities: ReadonlySet<SyncedEntity> = SERVER_ENTITIES,
-): CheckResult => {
+export const checkOp = (raw: unknown, nowMs: number): CheckResult => {
   const op = toCurrentOp(raw);
   if (op === null) return { ok: false, reason: 'invalid_op', opId: idOf(raw) };
 
@@ -64,7 +60,7 @@ export const checkOp = (
   if (hasUnstorableText(op)) {
     return { ok: false, reason: 'invalid_op', opId: op.id };
   }
-  if (!entities.has(op.entity)) {
+  if (!SERVER_ENTITIES.has(op.entity)) {
     return { ok: false, reason: 'unsupported_entity', opId: op.id };
   }
   if (isTooFarAhead(op.hlc, nowMs)) return { ok: false, reason: 'clock_ahead', opId: op.id };

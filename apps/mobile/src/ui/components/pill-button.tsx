@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps, ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { minTouchTarget, radius, space, type } from '../theme';
+import { disabledOpacity, minTouchTarget, radius, space, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { Frosted } from './frosted';
 import { PressableScale } from './pressable-scale';
@@ -47,7 +47,7 @@ export const PillButton = ({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
-      style={[styles.pill, { opacity: disabled ? 0.4 : 1 }]}
+      style={[styles.pill, { opacity: disabled ? disabledOpacity : 1 }]}
     >
       {filled ? (
         // Solid gold: blur would cost frames for nothing, and its Reduce
