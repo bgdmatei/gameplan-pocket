@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     // Inset, so the pressed highlight is a soft rounded card rather than an edge-to-edge band.
     marginHorizontal: space.sm,
     paddingHorizontal: space.sm,
-    borderRadius: radius.card,
+    borderRadius: radius.small,
     minHeight: minTouchTarget,
   },
   text: { flex: 1, gap: 2 },

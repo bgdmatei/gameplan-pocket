@@ -126,6 +126,8 @@ export type OpsTable = {
   /** Null for a delete. */
   fields: MaybeJson;
   hlc: string;
+  /** Null when the op carried no `baseHlc`, or was logged before migration 007. */
+  base_hlc: string | null;
   schema_version: number;
   received_at: CreatedAt;
 };
@@ -174,6 +176,16 @@ export type NoteItemsTable = MaterialisedRow &
     created_at: string;
   }>;
 
+export type NoteConflictsTable = MaterialisedRow &
+  Nullable<{
+    note_item_id: string;
+    text: string;
+    from_node_id: string;
+    hlc: string;
+    created_at: string;
+    resolved: boolean;
+  }>;
+
 export type ListsTable = MaterialisedRow &
   Nullable<{ name: string; description: string; created_at: string }>;
 
@@ -196,6 +208,7 @@ export type Database = {
   library_entries: LibraryEntriesTable;
   entry_tags: EntryTagsTable;
   note_items: NoteItemsTable;
+  note_conflicts: NoteConflictsTable;
   lists: ListsTable;
   list_items: ListItemsTable;
 };

@@ -192,3 +192,22 @@ describe('migration 009', () => {
     expect(database.prepare('SELECT resync FROM sync_state').get()).toEqual({ resync: 1 });
   });
 });
+
+describe('migration 011', () => {
+  // Protocol 2 withheld note conflicts and text bases, and the device's pull
+  // position is past them: only a re-read of the snapshot brings them.
+  it('marks a synced device for a re-sync, and leaves a new one alone', async () => {
+    for (const bootstrapped of [1, 0]) {
+      const database = new DatabaseSync(':memory:');
+      const executor = createTestExecutor(database);
+      await migrate(executor, MIGRATIONS.slice(0, 10));
+      database.exec(`UPDATE sync_state SET bootstrapped = ${String(bootstrapped)}`);
+
+      await migrate(executor);
+
+      expect(database.prepare('SELECT resync FROM sync_state').get()).toEqual({
+        resync: bootstrapped,
+      });
+    }
+  });
+});

@@ -1,7 +1,7 @@
 import type { EntryStatus } from '@gameplan/domain';
 import { StyleSheet, Text, View } from 'react-native';
 import { STATUS_LABEL } from '../labels';
-import { minTouchTarget, radius, space, type } from '../theme';
+import { disabledOpacity, minTouchTarget, radius, space, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { PressableScale } from './pressable-scale';
 import { StatusIcon } from './status-icon';
@@ -78,5 +78,5 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   bold: { fontWeight: '700' },
-  unavailable: { opacity: 0.4 },
+  unavailable: { opacity: disabledOpacity },
 });

@@ -5,6 +5,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { STATUS_LABEL } from '../labels';
 import { radius, space, tabularNumbers, type } from '../theme';
 import { useTheme } from '../use-theme';
+import { ConflictMarker } from './conflict-marker';
 import { Cover } from './cover';
 import { PressableScale } from './pressable-scale';
 
@@ -15,6 +16,8 @@ type Props = {
   platform: string | null;
   /** Its full name, for VoiceOver ("PlayStation 5"). */
   platformName: string | null;
+  /** A note of this game has an unresolved conflict: the marker takes the count's place. */
+  conflicted: boolean;
 };
 
 /**
@@ -22,7 +25,7 @@ type Props = {
  * stable callback (plan §12.3), so scrolling 5,000 covers re-renders only the
  * cells that change.
  */
-export const CoverCell = memo(({ row, onPress, platform, platformName }: Props) => {
+export const CoverCell = memo(({ row, onPress, platform, platformName, conflicted }: Props) => {
   const { colors } = useTheme();
   const label = [
     row.name,
@@ -30,6 +33,7 @@ export const CoverCell = memo(({ row, onPress, platform, platformName }: Props) 
     STATUS_LABEL[row.status],
     row.favourite ? 'favourite' : null,
     row.openNotes > 0 ? `${String(row.openNotes)} open notes` : null,
+    conflicted ? 'a note changed on two devices' : null,
   ]
     .filter(Boolean)
     .join(', ');
@@ -48,7 +52,9 @@ export const CoverCell = memo(({ row, onPress, platform, platformName }: Props) 
             <Text style={[type.label, { color: colors.text }]}>{platform}</Text>
           </View>
         )}
-        {row.openNotes > 0 ? (
+        {conflicted ? (
+          <ConflictMarker style={styles.corner} />
+        ) : row.openNotes > 0 ? (
           <View style={[styles.badge, { backgroundColor: colors.accentFill }]}>
             <Text style={[type.label, tabularNumbers, { color: colors.onAccent }]}>
               {row.openNotes}
@@ -71,6 +77,7 @@ export const CoverCell = memo(({ row, onPress, platform, platformName }: Props) 
 
 const styles = StyleSheet.create({
   cell: { flex: 1, gap: space.xs, padding: space.xs, paddingBottom: space.md },
+  corner: { position: 'absolute', top: space.xs, right: space.xs },
   badge: {
     position: 'absolute',
     top: space.xs,

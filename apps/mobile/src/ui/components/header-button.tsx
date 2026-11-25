@@ -1,22 +1,24 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps } from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { space, type } from '../theme';
+import { disabledOpacity, space, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { PressableScale } from './pressable-scale';
 
-type Props = { label: string; onPress: () => void; emphasis?: boolean };
+type Props = { label: string; onPress: () => void; emphasis?: boolean; disabled?: boolean };
 
 /** A text button in a native header: Cancel, Done. */
-export const HeaderButton = ({ label, onPress, emphasis = false }: Props) => {
+export const HeaderButton = ({ label, onPress, emphasis = false, disabled = false }: Props) => {
   const { colors } = useTheme();
 
   return (
     <PressableScale
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
       hitSlop={space.sm}
-      style={styles.button}
+      style={[styles.button, { opacity: disabled ? disabledOpacity : 1 }]}
     >
       <Text style={[emphasis ? type.headline : type.body, { color: colors.accent }]}>{label}</Text>
     </PressableScale>
@@ -29,24 +31,40 @@ type IconProps = {
   label: string;
   onPress: () => void;
   danger?: boolean;
+  /** A confirming action, such as Save: in `success` green. */
+  success?: boolean;
+  disabled?: boolean;
 };
 
 /**
  * An icon action in a native header: add, archive, delete. Screen-wide
  * actions live here rather than midway down the page.
  */
-export const HeaderIconButton = ({ icon, label, onPress, danger = false }: IconProps) => {
+export const HeaderIconButton = ({
+  icon,
+  label,
+  onPress,
+  danger = false,
+  success = false,
+  disabled = false,
+}: IconProps) => {
   const { colors } = useTheme();
 
   return (
     <PressableScale
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
       hitSlop={space.sm}
-      style={styles.icon}
+      style={[styles.icon, { opacity: disabled ? disabledOpacity : 1 }]}
     >
-      <Ionicons name={icon} size={22} color={danger ? colors.danger : colors.accent} />
+      <Ionicons
+        name={icon}
+        size={22}
+        color={danger ? colors.danger : success ? colors.success : colors.accent}
+      />
     </PressableScale>
   );
 };

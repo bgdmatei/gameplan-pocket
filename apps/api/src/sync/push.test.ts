@@ -89,6 +89,45 @@ describe('POST /sync/push', () => {
     ]);
   });
 
+  // A conflict holds note text, keyed by a derived id another account can
+  // compute too: it must land in the pusher's rows only, and a refused one
+  // must leave nothing behind, in the rows, the log or a log line.
+  it("keeps conflicts in the pusher's own rows, and refused ones out of everything", async () => {
+    const owner = await kit.account();
+    const attacker = await kit.account();
+    const secret = 'the code behind the waterfall is 4512';
+    const conflict = (text: string) => ({
+      noteItemId: 'n-1',
+      text,
+      fromNodeId: '3f9a2c1b7d4e8f60',
+      hlc: kit.nextHlc(),
+      createdAt: '2026-11-10T10:00:00.000Z',
+      resolved: false,
+    });
+    await kit.push(owner.token, [kit.setOp('note_conflict', 'c-1', conflict(secret))]);
+    t.logs.length = 0;
+
+    const result = await kit.push(attacker.token, [
+      kit.setOp('note_conflict', 'c-1', conflict('Hijacked')),
+      kit.setOp('note_conflict', 'c-2', conflict(`${secret}\u0000`)),
+    ]);
+
+    expect(result.accepted).toHaveLength(1);
+    expect(result.rejected).toEqual([expect.objectContaining({ index: 1, reason: 'invalid_op' })]);
+    expect(await loggedSeqs(attacker.userId)).toEqual([1]);
+    const rows = await t.db
+      .selectFrom('note_conflicts')
+      .select(['user_id', 'id', 'text'])
+      .orderBy('text')
+      .where('user_id', 'in', [owner.userId, attacker.userId])
+      .execute();
+    expect(rows).toEqual([
+      { user_id: attacker.userId, id: 'c-1', text: 'Hijacked' },
+      { user_id: owner.userId, id: 'c-1', text: secret },
+    ]);
+    expect(t.logs.join('\n')).not.toContain(secret);
+  });
+
   it('refuses a request without a valid token', async () => {
     const response = await t.app.request('/sync/push', {
       method: 'POST',

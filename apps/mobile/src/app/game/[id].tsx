@@ -3,7 +3,8 @@ import type { EntryStatus } from '@gameplan/domain';
 import { useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase } from '@/data/database';
 import { syncEnv, today } from '@/data/env';
@@ -137,12 +138,13 @@ const GameScreen = () => {
 
   return (
     <View style={styles.page}>
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={{
           paddingBottom: space.xl + insets.bottom + (inLibrary ? BAR_ROOM : 0),
         }}
         contentInsetAdjustmentBehavior="never"
-        automaticallyAdjustKeyboardInsets
+        bottomOffset={space.lg}
+        disableScrollOnKeyboardHide
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={100}
         onScroll={(event) => {
@@ -240,7 +242,6 @@ const GameScreen = () => {
             </View>
           )}
 
-          {/* In a card like the page's other sections, not loose at the foot (#32). */}
           {game.summary === null && facts.length === 0 ? null : (
             <View
               style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}
@@ -262,7 +263,7 @@ const GameScreen = () => {
             </View>
           )}
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
       {inLibrary ? (
         <Frosted
           style={[

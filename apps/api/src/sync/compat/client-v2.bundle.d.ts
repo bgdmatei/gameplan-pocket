@@ -1,5 +1,5 @@
 /*
- * Types for the pinned client (client-v1.bundle.js), written by hand and kept
+ * Types for the pinned client (client-v2.bundle.js), written by hand and kept
  * apart from today's packages: their types move on, the pinned code doesn't.
  * Only what the N-1 test uses.
  */
@@ -24,17 +24,6 @@ export type PinnedSyncApi = { readonly [pinnedApi]: true };
 export declare const createMigratedNodeAdapter: () => Promise<PinnedAdapter>;
 
 export declare const entryId: (gameId: number) => string;
-
-export declare const createEntry: (
-  input: { id: string; gameId: number; status: string; createdAt: string },
-  ctx: { today: string },
-) => PinnedEntry;
-
-export declare const commitLocalCreate: (
-  adapter: PinnedAdapter,
-  env: PinnedEnv,
-  change: { entity: 'library_entry'; next: PinnedEntry },
-) => Promise<unknown>;
 
 export declare const commitLocalEdit: (
   adapter: PinnedAdapter,

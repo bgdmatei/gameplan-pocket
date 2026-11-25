@@ -2,7 +2,8 @@ import { emailSchema } from '@gameplan/contracts';
 import { getSyncState } from '@gameplan/storage';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, InteractionManager, Platform, ScrollView, StyleSheet, Text } from 'react-native';
+import { Alert, InteractionManager, Platform, StyleSheet, Text } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase, useEraseDatabase } from '@/data/database';
 import { appVersion, syncEnv } from '@/data/env';
@@ -201,9 +202,10 @@ const AccountScreen = () => {
     <>
       {/* The theme lives here, the screen for this phone's own settings. */}
       <Stack.Screen options={{ headerRight: () => <ThemeButton /> }} />
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}
-        automaticallyAdjustKeyboardInsets
+        bottomOffset={space.lg}
+        disableScrollOnKeyboardHide
         keyboardShouldPersistTaps="handled"
       >
         {/* The title in the serif, as on Library; the native header keeps the back and theme buttons. */}
@@ -245,7 +247,7 @@ const AccountScreen = () => {
             onSignOut={() => void confirmErase('Sign out?', null, 'Erase and sign out')}
           />
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </>
   );
 };

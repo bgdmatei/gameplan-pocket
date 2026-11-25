@@ -5,10 +5,49 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import boundaries from 'eslint-plugin-boundaries';
 
-/** Spread into any config that sets its own no-restricted-syntax, which replaces this one. */
 export const CONST_ARROW_ONLY = {
   selector: 'VariableDeclarator > FunctionExpression',
   message: 'Use a const arrow function.',
+};
+
+export const NAMED_EXPORTS_ONLY = {
+  selector: "ExportDefaultDeclaration, ExportSpecifier[exported.name='default']",
+  message: 'Use a named export.',
+};
+
+/** Spread into any config that sets its own no-restricted-syntax, which replaces this one. */
+export const SHARED_RESTRICTED_SYNTAX = [CONST_ARROW_ONLY, NAMED_EXPORTS_ONLY];
+
+const KEBAB_FILENAME = /^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)*$/;
+// Expo Router's names: _layout, +not-found and [param] beside kebab-case routes.
+const ROUTE_FILENAME = /^([_+]?[a-z0-9]+(-[a-z0-9]+)*|\[[a-z][a-zA-Z0-9]*\])(\.[a-z0-9]+)*$/;
+
+/** Local rules, small enough not to need a plugin dependency. */
+const gameplan = {
+  rules: {
+    'kebab-case-filename': {
+      meta: {
+        type: 'suggestion',
+        schema: [
+          {
+            type: 'object',
+            properties: { routes: { type: 'boolean' } },
+            additionalProperties: false,
+          },
+        ],
+      },
+      create: (context) => ({
+        Program: (node) => {
+          // Code linted from stdin or the API has no file name (`<input>`).
+          if (!path.isAbsolute(context.filename)) return;
+          const pattern = context.options[0]?.routes ? ROUTE_FILENAME : KEBAB_FILENAME;
+          if (!pattern.test(path.basename(context.filename))) {
+            context.report({ node, message: 'Name files in kebab-case.' });
+          }
+        },
+      }),
+    },
+  },
 };
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -34,6 +73,7 @@ export default tseslint.config(
     },
     plugins: {
       boundaries,
+      gameplan,
     },
     settings: {
       'boundaries/root-path': workspaceRoot,
@@ -58,7 +98,8 @@ export default tseslint.config(
       // Every function and component is a const arrow (owner's convention).
       'func-style': ['error', 'expression'],
       'prefer-arrow-callback': 'error',
-      'no-restricted-syntax': ['error', CONST_ARROW_ONLY],
+      'no-restricted-syntax': ['error', ...SHARED_RESTRICTED_SYNTAX],
+      'gameplan/kebab-case-filename': 'error',
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'boundaries/dependencies': [
         'error',
@@ -146,6 +187,18 @@ export default tseslint.config(
           ],
         },
       ],
+    },
+  },
+  {
+    // Expo Router reads each route's default export. Matched from the
+    // workspace (apps/mobile) and from the repo root (editors).
+    files: ['src/app/**', 'apps/mobile/src/app/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...SHARED_RESTRICTED_SYNTAX.filter((rule) => rule !== NAMED_EXPORTS_ONLY),
+      ],
+      'gameplan/kebab-case-filename': ['error', { routes: true }],
     },
   },
 );

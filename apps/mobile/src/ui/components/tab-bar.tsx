@@ -15,7 +15,7 @@ const GAP_BELOW = space.sm;
 
 /**
  * What a tab screen adds to its list's bottom padding so the last row clears
- * the floating bar (MOBILE-DESIGN.md: tab screens now pad for it).
+ * the floating bar.
  */
 export const useTabBarSpace = (): number => {
   const insets = useSafeAreaInsets();

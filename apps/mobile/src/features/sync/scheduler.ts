@@ -53,7 +53,8 @@ export type SchedulerOptions = {
 /**
  * Decides when to sync: on start (launch, foreground), after the network
  * returns, 2 s after the last local edit, every 5 minutes until stopped, and
- * again after a failure with backoff. Runs are single-flight, and only while
+ * again after a failure with backoff. Runs are single-flight (a call during a
+ * run shares one trailing run: packages/sync single-flight.ts), and only while
  * signed in.
  *
  * While a retry is waiting, edits and the interval leave it be, so a failing

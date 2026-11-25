@@ -5,30 +5,27 @@ import {
   pushResponseSchema,
   snapshotResponseSchema,
 } from '@gameplan/contracts';
-import { upsertGames } from '@gameplan/storage';
-import type { StorageAdapter } from '@gameplan/storage';
+import { createEntry, createNoteItem } from '@gameplan/domain';
 import { createMigratedNodeAdapter } from '@gameplan/storage/node';
-import { commitLocalEdit, entryId, syncOnce } from '@gameplan/sync';
+import { commitLocalCreate, commitLocalEdit, entryId, syncOnce } from '@gameplan/sync';
 import type { SyncApi, SyncEnv } from '@gameplan/sync';
 import type { Hono } from 'hono';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createTestApp, signIn } from '../../testing/auth';
 import type { TestAuth } from '../../testing/auth';
 import { SERVED_PROTOCOLS } from '../../version-gate';
-import * as pinned from './client-v1.bundle.js';
-import type { PinnedAdapter } from './client-v1.bundle.js';
+import * as pinned from './client-v2.bundle.js';
 
 /*
- * The phone code installed today (pinned from 89012c4) and today's client,
- * signed in to one account, syncing through the real API and Postgres
- * (ADR-017). Each later schema-evolution change is checked against it.
+ * The phone code installed today (pinned from 4463fdf, protocol 2) and
+ * today's client, signed in to one account, syncing through the real API and
+ * Postgres. The pinned build throws on a note conflict, so the server must
+ * withhold every one from it.
  */
 
 const GAME = 1942;
-
-type Row = { rating: number | null; favourite: number; status: string };
-
-const ENTRY_SQL = 'SELECT rating, favourite, status FROM library_entries WHERE id = ?';
+const NOTE = 'note-1';
+const AT = '2026-11-24T09:00:00.000Z';
 
 describe('an N-1 phone and a current phone on one account', () => {
   let t: TestAuth & { app: Hono };
@@ -57,22 +54,25 @@ describe('an N-1 phone and a current phone on one account', () => {
       fetch: async (input, init) => t.app.request(input, init),
     });
 
+  const request = (token: string, path: string, protocol: number, body?: unknown) =>
+    t.app.request(path, {
+      method: body === undefined ? 'GET' : 'POST',
+      headers: {
+        [HEADERS.appVersion]: '2.0.0',
+        [HEADERS.protocolVersion]: String(protocol),
+        Authorization: `Bearer ${token}`,
+        ...(body !== undefined && { 'Content-Type': 'application/json' }),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
   const currentApi = (token: string): SyncApi => {
     const call = async <T>(
       path: string,
       schema: { parse: (value: unknown) => T },
       body?: unknown,
     ): Promise<T> => {
-      const response = await t.app.request(path, {
-        method: body === undefined ? 'GET' : 'POST',
-        headers: {
-          [HEADERS.appVersion]: '2.0.0',
-          [HEADERS.protocolVersion]: String(SERVED_PROTOCOLS.max),
-          Authorization: `Bearer ${token}`,
-          ...(body !== undefined && { 'Content-Type': 'application/json' }),
-        },
-        body: body === undefined ? undefined : JSON.stringify(body),
-      });
+      const response = await request(token, path, SERVED_PROTOCOLS.max, body);
       expect(response.status).toBe(200);
       return schema.parse(await response.json());
     };
@@ -88,97 +88,113 @@ describe('an N-1 phone and a current phone on one account', () => {
     };
   };
 
-  const entryOf = async (adapter: StorageAdapter | PinnedAdapter): Promise<Row | undefined> =>
-    (await adapter.execute<Row>(ENTRY_SQL, [entryId(GAME)]))[0];
-
-  it('keeps both in step, each on its own rating scale', async () => {
+  it('keeps a protocol-2 phone syncing with an account that has note conflicts', async () => {
     const email = `n-1-${randomUUID()}@example.com`;
-    const oldSession = await signIn(t, email, 'a1a1a1a1a1a1a1a1');
-    // One code per email per minute.
-    t.clock.advance(61_000);
-    const newSession = await signIn(t, email, 'b2b2b2b2b2b2b2b2');
+    const currentSession = await signIn(t, email, 'b2b2b2b2b2b2b2b2');
+    const current = await createMigratedNodeAdapter();
+    open.push(current);
+    const env = envOf();
+    const api = currentApi(currentSession.accessToken);
+    const token = currentSession.accessToken;
 
+    const entry = createEntry(
+      { id: entryId(GAME), gameId: GAME, status: 'playing', createdAt: AT },
+      { today: AT.slice(0, 10) },
+    );
+    const note = createNoteItem({
+      id: NOTE,
+      entryId: entry.id,
+      createdAt: AT,
+      type: 'puzzle',
+      text: 'Lever',
+    });
+    await commitLocalCreate(current, env, { entity: 'library_entry', next: entry });
+    const created = await commitLocalCreate(current, env, { entity: 'note_item', next: note });
+    await syncOnce({ adapter: current, env, api });
+
+    // The pinned build bootstraps before any conflict exists.
+    t.clock.advance(61_000);
+    const oldSession = await signIn(t, email, 'a1a1a1a1a1a1a1a1');
     const old = await pinned.createMigratedNodeAdapter();
     open.push(old);
     const oldEnv = envOf();
     const oldApi = pinnedDevice(oldSession.accessToken);
-    await pinned.commitLocalCreate(old, oldEnv, {
-      entity: 'library_entry',
-      next: pinned.createEntry(
-        {
-          id: pinned.entryId(GAME),
-          gameId: GAME,
-          status: 'playing',
-          createdAt: '2026-11-17T09:00:00Z',
-        },
-        { today: '2026-11-17' },
-      ),
+    await pinned.syncOnce({ adapter: old, env: oldEnv, api: oldApi });
+
+    // Then a text edit carrying a base, and a conflict, reach the log.
+    await commitLocalEdit(current, env, {
+      entity: 'note_item',
+      id: NOTE,
+      update: (held) => ({
+        next: { ...held, text: 'Lever, left one' },
+        changed: { text: 'Lever, left one' },
+        baseHlc: created.hlc,
+      }),
     });
-    await pinned.commitLocalEdit(old, oldEnv, {
-      entity: 'library_entry',
-      id: pinned.entryId(GAME),
-      update: (current) => ({ next: { ...current, rating: 7 }, changed: { rating: 7 } }),
+    await commitLocalCreate(current, env, {
+      entity: 'note_conflict',
+      next: {
+        id: 'conflict-1',
+        noteItemId: NOTE,
+        text: 'Lever, right one',
+        fromNodeId: 'a1a1a1a1a1a1a1a1',
+        hlc: created.hlc,
+        createdAt: AT,
+        resolved: false,
+      },
     });
-    expect(await pinned.syncOnce({ adapter: old, env: oldEnv, api: oldApi })).toMatchObject({
+    expect(await syncOnce({ adapter: current, env, api })).toMatchObject({
       pushed: 2,
       rejected: 0,
     });
 
-    // The current phone bootstraps from the snapshot, with the game cached as
-    // the app would after its catalog fetch.
-    const current = await createMigratedNodeAdapter();
-    open.push(current);
-    const currentEnv = envOf();
-    await upsertGames(current, {
-      games: [
-        {
-          id: GAME,
-          name: 'The Witcher 3: Wild Hunt',
-          slug: 'the-witcher-3-wild-hunt',
-          summary: null,
-          firstReleaseDate: null,
-          coverImageId: null,
-          genreIds: [],
-          platformIds: [],
-          developer: null,
-        },
-      ],
-      fetchedAt: '2026-11-17T09:00:00Z',
-    });
-    const api = currentApi(newSession.accessToken);
-    await syncOnce({ adapter: current, env: currentEnv, api });
-    expect(await entryOf(current)).toEqual({ rating: 70, favourite: 0, status: 'playing' });
-
-    await commitLocalEdit(current, currentEnv, {
-      entity: 'library_entry',
-      id: entryId(GAME),
-      update: (entry) => ({
-        next: { ...entry, rating: 90, favourite: true },
-        changed: { rating: 90, favourite: true },
-      }),
-    });
-    expect(await syncOnce({ adapter: current, env: currentEnv, api })).toMatchObject({
-      pushed: 1,
-      rejected: 0,
-    });
-
+    // The pinned build pulls them: the edit, never the conflict.
     expect(await pinned.syncOnce({ adapter: old, env: oldEnv, api: oldApi })).toMatchObject({
       pulled: 1,
       rejected: 0,
     });
-    expect(await entryOf(old)).toEqual({ rating: 9, favourite: 1, status: 'playing' });
-    expect(await entryOf(current)).toEqual({ rating: 90, favourite: 1, status: 'playing' });
+    expect(await old.execute('SELECT text FROM note_items WHERE id = ?', [NOTE])).toEqual([
+      { text: 'Lever, left one' },
+    ]);
 
-    t.clock.advance(61_000);
-    const lateSession = await signIn(t, email, 'c3c3c3c3c3c3c3c3');
-    const late = await pinned.createMigratedNodeAdapter();
-    open.push(late);
-    const lateEnv = envOf();
-    await pinned.syncOnce({
-      adapter: late,
-      env: lateEnv,
-      api: pinnedDevice(lateSession.accessToken),
+    // A protocol-2 answer holds no conflict and no reserved key it doesn't know.
+    const oldPull = pullResponseSchema.parse(
+      await (await request(token, '/sync/pull?after=0&limit=500', 2)).json(),
+    );
+    const oldSnapshot = snapshotResponseSchema.parse(
+      await (await request(token, '/sync/snapshot?limit=500', 2)).json(),
+    );
+    const newSnapshot = snapshotResponseSchema.parse(
+      await (await request(token, '/sync/snapshot?limit=500', 3)).json(),
+    );
+    expect(oldPull.ops.map(({ op }) => (op as { entity: string }).entity)).not.toContain(
+      'note_conflict',
+    );
+    expect(oldSnapshot.rows.map(({ entity }) => entity)).not.toContain('note_conflict');
+    expect(oldSnapshot.rows.flatMap(({ fieldHlc }) => Object.keys(fieldHlc))).not.toContain(
+      '$base:text',
+    );
+    expect(newSnapshot.rows.map(({ entity }) => entity)).toContain('note_conflict');
+
+    // And its own edits still reach the current phone.
+    await pinned.commitLocalEdit(old, oldEnv, {
+      entity: 'library_entry',
+      id: pinned.entryId(GAME),
+      update: (held) => ({ next: { ...held, rating: 80 }, changed: { rating: 80 } }),
     });
-    expect(await entryOf(late)).toEqual({ rating: 9, favourite: 1, status: 'playing' });
+    expect(await pinned.syncOnce({ adapter: old, env: oldEnv, api: oldApi })).toMatchObject({
+      pushed: 1,
+      rejected: 0,
+    });
+    await syncOnce({ adapter: current, env, api });
+    expect(
+      await current.execute('SELECT rating FROM library_entries WHERE id = ?', [entryId(GAME)]),
+    ).toEqual([{ rating: 80 }]);
+  });
+
+  it('tells a protocol-1 phone to update', async () => {
+    const session = await signIn(t, `n-2-${randomUUID()}@example.com`, 'c3c3c3c3c3c3c3c3');
+    const response = await request(session.accessToken, '/sync/pull?after=0', 1);
+    expect(response.status).toBe(426);
   });
 });

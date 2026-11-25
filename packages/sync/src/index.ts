@@ -11,15 +11,35 @@ export {
 export type { Hlc } from './clock/hlc';
 export { entryId, newId, newNodeId, tagId } from './ids';
 export type { RandomBytes } from './ids';
-export { OP_SCHEMA_VERSION, SYNCED_ENTITIES, SYNCED_FIELDS, opSchema } from './op/schema';
-export { downcastOp, downcastRow, opV1Schema, toCurrentOp, upcastOp } from './compat/v1';
+export {
+  OP_SCHEMA_VERSION,
+  SYNCED_ENTITIES,
+  SYNCED_FIELDS,
+  isSyncedEntity,
+  opSchema,
+} from './op/schema';
+export { downcastOp, opV1Schema, toCurrentOp, upcastOp } from './compat/v1';
+export { opForProtocol2, rowForProtocol2 } from './compat/protocol-2';
 export type { OpV1 } from './compat/v1';
 export type { Op, SyncedEntity } from './op/schema';
-export { DELETE_CLOCK, EMPTY_ROW, isDeleted, mergeOp, mergeRow } from './merge/merge';
+export {
+  BASE_TEXT_CLOCK,
+  DELETE_CLOCK,
+  EMPTY_ROW,
+  fieldClocks,
+  isDeleted,
+  mergeOp,
+  mergeRow,
+} from './merge/merge';
 export type { RowState } from './merge/merge';
-export { commitLocalCreate, commitLocalDelete, commitLocalEdit } from './store/commit';
+export {
+  commitConflictResolution,
+  commitLocalCreate,
+  commitLocalDelete,
+  commitLocalEdit,
+} from './store/commit';
 export type { LocalChange, LocalEdit } from './store/commit';
-export { readFieldClock } from './store/read';
+export { readFieldClock, readNoteForEditing } from './store/read';
 export type { DeletableEntity, EntityValues, StoredEntity, SyncEnv } from './store/entities';
 export { applyRemoteOps, applySnapshot } from './store/apply';
 export { ensureNodeId } from './store/node-id';

@@ -1,5 +1,6 @@
 import { materialise } from '@gameplan/sync-server';
 import type { PullQuery, PullResponse, SnapshotRow } from '@gameplan/contracts';
+import { fieldClocks } from '@gameplan/sync';
 import type { Op, RowState } from '@gameplan/sync';
 import { sql } from 'kysely';
 import type { Kysely, Transaction } from 'kysely';
@@ -37,9 +38,10 @@ type Row = Record<string, unknown>;
 const toRowState = (entity: ServerEntity, row: Row | undefined): RowState => {
   if (row === undefined) return { fields: {}, clocks: {} };
   const clocks = row['field_hlc'] as Record<string, string>;
+  const set = fieldClocks(clocks);
   const fields: Record<string, unknown> = {};
   for (const [field, column] of Object.entries(ENTITY_TABLES[entity].columns)) {
-    if (clocks[field] !== undefined) fields[field] = row[column] ?? null;
+    if (set[field] !== undefined) fields[field] = row[column] ?? null;
   }
   return { fields, clocks };
 };
@@ -52,6 +54,7 @@ const opOf = (row: {
   type: string;
   fields: unknown;
   hlc: string;
+  base_hlc: string | null;
   schema_version: number;
 }): Record<string, unknown> => ({
   id: row.op_id,
@@ -60,6 +63,7 @@ const opOf = (row: {
   type: row.type,
   ...(row.type === 'set' && { fields: row.fields }),
   hlc: row.hlc,
+  ...(row.base_hlc !== null && { baseHlc: row.base_hlc }),
   schemaVersion: row.schema_version,
 });
 
@@ -172,6 +176,7 @@ export const createSyncRepository = (db: Kysely<Database>): SyncRepository => ({
             type: op.type,
             fields: op.type === 'set' ? JSON.stringify(op.fields) : null,
             hlc: op.hlc,
+            base_hlc: 'baseHlc' in op ? (op.baseHlc ?? null) : null,
             schema_version: op.schemaVersion,
           })
           .execute();
@@ -201,7 +206,17 @@ export const createSyncRepository = (db: Kysely<Database>): SyncRepository => ({
     // One extra row says whether there is more, without a count.
     const rows = await db
       .selectFrom('ops')
-      .select(['seq', 'op_id', 'entity', 'entity_id', 'type', 'fields', 'hlc', 'schema_version'])
+      .select([
+        'seq',
+        'op_id',
+        'entity',
+        'entity_id',
+        'type',
+        'fields',
+        'hlc',
+        'base_hlc',
+        'schema_version',
+      ])
       .where('user_id', '=', userId)
       .where('seq', '>', after)
       .orderBy('seq')

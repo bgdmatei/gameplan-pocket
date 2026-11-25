@@ -20,7 +20,7 @@ export type PendingOp = {
 
 export type AtomicWrite = {
   rows: readonly RowWrite[];
-  /** Local edits carry ops; rows applied from a sync pull do not. */
+  /** Local edits carry ops, as does a conflict found on a pull; other pulled rows do not. */
   ops?: readonly PendingOp[];
 };
 

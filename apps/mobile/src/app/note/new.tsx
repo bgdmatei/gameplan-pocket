@@ -2,7 +2,8 @@ import { DomainValidationError } from '@gameplan/domain';
 import { Stack, router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase } from '@/data/database';
 import { syncEnv } from '@/data/env';
@@ -23,6 +24,8 @@ const NewNoteScreen = () => {
   const [saving, setSaving] = useState(false);
   const navigation = useNavigation();
   const dirty = draft.text.trim() !== '' || draft.location.trim() !== '';
+  // A note without text can't exist, so Add would only show a rejection.
+  const addable = draft.text.trim() !== '';
 
   // Back, a swipe back and Android back all land here: typed text is
   // never dropped without asking. Saving leaves the page on purpose.
@@ -53,18 +56,26 @@ const NewNoteScreen = () => {
   };
 
   return (
-    <ScrollView
+    <KeyboardAwareScrollView
       contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}
-      automaticallyAdjustKeyboardInsets
+      bottomOffset={space.lg}
+      disableScrollOnKeyboardHide
       keyboardShouldPersistTaps="handled"
     >
       <Stack.Screen
         options={{
-          headerRight: () => <HeaderButton label="Add" emphasis onPress={() => void add()} />,
+          headerRight: () => (
+            <HeaderButton
+              label="Add"
+              emphasis
+              disabled={!addable || saving}
+              onPress={() => void add()}
+            />
+          ),
         }}
       />
       <NoteForm draft={draft} onChange={setDraft} autoFocus />
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 };
 

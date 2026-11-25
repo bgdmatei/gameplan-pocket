@@ -3,8 +3,10 @@ import { DomainValidationError } from '@gameplan/domain';
 import {
   CATALOG_TABLES,
   LIBRARY_ENTRY_TABLES,
+  NOTE_CONFLICT_TABLES,
   SHELF_SIZE,
   getReference,
+  listGamesWithOpenConflicts,
   listNowPlaying,
 } from '@gameplan/storage';
 import type { ShelfGame } from '@gameplan/storage';
@@ -48,6 +50,8 @@ export const NowPlayingShelf = () => {
   const { width } = useWindowDimensions();
   const playing = useQuery(listNowPlaying, LIBRARY_ENTRY_TABLES, []);
   const reference = useQuery(getReference, CATALOG_TABLES, []);
+  const conflicts = useQuery(listGamesWithOpenConflicts, NOTE_CONFLICT_TABLES, []);
+  const conflicted = new Set(conflicts.status === 'ready' ? conflicts.data : []);
   const games = playing.status === 'ready' ? playing.data : [];
   const known = reference.status === 'ready' ? reference.data.platforms : [];
   // The row's start inset and the gaps come off first; the end is the peek.
@@ -116,6 +120,7 @@ export const NowPlayingShelf = () => {
             spokenCaption={caption(game, true)}
             width={cardWidth}
             size="small"
+            conflicted={conflicted.has(game.gameId)}
             onPress={() => openGame(game.gameId)}
             onLongPress={() => moveOn(game)}
             accessibilityHint="Opens the game. Hold to pause, complete or drop it"
@@ -183,7 +188,7 @@ const styles = StyleSheet.create({
     gap: space.sm,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderRadius: radius.card,
+    borderRadius: radius.small,
     alignItems: 'center',
     justifyContent: 'center',
   },

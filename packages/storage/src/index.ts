@@ -36,6 +36,12 @@ export {
   listNoteItems,
 } from './repositories/note-items';
 export type { ListNoteOptions } from './repositories/note-items';
+export {
+  NOTE_CONFLICT_TABLES,
+  listConflictedNoteIds,
+  listGamesWithOpenConflicts,
+  listOpenConflicts,
+} from './repositories/note-conflicts';
 export { LIST_TABLES, getList, listGamesOf, listItemsOf, listLists } from './repositories/lists';
 
 export {

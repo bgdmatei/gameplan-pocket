@@ -1,16 +1,14 @@
 import type { RejectionReason } from '@gameplan/contracts';
 import { SYNC_LIMITS } from '@gameplan/contracts';
-import { isTooFarAhead, toCurrentOp } from '@gameplan/sync';
+import { compareHlc, isTooFarAhead, toCurrentOp } from '@gameplan/sync';
 import type { Op, SyncedEntity } from '@gameplan/sync';
 
-/**
- * Entities the server accepts. `note_conflict` waits for `notes-conflicts`
- * (module 10): no client creates one yet, and the phone can't apply one.
- */
+/** Entities the server accepts: an entity added to the op schema waits here until it has a table. */
 export const SERVER_ENTITIES: ReadonlySet<SyncedEntity> = new Set([
   'library_entry',
   'entry_tag',
   'note_item',
+  'note_conflict',
   'list',
   'list_item',
 ]);
@@ -66,6 +64,11 @@ export const checkOp = (raw: unknown, nowMs: number): CheckResult => {
     return { ok: false, reason: 'unsupported_entity', opId: op.id };
   }
   if (isTooFarAhead(op.hlc, nowMs)) return { ok: false, reason: 'clock_ahead', opId: op.id };
+  // An edit is built on an older text. Unchecked, a future base would be
+  // stored as `$base:text` and snapshotted to every device.
+  if ('baseHlc' in op && op.baseHlc !== undefined && compareHlc(op.baseHlc, op.hlc) >= 0) {
+    return { ok: false, reason: 'invalid_op', opId: op.id };
+  }
 
   return { ok: true, op };
 };

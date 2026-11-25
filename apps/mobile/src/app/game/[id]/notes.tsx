@@ -2,11 +2,14 @@ import { NOTE_ITEM_TYPES } from '@gameplan/domain';
 import type { NoteItem, NoteItemType } from '@gameplan/domain';
 import {
   LIBRARY_ENTRY_TABLES,
+  NOTE_CONFLICT_TABLES,
   NOTE_ITEM_TABLES,
   countOpenNotes,
   getLibraryEntryByGame,
+  listConflictedNoteIds,
   listNoteItems,
 } from '@gameplan/storage';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState } from 'react';
@@ -53,13 +56,14 @@ const NotesScreen = () => {
       return {
         entryId: entry.id,
         open: await countOpenNotes(db, entry.id),
+        conflicted: new Set(await listConflictedNoteIds(db, entry.id)),
         notes: await listNoteItems(db, entry.id, {
           ...(resolved === undefined ? {} : { resolved }),
           ...(noteType === undefined ? {} : { type: noteType }),
         }),
       };
     },
-    [...LIBRARY_ENTRY_TABLES, ...NOTE_ITEM_TABLES],
+    [...LIBRARY_ENTRY_TABLES, ...NOTE_ITEM_TABLES, ...NOTE_CONFLICT_TABLES],
     [gameId, shown, noteType],
   );
 
@@ -98,7 +102,7 @@ const NotesScreen = () => {
       </View>
     );
   }
-  const { entryId, open, notes } = state.data;
+  const { entryId, open, conflicted, notes } = state.data;
 
   return (
     <>
@@ -130,7 +134,7 @@ const NotesScreen = () => {
             <EmptyState icon="funnel-outline" message="No notes match." />
           )
         }
-        renderItem={({ item }) => <NoteRow note={item} />}
+        renderItem={({ item }) => <NoteRow note={item} conflicted={conflicted.has(item.id)} />}
       />
     </>
   );
@@ -183,7 +187,7 @@ const NotesHeader = ({ title, shown, onShown, noteType, onNoteType }: NotesHeade
   );
 };
 
-const NoteRow = ({ note }: { note: NoteItem }) => {
+const NoteRow = ({ note, conflicted }: { note: NoteItem; conflicted: boolean }) => {
   const { colors } = useTheme();
   const label = `${NOTE_TYPE_LABEL[note.type]} · ${note.resolved ? 'resolved' : 'open'}`;
 
@@ -192,6 +196,7 @@ const NoteRow = ({ note }: { note: NoteItem }) => {
       onPress={() => router.push({ pathname: '/note/[id]', params: { id: note.id } })}
       accessibilityRole="button"
       accessibilityHint="Opens the note"
+      {...(conflicted && { accessibilityValue: { text: 'Has a conflict' } })}
       style={[
         styles.note,
         note.resolved
@@ -199,9 +204,12 @@ const NoteRow = ({ note }: { note: NoteItem }) => {
           : { backgroundColor: colors.noteFill, borderColor: colors.noteFill },
       ]}
     >
-      <Text style={[type.label, { color: note.resolved ? colors.muted : colors.noteLabel }]}>
-        {label.toUpperCase()}
-      </Text>
+      <View style={styles.labelRow}>
+        <Text style={[type.label, { color: note.resolved ? colors.muted : colors.noteLabel }]}>
+          {label.toUpperCase()}
+        </Text>
+        {conflicted ? <Ionicons name="alert-circle" size={18} color={colors.accent} /> : null}
+      </View>
       <Text style={[type.body, { color: colors.text }]} numberOfLines={4}>
         {note.text}
       </Text>
@@ -217,6 +225,7 @@ const styles = StyleSheet.create({
   header: { gap: space.md, marginBottom: space.sm },
   row: { gap: space.sm },
   divider: { width: 1, marginVertical: space.xs },
+  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   // Soft cards: open notes in the warm note fill, resolved ones on the plain surface.
   note: {
     padding: space.lg,

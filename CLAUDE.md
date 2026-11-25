@@ -8,21 +8,31 @@ Offline-first, multi-device game logbook: Expo (React Native) + Hono API + a cus
 
 ## Planning documents (read before starting work)
 
-| File                     | Purpose                                                                                                      |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `SPEC-map.md`            | Capability map: the 15 modules, dependencies, build order. The index of what exists                          |
-| `SPEC-<module-id>.md`    | One approved spec per module (`SPEC-foundation.md`, `SPEC-domain-model.md`)                                  |
-| `tasks/plan.md`          | Implementation plan for the module in progress                                                               |
-| GitHub Issues            | Its tasks, one issue each, in the module's milestone (`docs/agents/issue-tracker.md`). Replaced `todo.md`    |
-| `tasks/archive/`         | Plans from finished modules, plus `todo.md` task lists from before the switch to issues                      |
-| `CONTEXT.md`             | The glossary: use its words in code, issues and commits                                                      |
-| `game-logbook-plan.html` | The original architecture plan; authoritative for design decisions. Lives outside the repo, in `~/Downloads` |
+| File                               | Purpose                                                                                 |
+| ---------------------------------- | --------------------------------------------------------------------------------------- |
+| `SPEC-map.md`                      | Capability map: the 15 modules, dependencies, build order. The index of what exists     |
+| `SPEC-<module-id>.md`              | One approved spec per module (`SPEC-foundation.md`, `SPEC-domain-model.md`)             |
+| `tasks/plan.md`                    | Implementation plan for the module in progress                                          |
+| GitHub Issues                      | Its tasks, one issue each, in the module's milestone (`docs/agents/issue-tracker.md`)   |
+| `tasks/archive/`                   | Plans from finished modules, plus `todo.md` task lists from before the switch to issues |
+| `CONTEXT.md`                       | The glossary: use its words in code, issues and commits                                 |
+| `docs/style-guide.md`              | The mobile design system: tokens, components, states. Read before building any screen   |
+| `docs/plan/game-logbook-plan.html` | The original architecture plan; authoritative for design decisions. Local, gitignored   |
 
 Work follows spec → plan → issues → implement, with a human review gate between phases: the owner labels an issue `ready-for-agent`. Don't start a module without an approved spec, and don't overwrite a plan whose milestone still has open issues — archive it instead.
 
-`*.md` is gitignored (see `.gitignore`), so specs and plans stay local. The versioned exceptions are `CLAUDE.md`, `README.md`, `CONTEXT.md`, `docs/agents/*.md`, `docs/adr/*.md` and `PERFORMANCE.md`; anything written there gets committed.
+**Before writing a spec or plan, audit what earlier modules built, in code, not in docs.** For every field, table, op or endpoint the new module relies on:
 
-**Keep `README.md` current.** It is the versioned record of how to run the project and the tests, the decisions behind it, and what is done. When a change touches any of those (a command, a setup step, a decision revisited, a module finished), update the README in the same commit.
+- grep it end to end through every hop it crosses (phone → push (upcast) → server check → Postgres log and rows → pull and snapshot (downcast) → phone), and read each hop's code;
+- check the real persistence (the Postgres repository, migrations, op-sqlite), never only the in-memory fakes;
+- read `tasks/archive/` where a plan exists, and the matching entries in `review-log.md`, for limits and known gaps;
+- write down what you found: each assumption with the file that proves it, in the spec's assumptions (a gap may change its contracts) and the plan; each gap becomes its own task.
+
+Why: `notes-conflicts` was planned on "phone and server share the merge", but `baseHlc`, sent by `packages/sync`, was never stored by the Postgres op log (`apps/api/src/sync/repository.ts`). The in-memory server kept it, so tests would have passed; the gap surfaced mid-implementation (#59, split out as #69). Grepping `baseHlc` in `apps/api` would have caught it.
+
+`*.md` is gitignored (see `.gitignore`), so specs and plans stay local. The versioned exceptions are `CLAUDE.md`, `README.md`, `CONTEXT.md`, `docs/agents/*.md`, `docs/adr/*.md`, `docs/style-guide.md` and `PERFORMANCE.md`; anything written there gets committed.
+
+**Keep `README.md` current.** It is the versioned record of how to run the project and the tests, the decisions behind it, and what is done, written for people reading the repo or running the app; verification recipes (`curl` checks, log lines) belong in the spec. When a change touches any of those (a command, a setup step, a decision revisited, a module finished), update the README in the same commit.
 
 ## Commands
 
@@ -44,7 +54,7 @@ pnpm exec prettier --check <paths>
 
 A task is done when `pnpm typecheck && pnpm lint && pnpm lint:boundaries && pnpm test` pass and Prettier is clean on changed files.
 
-**Review before committing.** Run `/code-review medium` on the diff before each commit, naming the issue it closes (if any) and the milestone's later issues as out of scope, and `/security-review` before each module PR. Fix what's real; log each rejected finding with its reason in `review-log.md` (local, gitignored), so false positives become visible over time.
+**Review before committing.** Run `/code-review medium` on the diff before each commit, naming the issue it closes (if any) and the milestone's later issues as out of scope: it hunts correctness bugs. Before each module PR, run `/mattpocock-skills:code-review` on `origin/main...dev` with the module's issues and spec, since standards and spec drift build up across commits, and `/security-review` on `origin/main...dev`. Name that range for both: the repo's default branch is `dev`, so a skill's default diff comes back empty, and an empty diff is a review that didn't happen. Fix what's real; log each rejected finding with its reason in `review-log.md` (local, gitignored), so false positives become visible over time.
 
 **Never judge a command by truncated output.** `| tail -3` once hid a typecheck failure behind a success-looking summary. Grep for `error`, `Failed`, `ERROR`, or check the exit code.
 
@@ -67,8 +77,7 @@ These are cheap now and very hard to retrofit once code exists.
 ## Code conventions
 
 - TypeScript strict, `noUncheckedIndexedAccess`, no `any` — use `unknown` and narrow.
-- ESM. Named exports only; no default exports in packages.
-- Filenames kebab-case; types PascalCase; functions and variables camelCase.
+- ESM. Types PascalCase; functions and variables camelCase. Named exports and kebab-case filenames are lint rules on `src/` (`packages/config/eslint.config.js`); Expo Router's `src/app/` is the exception, and config files outside `src/` keep their tools' default exports.
 - Prettier: single quotes, width 100.
 - Types are inferred from zod schemas (`z.infer`), never hand-written twice.
 - Domain write rules throw `DomainValidationError` (it carries every reason) rather than returning a result object — screens catch it and show a toast.
@@ -99,15 +108,14 @@ Don't test:
 - **Both directions of a trivial mapping**, when a single round-trip covers it.
 - **Exhaustive permutations.** Prefer one table-driven test that loops over twenty `it.each` cases: same assertions, one line of output, far easier to read.
 
-Practices that still hold:
+Practices:
 
 - Vitest for unit tests, fast-check for properties, both at the root.
 - Write the test first for anything with real logic; skip the ceremony for a getter.
 - **Prove a guard by breaking it.** A guard that has never failed hasn't been tested.
 - **Never assert immediately on something delivered asynchronously.** Asserting straight after a write passed in Node only because its SQLite is synchronous, and hid a spec violation the phone exposed at once.
-- **Node's SQLite is more generous than the phone's.** FTS5 is compiled into Node and not into op-sqlite, so local search was green in CI and dead on the device. Anything resting on a SQLite compile-time feature is only proven by running the contract on a device (`Run the storage contract` on the mobile home screen).
+- **Node's SQLite is more generous than the phone's.** FTS5 is compiled into Node and not into op-sqlite, so local search was green in CI and dead on the device. Anything resting on a SQLite compile-time feature is only proven by running the contract on a device (Library → Debug (wrench) → `Run the storage contract`).
 - Coverage is a hint, not a target. There are no coverage thresholds: chasing a number is what produced the tests we deleted.
-- When reporting information to me, be extremely concise and sacrifice grammar for the sake of concision.
 
 ## Git
 
@@ -118,7 +126,6 @@ Practices that still hold:
 - Conventional subject (`feat(domain): …`, `ci: …`, `docs: …`) plus a body explaining _why_, wrapped at ~72 characters. Note anything unrelated that rides along in the same commit.
 - **No `Co-Authored-By` trailers and no AI attribution** in commits or PR descriptions. The repo has one contributor; co-author lines add Claude to GitHub's contributor badges.
 - Don't rename CI job names casually — branch protection matches required checks by name.
-- Never use `--no-verify`, and never push straight to `main`.
 
 ## Ask first
 
@@ -139,6 +146,7 @@ Functional criteria ("it converges", "it appears on both devices") never catch t
 
 I'm building this to practise architecture and system design, so:
 
+- When reporting information to me, be extremely concise and sacrifice grammar for the sake of concision.
 - Before introducing a new library, pattern, folder structure, or data-model change: propose 2–3 options with tradeoffs and **wait for my choice**. Don't implement first.
 - For routine code within an agreed pattern, just do it.
 - Keep diffs small and scoped to the task. No drive-by refactors.

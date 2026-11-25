@@ -1,5 +1,5 @@
 /** What this app reads, sent on every request; separate from an op's schema version (ADR-017). */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /** Header names, spelled once for both ends. */
 export const HEADERS = {

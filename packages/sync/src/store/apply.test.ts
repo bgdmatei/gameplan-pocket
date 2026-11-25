@@ -9,11 +9,13 @@ import { SYNCED_ROWS, getLibraryEntry, getSyncState, readSyncedRow } from '@game
 import { createMigratedNodeAdapter } from '@gameplan/storage/node';
 import type { StorageAdapter } from '@gameplan/storage';
 import { describe, expect, it } from 'vitest';
-import { formatHlc } from '../clock/hlc';
+import { formatHlc, parseHlc } from '../clock/hlc';
+import { conflictFromLosingEdit } from '../conflicts/conflicts';
+import { BASE_TEXT_CLOCK } from '../merge/merge';
 import { entryId } from '../ids';
 import type { Op } from '../op/schema';
 import { fakeEnv } from '../testing/env';
-import { applyRemoteOps } from './apply';
+import { applyRemoteOps, applySnapshot } from './apply';
 import { commitLocalCreate, commitLocalDelete, commitLocalEdit } from './commit';
 
 const TODAY = '2026-09-23';
@@ -122,5 +124,63 @@ describe('applyRemoteOps', () => {
     });
     expect((await stored(adapter)).entry).toBeNull();
     expect((await getSyncState(adapter)).lastPulledSeq).toBe(1);
+  });
+
+  it('stores a note conflict pulled from another device', async () => {
+    const adapter = await createMigratedNodeAdapter();
+    const hlc = formatHlc({ wallMs: START, counter: 0, nodeId: '00000000000000aa' });
+    const { id, ...fields } = conflictFromLosingEdit('note-1', { text: 'Lever', hlc });
+    const op: Op = {
+      id: '01890a5d-ac96-774b-bcce-b302099a8057',
+      entity: 'note_conflict',
+      entityId: id,
+      type: 'set',
+      fields,
+      hlc,
+      schemaVersion: 2,
+    };
+
+    await applyRemoteOps(adapter, fakeEnv(), [op], { lastPulledSeq: 1 });
+
+    const row = await adapter.transaction((tx) =>
+      readSyncedRow(tx, SYNCED_ROWS.note_conflicts, id),
+    );
+    expect(row?.value).toEqual({ id, ...fields });
+  });
+
+  // A base is no edit's clock, and a reserved key from a newer server may not
+  // be a clock at all: neither may move this device's clock.
+  it('learns only edit clocks from a snapshot row', async () => {
+    const adapter = await createMigratedNodeAdapter();
+    const env = fakeEnv(START);
+    const at = (wallMs: number) => formatHlc({ wallMs, counter: 0, nodeId: '00000000000000aa' });
+    const note = createNoteItem({
+      id: 'note-1',
+      entryId: entryId(1942),
+      createdAt: '2026-09-23T10:00:00.000Z',
+      type: 'puzzle',
+      text: 'Lever',
+    });
+    const { id, ...fields } = note;
+    const clocks = Object.fromEntries(Object.keys(fields).map((field) => [field, at(START)]));
+    const later = at(START + 3_600_000);
+
+    await applySnapshot(
+      adapter,
+      env,
+      [
+        {
+          entity: 'note_item',
+          id,
+          fields,
+          fieldHlc: { ...clocks, [BASE_TEXT_CLOCK]: later, $future: later },
+          deleted: false,
+        },
+      ],
+      { seq: 1 },
+    );
+
+    const { hlcLast } = await getSyncState(adapter);
+    expect(hlcLast === null ? null : parseHlc(hlcLast).wallMs).toBe(START);
   });
 });

@@ -5,7 +5,7 @@ import type {
   SnapshotQuery,
   SnapshotResponse,
 } from '@gameplan/contracts';
-import { downcastOp, downcastRow, toCurrentOp } from '@gameplan/sync';
+import { opForProtocol2, rowForProtocol2, toCurrentOp } from '@gameplan/sync';
 import type { Op } from '@gameplan/sync';
 import { checkOp } from '@gameplan/sync-server';
 import type { Logger } from '../logger';
@@ -15,12 +15,13 @@ import type { SyncRepository } from './repository';
 export type SyncService = {
   /** `ops` are as the client sent them: each is checked here, at the door. */
   push: (userId: string, ops: readonly unknown[]) => Promise<PushResponse>;
-  pull: (userId: string, query: PullQuery, reads: 1 | 2) => Promise<PullResponse>;
+  /** `reads` is the protocol the answer is shaped for. */
+  pull: (userId: string, query: PullQuery, reads: 2 | 3) => Promise<PullResponse>;
   /** `invalid_cursor` for a cursor this server didn't hand out. */
   snapshot: (
     userId: string,
     query: SnapshotQuery,
-    reads: 1 | 2,
+    reads: 2 | 3,
   ) => Promise<SnapshotResponse | 'invalid_cursor'>;
   lastSeq: (userId: string) => Promise<number>;
 };
@@ -69,7 +70,7 @@ export const createSyncService = ({
         unreadable += 1;
         return [];
       }
-      const served = reads === 2 ? op : downcastOp(op, 1);
+      const served = reads === 3 ? op : opForProtocol2(op);
       return served === null ? [] : [{ seq, op: served }];
     });
     if (unreadable > 0) logger.warn(`sync pull skipped ${unreadable} unreadable logged ops`);
@@ -81,7 +82,7 @@ export const createSyncService = ({
     if (cursor === null) return 'invalid_cursor';
     const { rows, seq, next } = await repository.snapshot(userId, { cursor, limit });
     return {
-      rows: reads === 2 ? rows : rows.map(downcastRow),
+      rows: reads === 3 ? rows : rows.flatMap((row) => rowForProtocol2(row) ?? []),
       seq,
       nextCursor: next === null ? null : encodeCursor(next),
     };

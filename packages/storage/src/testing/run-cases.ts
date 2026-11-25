@@ -1,16 +1,18 @@
 import type { StorageAdapter } from '../adapter';
 import { adapterCases } from './cases';
+import { schemaCases } from './schema-cases';
 
 /**
- * Runs the contract without a test framework and reports what happened, for a
- * debug screen on a device. Never throws: the caller displays the failures.
+ * Runs the adapter contract, then the cases on the shipped schema, without a
+ * test framework, and reports what happened, for a debug screen on a device.
+ * Never throws: the caller displays the failures.
  */
 export const runAdapterCases = async (
   createAdapter: () => StorageAdapter | Promise<StorageAdapter>,
 ): Promise<{ name: string; passed: boolean; error?: string }[]> => {
   const results: { name: string; passed: boolean; error?: string }[] = [];
 
-  for (const testCase of adapterCases) {
+  for (const testCase of [...adapterCases, ...schemaCases]) {
     const adapter = await createAdapter();
     try {
       await testCase.run(adapter);

@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { receive, tick } from '../clock/hlc';
-import { EMPTY_ROW, isDeleted, mergeOp } from '../merge/merge';
+import { EMPTY_ROW, carriesTextBase, fieldClocks, isDeleted, mergeOp } from '../merge/merge';
 import type { RowState } from '../merge/merge';
 import type { Op, SyncedEntity } from '../op/schema';
 
@@ -37,10 +37,20 @@ export const edit = (replica: Replica, change: Change, nowMs: number, opId: stri
     hlc: replica.clock,
     schemaVersion: 2 as const,
   };
+  // As the note editor does: a text edit is based on the text this device holds.
+  const baseHlc =
+    change.fields !== null && carriesTextBase(change.entity, change.fields)
+      ? fieldClocks(replica.rows.get(rowKey(change))?.clocks ?? {}).text
+      : undefined;
   const op = (
     change.fields === null
       ? { ...envelope, type: 'delete' }
-      : { ...envelope, type: 'set', fields: change.fields }
+      : {
+          ...envelope,
+          type: 'set',
+          fields: change.fields,
+          ...(baseHlc !== undefined && { baseHlc }),
+        }
   ) as Op;
 
   store(replica, op);

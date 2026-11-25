@@ -1,12 +1,24 @@
 import { getSyncState, readSyncedRow, updateSyncState, writeRows } from '@gameplan/storage';
-import type { StorageAdapter, Transaction } from '@gameplan/storage';
+import { resolveConflict } from '@gameplan/domain';
+import type { ConflictChoice, NoteConflict, NoteItem } from '@gameplan/domain';
+import type { StorageAdapter, StoredRow, Transaction } from '@gameplan/storage';
 import { tick } from '../clock/hlc';
 import { newId } from '../ids';
-import { DELETE_CLOCK, isDeleted } from '../merge/merge';
-import { OP_SCHEMA_VERSION, opSchema } from '../op/schema';
+import { losingText } from '../conflicts/conflicts';
+import {
+  BASE_TEXT_CLOCK,
+  DELETE_CLOCK,
+  carriesTextBase,
+  fieldClocks,
+  isDeleted,
+  withTextBase,
+} from '../merge/merge';
+import { OP_SCHEMA_VERSION } from '../op/schema';
 import type { Op } from '../op/schema';
 import { codecFor, isoAt, parseClocks, stringifyClocks } from './entities';
+import { keepConflict } from './keep-conflict';
 import { ensureNodeId } from './node-id';
+import { queue } from './queue';
 import type { DeletableEntity, EntityValues, StoredEntity, SyncEnv } from './entities';
 
 /** The result of a domain write rule, ready to commit. */
@@ -16,6 +28,11 @@ export type LocalChange<E extends StoredEntity> = {
   changed: Partial<EntityValues[E]>;
   /** Note text edits only: the clock of the text the edit started from. */
   baseHlc?: string;
+  /**
+   * Note text edits only: this editor's own earlier saves, typed on top of.
+   * Never a race at save, though the op still carries `baseHlc` alone.
+   */
+  builtOn?: readonly string[];
 };
 
 /**
@@ -44,18 +61,6 @@ const nextClock = async (tx: Transaction, env: SyncEnv) => {
 };
 
 /**
- * Validated against the allowlist before it is queued: an op this device could
- * not push would sit in the outbox forever.
- */
-const queue = (op: unknown, nowMs: number) => {
-  const parsed = opSchema.parse(op);
-  return {
-    op: parsed,
-    pending: { id: parsed.id, payload: JSON.stringify(parsed), createdAt: isoAt(nowMs) },
-  };
-};
-
-/**
  * Writes a change on top of the clocks the row already had: the row, its
  * per-field clocks, the outbox entry and the clock state. Callers hold the
  * transaction, so all land or none do.
@@ -70,8 +75,9 @@ const writeChange = async <E extends StoredEntity>(
   const codec = codecFor(entity);
   const { hlc, nowMs } = await nextClock(tx, env);
 
-  const clocks = parseClocks(fieldHlc);
+  let clocks = parseClocks(fieldHlc);
   for (const field of Object.keys(changed)) clocks[field] = hlc;
+  if (carriesTextBase(entity, changed)) clocks = withTextBase(clocks, baseHlc);
 
   const { op, pending } = queue(
     {
@@ -93,6 +99,34 @@ const writeChange = async <E extends StoredEntity>(
     ops: [pending],
   });
   return op;
+};
+
+/**
+ * A note text write that replaces a text its editor never saw (pulled while it
+ * was open) keeps that text as a conflict at once, so the writing device can
+ * show the choice now. The write is newer, so the held text is the loser,
+ * under the id the other device derives when it pulls the write: both write
+ * one row. The race rule is the pull's; the editor's own earlier saves count
+ * as seen, as a device's own edits do on pull.
+ */
+const keepRacedText = async (
+  tx: Transaction,
+  env: SyncEnv,
+  stored: StoredRow<NoteItem>,
+  written: Op,
+  { changed, baseHlc, builtOn = [] }: LocalChange<'note_item'>,
+): Promise<void> => {
+  if (changed.text === undefined) return;
+  const clocks = parseClocks(stored.fieldHlc);
+  const heldClock = fieldClocks(clocks).text;
+  if (heldClock === undefined) return;
+  const held = { text: stored.value.text, hlc: heldClock };
+  const raced = losingText(
+    { ...held, baseHlc: clocks[BASE_TEXT_CLOCK] },
+    { text: changed.text, hlc: written.hlc, baseHlc },
+  );
+  if (raced === null || builtOn.includes(heldClock)) return;
+  await keepConflict(tx, env, env.now(), written.entityId, held);
 };
 
 /**
@@ -119,7 +153,71 @@ export const commitLocalEdit = async <E extends StoredEntity>(
     }
     if (Object.keys(change.changed).length === 0) return null;
 
-    return writeChange(tx, env, entity, change, stored.fieldHlc);
+    const op = await writeChange(tx, env, entity, change, stored.fieldHlc);
+    // After the winning text: in the log a conflict never comes before the
+    // edit that made it, so no device can resolve it while still holding the loser.
+    if (entity === 'note_item') {
+      await keepRacedText(
+        tx,
+        env,
+        stored as StoredRow<NoteItem>,
+        op,
+        change as LocalChange<'note_item'>,
+      );
+    }
+    return op;
+  });
+
+/**
+ * Commits the user's choice for one note conflict: the note's text, when the
+ * choice changes it, and the conflict marked resolved, in one transaction, so
+ * a crash never leaves the text changed and the conflict still open.
+ *
+ * `baseHlc` is the note's text clock when the choice was shown, as a note
+ * editor's session base: an edit that arrived after that makes the choice a
+ * race, and the text it would replace becomes a conflict, never lost.
+ *
+ * @throws {DomainValidationError} when keeping both would pass the note
+ * limit; nothing is written.
+ */
+export const commitConflictResolution = async (
+  adapter: StorageAdapter,
+  env: SyncEnv,
+  {
+    conflictId,
+    choice,
+    baseHlc,
+  }: { conflictId: string; choice: ConflictChoice; baseHlc: string | null },
+): Promise<Op[]> =>
+  adapter.transaction(async (tx) => {
+    // A deleted row counts as gone: an edit newer than a delete brings the row
+    // back, so writing the text would revive a note deleted while choosing.
+    const conflict = await readSyncedRow(tx, codecFor('note_conflict'), conflictId);
+    if (conflict === null || conflict.deleted) {
+      throw new Error(`Cannot resolve conflict ${conflictId}: it does not exist.`);
+    }
+    const held = conflict.value as NoteConflict;
+    const note = await readSyncedRow(tx, codecFor('note_item'), held.noteItemId);
+    if (note === null || note.deleted) {
+      throw new Error(`Cannot resolve conflict ${conflictId}: its note is gone.`);
+    }
+
+    const resolution = resolveConflict(note.value as NoteItem, held, choice);
+    const ops: Op[] = [];
+    let noteEdit: { change: LocalChange<'note_item'>; op: Op } | undefined;
+    if (resolution.note !== undefined) {
+      const change = { ...resolution.note, ...(baseHlc === null ? {} : { baseHlc }) };
+      noteEdit = { change, op: await writeChange(tx, env, 'note_item', change, note.fieldHlc) };
+      ops.push(noteEdit.op);
+    }
+    if (Object.keys(resolution.conflict.changed).length > 0) {
+      ops.push(await writeChange(tx, env, 'note_conflict', resolution.conflict, conflict.fieldHlc));
+    }
+    // A text pulled while choosing, which the choice overwrote, is kept now.
+    if (noteEdit !== undefined) {
+      await keepRacedText(tx, env, note as StoredRow<NoteItem>, noteEdit.op, noteEdit.change);
+    }
+    return ops;
   });
 
 /**

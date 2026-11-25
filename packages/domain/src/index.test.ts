@@ -61,6 +61,8 @@ const EXPECTED_EXPORTS = [
   'createNoteItem',
   'noteItemPatchSchema',
   'noteConflictSchema',
+  'conflictChoiceSchema',
+  'resolveConflict',
   // lists
   'LIST_NAME_MAX_LENGTH',
   'LIST_DESCRIPTION_MAX_LENGTH',

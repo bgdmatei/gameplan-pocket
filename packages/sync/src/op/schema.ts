@@ -48,7 +48,7 @@ export const SYNCED_FIELDS = {
   note_conflict: {
     noteItemId: true,
     text: true,
-    fromDeviceId: true,
+    fromNodeId: true,
     hlc: true,
     createdAt: true,
     resolved: true,

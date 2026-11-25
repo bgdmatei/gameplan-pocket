@@ -43,6 +43,10 @@ export const NoteForm = ({ draft, onChange, autoFocus = false }: Props) => {
           placeholder="What do you want to remember?"
           placeholderTextColor={colors.muted}
           multiline
+          // While scrollable, iOS let a drag that started on the field focus it
+          // at its end. Disabled, the page takes the drag and only a tap edits.
+          // The field grows with its text, so it never needs to scroll.
+          scrollEnabled={false}
           autoFocus={autoFocus}
           maxLength={NOTE_TEXT_MAX_LENGTH}
           accessibilityLabel="Note"

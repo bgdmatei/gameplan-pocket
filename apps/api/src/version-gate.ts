@@ -4,9 +4,11 @@ import type { Context, MiddlewareHandler } from 'hono';
 
 export type ProtocolRange = { min: number; max: number };
 
-export const SERVED_PROTOCOLS: ProtocolRange = { min: 1, max: 2 };
+// Protocol 3 reads note conflicts; 2 is served without them.
+export const SERVED_PROTOCOLS: ProtocolRange = { min: 2, max: 3 };
 
-export const schemaReadBy = (protocol: number): 1 | 2 => (protocol >= 2 ? 2 : 1);
+/** The protocol an answer is shaped for: 3, or 2 for any app below it. */
+export const servedAs = (protocol: number): 2 | 3 => (protocol >= 3 ? 3 : 2);
 
 // No header counts as current: every app build sends one, only tools and tests don't.
 export const protocolOf = (c: Context, range: ProtocolRange): number | null => {

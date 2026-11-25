@@ -1,5 +1,5 @@
 import { applyNoteItemChange, createNoteItem } from '@gameplan/domain';
-import type { NoteItemPatch, NoteItemType } from '@gameplan/domain';
+import type { NoteItem, NoteItemPatch, NoteItemType } from '@gameplan/domain';
 import type { StorageAdapter } from '@gameplan/storage';
 import {
   commitLocalCreate,
@@ -7,6 +7,7 @@ import {
   commitLocalEdit,
   newId,
   readFieldClock,
+  readNoteForEditing,
 } from '@gameplan/sync';
 import type { SyncEnv } from '@gameplan/sync';
 
@@ -55,14 +56,16 @@ export type NoteSession = {
  * editor opens, and every text save of the session carries it as `baseHlc`:
  * the version the user started from. Re-reading it after each save would make
  * a later save look based on the session's own earlier one, and hide an edit
- * made meanwhile on another device (ADR-009).
+ * made meanwhile on another device.
  */
-export const openNoteSession = async (
+const sessionFrom = (
   adapter: StorageAdapter,
   env: SyncEnv,
   id: string,
-): Promise<NoteSession> => {
-  const baseHlc = await readFieldClock(adapter, 'note_item', id, 'text');
+  baseHlc: string | null,
+): NoteSession => {
+  // This session's own text saves: typed on top of, so never a race at save.
+  const saved: string[] = [];
 
   return {
     save: async (patch) => {
@@ -72,10 +75,35 @@ export const openNoteSession = async (
         update: (current) => {
           const change = applyNoteItemChange(current, patch);
           const textChanged = change.changed.text !== undefined;
-          return textChanged && baseHlc !== null ? { ...change, baseHlc } : change;
+          return textChanged && baseHlc !== null ? { ...change, baseHlc, builtOn: saved } : change;
         },
       });
+      if (op?.entity === 'note_item' && op.type === 'set' && op.fields.text !== undefined) {
+        saved.push(op.hlc);
+      }
       return op !== null;
     },
   };
+};
+
+export const openNoteSession = async (
+  adapter: StorageAdapter,
+  env: SyncEnv,
+  id: string,
+): Promise<NoteSession> =>
+  sessionFrom(adapter, env, id, await readFieldClock(adapter, 'note_item', id, 'text'));
+
+/**
+ * The note as stored now and a fresh session on exactly that text: what the
+ * editor reloads after a conflict closes. `null` when the note is gone.
+ */
+export const reopenNote = async (
+  adapter: StorageAdapter,
+  env: SyncEnv,
+  id: string,
+): Promise<{ note: NoteItem; session: NoteSession } | null> => {
+  const read = await readNoteForEditing(adapter, id);
+  return read === null
+    ? null
+    : { note: read.note, session: sessionFrom(adapter, env, id, read.textClock) };
 };

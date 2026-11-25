@@ -70,6 +70,8 @@ export type Colors = {
   onImageMuted: string;
   /** Where a hero image starts fading into `background`: the ground, fully transparent. */
   heroFadeFrom: string;
+  /** A floating panel's shadow (the conflict drawer). */
+  panelShadow: string;
 };
 
 const dark: Colors = {
@@ -99,6 +101,7 @@ const dark: Colors = {
   onImage: '#FFFFFF',
   onImageMuted: '#EDE7DD',
   heroFadeFrom: 'rgba(14, 15, 20, 0)',
+  panelShadow: 'rgba(0, 0, 0, 0.55)',
 };
 
 const light: Colors = {
@@ -130,6 +133,7 @@ const light: Colors = {
   onImage: '#FFFFFF',
   onImageMuted: '#EFEAE2',
   heroFadeFrom: 'rgba(247, 243, 236, 0)',
+  panelShadow: 'rgba(28, 25, 20, 0.2)',
 };
 
 export const palettes: Record<ColorScheme, Colors> = { dark, light };
