@@ -5,7 +5,7 @@ import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Frosted } from '@/ui/components/frosted';
 import { PressableScale } from '@/ui/components/pressable-scale';
-import { buttonDepth, minTouchTarget, radius, space, type } from '@/ui/theme';
+import { minTouchTarget, radius, space, type } from '@/ui/theme';
 import { useTheme } from '@/ui/use-theme';
 
 const BUTTON_HEIGHT = minTouchTarget + 4;
@@ -100,11 +100,7 @@ export const ConflictDrawer = ({ conflict, ready, onChoose, onHeight }: Props) =
         accessibilityRole="button"
         accessibilityLabel="Keep both"
         accessibilityState={{ disabled: !ready }}
-        style={[
-          styles.choice,
-          { backgroundColor: colors.accentFill, opacity: ready ? 1 : 0.4 },
-          ready && { boxShadow: buttonDepth(colors, colors.accentFill) },
-        ]}
+        style={[styles.choice, { backgroundColor: colors.accentFill, opacity: ready ? 1 : 0.4 }]}
       >
         <Ionicons name="layers-outline" size={18} color={colors.onAccent} />
         <Text style={[type.callout, styles.label, { color: colors.onAccent }]} numberOfLines={1}>

@@ -1,5 +1,5 @@
 import { ActivityIndicator, StyleSheet, Text } from 'react-native';
-import { buttonDepth, minTouchTarget, radius, space, type } from '../theme';
+import { minTouchTarget, radius, space, type } from '../theme';
 import { useTheme } from '../use-theme';
 import { PressableScale } from './pressable-scale';
 
@@ -33,12 +33,7 @@ export const PrimaryButton = ({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ busy, disabled: off }}
-      style={[
-        styles.button,
-        { backgroundColor: fill, opacity: disabled ? 0.4 : busy ? 0.7 : 1 },
-        // A glowing button that can't be pressed would still look ready.
-        !off && { boxShadow: buttonDepth(colors, fill) },
-      ]}
+      style={[styles.button, { backgroundColor: fill, opacity: disabled ? 0.4 : busy ? 0.7 : 1 }]}
     >
       {busy ? (
         <ActivityIndicator color={ink} />
