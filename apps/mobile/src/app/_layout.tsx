@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { DatabaseProvider } from '@/data/database';
 // Evaluated first thing, so its clock starts as the app's JS does (cold start, T19).
 import '@/data/perf';
@@ -35,46 +36,49 @@ const RootLayout = () => {
   });
 
   return (
-    <DatabaseProvider>
-      <StoredTheme />
-      <ToastProvider>
-        {/* Inside the toasts: it announces going offline and catching up. */}
-        <SyncTriggers />
-        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-        <KeyboardDismiss>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: colors.background },
-              headerStyle: { backgroundColor: colors.background },
-              headerTintColor: colors.accent,
-              headerTitleStyle: { color: colors.text },
-            }}
-          >
-            <Stack.Screen name="(tabs)" />
-            {/* Over the cover hero: the screen colours it once its title is in it. */}
-            <Stack.Screen
-              name="game/[id]"
-              options={{
-                ...withHeader(''),
-                headerTransparent: true,
-                headerStyle: { backgroundColor: 'transparent' },
-                scrollEdgeEffects: { top: 'hidden' },
+    // Screens with fields scroll to the caret, not to a tall field's bottom (KeyboardAwareScrollView).
+    <KeyboardProvider>
+      <DatabaseProvider>
+        <StoredTheme />
+        <ToastProvider>
+          {/* Inside the toasts: it announces going offline and catching up. */}
+          <SyncTriggers />
+          <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+          <KeyboardDismiss>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.background },
+                headerStyle: { backgroundColor: colors.background },
+                headerTintColor: colors.accent,
+                headerTitleStyle: { color: colors.text },
               }}
-            />
-            <Stack.Screen name="game/[id]/notes" options={withHeader('Notes')} />
-            <Stack.Screen name="note/new" options={withHeader('New note')} />
-            <Stack.Screen name="note/[id]" options={withHeader('Note')} />
-            <Stack.Screen name="archive" options={withHeader('')} />
-            <Stack.Screen name="account" options={withHeader('')} />
-            <Stack.Screen name="debug/index" options={withHeader('Debug')} />
-            <Stack.Screen name="debug/outbox" options={withHeader('Outbox')} />
-            <Stack.Screen name="debug/storage-check" options={withHeader('Storage contract')} />
-            <Stack.Screen name="debug/sync-check" options={withHeader('Sync check')} />
-          </Stack>
-        </KeyboardDismiss>
-      </ToastProvider>
-    </DatabaseProvider>
+            >
+              <Stack.Screen name="(tabs)" />
+              {/* Over the cover hero: the screen colours it once its title is in it. */}
+              <Stack.Screen
+                name="game/[id]"
+                options={{
+                  ...withHeader(''),
+                  headerTransparent: true,
+                  headerStyle: { backgroundColor: 'transparent' },
+                  scrollEdgeEffects: { top: 'hidden' },
+                }}
+              />
+              <Stack.Screen name="game/[id]/notes" options={withHeader('Notes')} />
+              <Stack.Screen name="note/new" options={withHeader('New note')} />
+              <Stack.Screen name="note/[id]" options={withHeader('Note')} />
+              <Stack.Screen name="archive" options={withHeader('')} />
+              <Stack.Screen name="account" options={withHeader('')} />
+              <Stack.Screen name="debug/index" options={withHeader('Debug')} />
+              <Stack.Screen name="debug/outbox" options={withHeader('Outbox')} />
+              <Stack.Screen name="debug/storage-check" options={withHeader('Storage contract')} />
+              <Stack.Screen name="debug/sync-check" options={withHeader('Sync check')} />
+            </Stack>
+          </KeyboardDismiss>
+        </ToastProvider>
+      </DatabaseProvider>
+    </KeyboardProvider>
   );
 };
 

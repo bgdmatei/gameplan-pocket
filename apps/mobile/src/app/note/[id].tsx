@@ -10,7 +10,8 @@ import { commitConflictResolution, readFieldClock } from '@gameplan/sync';
 import { Stack, router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Keyboard, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Keyboard, StyleSheet, Switch, Text, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase } from '@/data/database';
 import { syncEnv } from '@/data/env';
@@ -216,9 +217,10 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
 
   return (
     <View style={styles.screen}>
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={[styles.page, { paddingBottom: space.xl + below }]}
-        automaticallyAdjustKeyboardInsets
+        bottomOffset={space.lg}
+        disableScrollOnKeyboardHide
         keyboardShouldPersistTaps="handled"
       >
         <Stack.Screen
@@ -285,7 +287,7 @@ const NoteEditor = ({ note }: { note: NoteItem }) => {
             />
           </View>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
       {conflict === undefined ? null : (
         <ConflictDrawer
           conflict={conflict}

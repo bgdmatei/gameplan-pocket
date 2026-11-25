@@ -2,7 +2,8 @@ import { DomainValidationError } from '@gameplan/domain';
 import { Stack, router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDatabase } from '@/data/database';
 import { syncEnv } from '@/data/env';
@@ -55,9 +56,10 @@ const NewNoteScreen = () => {
   };
 
   return (
-    <ScrollView
+    <KeyboardAwareScrollView
       contentContainerStyle={[styles.page, { paddingBottom: space.xl + insets.bottom }]}
-      automaticallyAdjustKeyboardInsets
+      bottomOffset={space.lg}
+      disableScrollOnKeyboardHide
       keyboardShouldPersistTaps="handled"
     >
       <Stack.Screen
@@ -73,7 +75,7 @@ const NewNoteScreen = () => {
         }}
       />
       <NoteForm draft={draft} onChange={setDraft} autoFocus />
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 };
 
